@@ -1,4 +1,4 @@
-# Invent-rio-Espa-o-Confinado
+# Inventario-Espaco-Confinado
 Inventário Espaço Confinado
 
 PWA – Inventário de Espaços Confinados (NR-33)
