@@ -11,7 +11,8 @@ O objetivo da aplicação é facilitar o registro, organização e consulta de i
 O sistema pode ser acessado via navegador ou instalado diretamente no celular, funcionando como aplicativo sem necessidade de instalação por loja (Play Store/App Store).
 
 🎯 Objetivo do Projeto
-
+Tipo de Aplicação
+Aplicação Web Progressiva (PWA)
 O PWA foi desenvolvido para:
 
 Criar um inventário digital de espaços confinados
@@ -62,3 +63,7 @@ A aplicação permite registrar a localização do espaço confinado, facilitand
 📸 Registro Fotográfico
 
 Possibilidade de adicionar imagens do espaço confinado para documentação visual.
+
+📲 Instalação (PWA)
+A definir
+
