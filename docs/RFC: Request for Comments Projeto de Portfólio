@@ -172,3 +172,44 @@ Adoção do sistema
 •	O sistema deve ser utilizado por pelo menos 1 equipe completa de segurança durante testes reais ou simulados.
 Geração de relatórios
 •	O sistema deve permitir a geração de relatórios em menos de 5 segundos após solicitação. 
+
+
+
+
+📋 Parecer do Comitê de Avaliação
+
+> [!NOTE]
+> Esta seção deverá ser preenchida pelos entrevistados/avaliadores durante a etapa de avaliação do projeto.
+
+## 👤 Avaliador 1
+
+**Nome:** Ramires silva Paes 
+**Status:** [ ] Aprovado  [X ] Ajustar  
+
+**Observações:**  
+Implementar suporte multilíngue: Adicionar suporte para múltiplos idiomas (ex: português e inglês).
+Por quê? Pode ampliar uso em empresas multinacionais.
+
+---
+
+## 👤 Avaliador 2
+
+**Nome:** __________________________  
+**Status:** [ ] Aprovado  [ ] Ajustar  
+
+**Observações:**  
+____________________________________________________  
+____________________________________________________  
+____________________________________________________  
+
+---
+
+## 👤 Avaliador 3
+
+**Nome:** __________________________  
+**Status:** [ ] Aprovado  [ ] Ajustar  
+
+**Observações:**  
+____________________________________________________  
+____________________________________________________  
+____________________________________________________  
