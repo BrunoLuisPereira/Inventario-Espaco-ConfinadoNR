@@ -1,28 +1,49 @@
 const express = require("express");
 const cors = require("cors");
+const pool = require("./config/database");
+const usuarioRoutes = require("./routes/usuarioRoutes");
 
 const app = express();
 
-// Permite que a API receba JSON.
 app.use(express.json());
-
-// Permitirá futuramente a comunicação com o frontend.
 app.use(cors());
 
-// Rota inicial de teste.
+app.use("/api/usuarios", usuarioRoutes);
+
 app.get("/", (req, res) => {
   res.status(200).json({
     message: "API do Inventário de Espaços Confinados",
   });
 });
 
-// Verificação de funcionamento da API.
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     status: "ok",
     message: "API funcionando corretamente",
     timestamp: new Date().toISOString(),
   });
+});
+
+app.get("/api/database/health", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT NOW() AS horario_banco, current_database() AS banco"
+    );
+
+    return res.status(200).json({
+      status: "ok",
+      message: "PostgreSQL conectado corretamente",
+      database: result.rows[0].banco,
+      timestamp: result.rows[0].horario_banco,
+    });
+  } catch (error) {
+    console.error("Erro ao testar conexão com o banco:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Não foi possível conectar ao PostgreSQL",
+    });
+  }
 });
 
 module.exports = app;
