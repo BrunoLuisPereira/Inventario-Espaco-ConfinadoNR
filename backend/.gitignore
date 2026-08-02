@@ -1,22 +1,9 @@
 # Dependências
-backend/node_modules/
-frontend/node_modules/
+node_modules/
 
-# Variáveis de ambiente e senhas
-backend/.env
-frontend/.env
+# Variáveis de ambiente
 .env
 
-# Arquivos gerados
-backend/uploads/
-frontend/dist/
-dist/
-
-# Logs
+# Uploads e arquivos gerados
+uploads/
 *.log
-npm-debug.log*
-
-# Sistema e editor
-.DS_Store
-Thumbs.db
-.vscode/
