@@ -1,0 +1,215 @@
+RFC - Request for Comments Projeto de Portfólio
+Engenharia de Software – Católica SC
+________________________________________
+Identificação
+•	Título do Projeto: Inventário Espaço Confinado.
+•	Linha de Projeto (Direction):Web (PWA).
+•	Autor: Bruno Luis Pereira.
+•	Data da Proposta: 23/03/2026.
+•	Versão: 1.0
+________________________________________
+1. Visão do Produto e Impacto (O Problema)
+A gestão de espaços confinados em empresas industriais é uma atividade crítica dentro da área de Segurança do Trabalho, sendo regulamentada pela NR-33, que estabelece requisitos para identificação, avaliação e controle desses ambientes.
+Espaços confinados, como tanques, silos, galerias e reservatórios, apresentam riscos significativos, incluindo atmosferas perigosas, dificuldade de acesso e possibilidade de acidentes graves.
+________________________________________
+1.1 Contexto e Problema
+Atualmente, o processo de inventário e controle de espaços confinados em muitas empresas é realizado de forma:
+•	Manual (papel ou planilhas) 
+•	Descentralizada 
+•	Pouco padronizada
+•	Demora na geração de relatórios
+Setores e pessoas que precisam executar este tipo de trabalho.
+•	Técnicos em Segurança do Trabalho 
+•	Engenheiros de Segurança 
+•	Supervisores de Espaço Confinado 
+•	Empresas industriais (metalúrgicas, químicas etc.)
+________________________________________
+1.2 Origem da Demanda e Evidências
+Projeto solicitado por: Luis Freitas.
+•	Empresa: Safework Engenharia.
+
+Demanda: 
+•	A demanda para o desenvolvimento do sistema surgiu a partir da necessidade identificada por um engenheiro de segurança do trabalho, atuante em ambiente industrial, que enfrenta dificuldades no gerenciamento e organização das informações relacionadas a espaços confinados, conforme exigido pela NR-33.
+
+Descrição do problema:
+•	O problema relatado consiste na ausência de uma ferramenta específica e eficiente para o registro, organização e consulta de informações sobre espaços confinados, conforme os requisitos da NR-33.
+•	Atualmente, o processo é realizado de forma descentralizada, utilizando formulários em papel, planilhas eletrônicas e registros fotográficos separados, o que gera diversas dificuldades, tais como:
+
+________________________________________
+1.3 Análise de Soluções Existentes (Benchmark)
+1 -  Confined Space Command
+•	link : https://apps.apple.com/br/app/confined-space-command/id6759207606
+•	público-alvo : Equipes de resgate técnico, Bombeiros, Equipes de resposta a emergências,  Times industriais de emergência
+•	funcionalidades principais: O app é voltado para operações críticas em tempo real.
+•	Limitações: Não é focado em inventário, não atende diretamente a NR-33 e uso apenas em emergências, disponível apenas em IOS.
+A solução analisada apresenta forte capacidade para gestão de operações emergenciais em espaços confinados, com foco em monitoramento em tempo real e controle de equipes. No entanto, não atende às necessidades de inventário, cadastro e análise preventiva exigidas no contexto da NR-33, evidenciando uma lacuna para soluções voltadas ao uso em campo e gestão pré-operacional.
+ 
+ 
+2 - Confined Space App (CSA) – SIPRA Engineering
+•	link: https://play.google.com/store/apps/details?id=it.sipraengineering.AmbientiConfinati&hl=pt
+•	público-alvo: Empresas industriais, Técnicos e engenheiros de segurança, Empregadores responsáveis por atividades em espaços confinados,  Ambiente acadêmico (pesquisa e estudos).
+•	funcionalidades principais: Auxilia a reconhecer se um ambiente pode ser considerado confinado, Gera um valor numérico indicando a probabilidade de ser espaço confinado, Mostra riscos e dificuldades.
+•	limitações: 	Não cadastra múltiplos espaços organizados, não segue diretamente a NR-33 (Brasil), Não tem, campanhas, relatórios completos, controle histórico.
+A aplicação analisada apresenta um forte caráter técnico e acadêmico, sendo útil como ferramenta de apoio à identificação de espaços confinados. No entanto, não contempla funcionalidades de gestão, inventário e organização de dados exigidas no contexto empresarial e normativo da NR-33, evidenciando uma lacuna para soluções mais completas e integradas.
+ 
+ 
+3 - Safesite – Safety Management App
+•	Link: https://apps.apple.com/br/app/safesite-safety-management-app/id892386806
+https://play.google.com/store/apps/details?id=com.safesiteapp.harness&hl=pt_BR
+•	público-alvo: Empresas de construção civil, Indústrias em geral, Técnicos de segurança do trabalho, Gestores de segurança.
+•	funcionalidades principais: Checklists de segurança genéricos, Gestão de inspeções, Relatórios de incidentes, Controle de atividades de segurança, Aplicação mobile para inspeções em campo, dashboard com métricas de segurança.
+•	Limitações: Não é específico para espaços confinados, Não atende requisitos específicos brasileiros, não tem lógica A + B + C (NR-33), Não cadastra espaços com estrutura detalhada
+ 
+A solução analisada apresenta uma abordagem ampla para gestão de segurança do trabalho, porém não atende de forma específica às necessidades de identificação, classificação e inventário de espaços confinados conforme a NR-33, demonstrando a limitação de ferramentas genéricas frente a problemas especializados.
+________________________________________
+Comparação
+Solução	Pontos Fortes  	Limitações
+Confined Space Command 	Monitoramento em tempo real; gestão de equipes; foco em emergências.	Não foca em inventário; complexo; não segue NR-33; apenas iOS.
+SIPRA App  	Identificação técnica de espaços confinados; base acadêmica.	Não gerencia inventário; não segue NR-33; interface simples; sem integração.
+Safesite	Gestão geral de segurança; checklists e relatórios.	Não é específico para espaços confinados; genérico; sem classificação NR-33.
+Gestão de Inventário (PWA)	Foco na NR-33; uso em campo; integração de dados; fácil acesso.	Em desenvolvimento.
+________________________________________
+Diferencial do Projeto
+Apesar da existência de diversas aplicações voltadas à segurança do trabalho e gestão de espaços confinados, observa-se que as soluções atuais não atendem de forma completa às necessidades práticas do dia a dia dos profissionais de Segurança do Trabalho, especialmente no contexto da NR-33.
+Muitas ferramentas são genéricas, complexas ou focadas em situações específicas (como emergências), não oferecendo uma solução integrada, simples e eficiente para o processo de inventário e organização de espaços confinados.
+Dessa forma, surge a necessidade de desenvolver uma solução mais acessível, intuitiva e focada no uso em campo, reduzindo a dependência de processos manuais e descentralizados.
+A análise das aplicações existentes evidenciou lacunas importantes:
+Ausência de foco específico na NR-33 (contexto brasileiro) 
+Falta de integração entre: checklist técnico, registro fotográfico geolocalização ,
+classificação automática , baixa usabilidade em campo, dependência de instalação via lojas (limitação de acesso), falta de padronização no processo de inventário. 
+Além disso, nenhuma das soluções analisadas apresenta um fluxo completo que acompanhe o usuário desde o cadastro inicial até a geração de relatórios estruturados de forma simples e integrada.
+O projeto é direcionado a um nicho específico dentro da área de Segurança do Trabalho.
+Gestão e inventário de espaços confinados conforme a NR-33, com foco em uso em campo.
+O sistema atende principalmente:
+•	Técnicos em Segurança do Trabalho 
+•	Engenheiros de Segurança 
+•	Supervisores de Espaço Confinado 
+•	Empresas industriais que necessitam de conformidade com a NR-33 
+
+Diferencial competitivo
+O principal diferencial do projeto está na combinação de características que não são encontradas de forma integrada nas soluções atuais:
+•	Aplicação Web Progressiva (PWA) 
+•	Funciona em qualquer dispositivo (Android, iOS e desktop) 
+•	Não depende de loja para instalação 
+•	Fluxo completo de inventário 
+•	Cadastro → avaliação → classificação → relatório 
+•	Classificação automática baseada na NR-33 
+•	Integração com fotos e evidências 
+•	Geolocalização dos espaços 
+•	Geração de relatórios estruturados
+________________________________________
+1.4 Público-Alvo
+
+Perfil do Usuário
+O sistema é destinado principalmente a profissionais da área de Segurança do Trabalho, com destaque para:
+•	Técnicos em Segurança do Trabalho 
+•	Engenheiros de Segurança do Trabalho 
+•	Supervisores de Espaço Confinado 
+•	Profissionais responsáveis por inspeções e auditorias em ambientes industriais 
+Além disso, pode ser utilizado por:
+•	Empresas industriais (metalúrgicas, químicas, construção, etc.) 
+•	Equipes de manutenção e operação 
+•	Estudantes e acadêmicos da área de segurança
+Contexto de Uso
+O sistema será utilizado principalmente em ambientes reais de trabalho, como:
+•	Áreas industriais 
+•	Obras 
+•	Plantas fabris 
+•	Locais com presença de espaços confinados (tanques, silos, galerias, etc.) 
+ Situações de uso incluem:
+•	Levantamento inicial de espaços confinados 
+•	Inspeções de segurança em campo 
+•	Auditorias internas e externas 
+•	Preparação para emissão de PET (Permissão de Entrada e Trabalho) 
+•	Organização e consulta de dados técnicos 
+ Diferencial importante:
+O uso ocorre em campo, muitas vezes com:
+•	pouco tempo 
+•	necessidade de agilidade 
+•	acesso limitado à internet 
+
+Nível de Conhecimento Técnico
+O sistema foi projetado para usuários com:
+Conhecimento técnico na área de segurança:
+•	Familiaridade com conceitos da NR-33 
+•	Experiência com identificação de riscos 
+•	Conhecimento básico de procedimentos de segurança 
+Conhecimento tecnológico:
+•	Uso básico de smartphone ou computador 
+•	Experiência com aplicativos simples
+
+Dessa forma, o sistema é acessível tanto para profissionais experientes quanto para usuários com menor familiaridade tecnológica, garantindo facilidade de uso sem comprometer a precisão técnica exigida pelas normas de segurança.
+________________________________________
+1.5 Objetivos do Projeto
+Objetivo Geral
+Desenvolver uma Aplicação Web Progressiva (PWA) para o gerenciamento e inventário de espaços confinados, com base na NR-33, visando otimizar o processo de coleta, organização e análise de dados em campo, promovendo maior eficiência, padronização e segurança nas atividades relacionadas.
+________________________________________
+Objetivos Específicos
+•	Automatizar o processo manual de levantamento de espaços confinados, substituindo formulários em papel e planilhas dispersas 
+•	Permitir o cadastro estruturado de espaços confinados, incluindo informações técnicas, fotos e localização geográfica 
+•	Implementar um checklist baseado na NR-33 para classificação automática de espaços confinados 
+•	Integrar diferentes tipos de dados (texto, imagem e geolocalização) em um único fluxo organizado 
+•	Gerar relatórios técnicos de forma rápida e padronizada para apoio em auditorias e tomada de decisão
+
+________________________________________
+1.6 Métricas de Sucesso (KPIs)
+O sucesso do projeto será avaliado por meio de indicadores de desempenho relacionados à usabilidade, eficiência e qualidade das informações geradas.
+Redução do tempo de levantamento
+•	O sistema deve reduzir em pelo menos 30% o tempo necessário para realizar o cadastro completo de um espaço confinado, em comparação ao processo manual. 
+Taxa de preenchimento completo
+•	Pelo menos 90% dos registros devem ser concluídos com todos os campos obrigatórios preenchidos. 
+Isso garante:
+•	padronização 
+•	qualidade dos dados
+Tempo de resposta da aplicação
+•	A aplicação deve apresentar tempo de resposta inferior a 2 segundos nas principais ações (cadastro, salvamento e consulta).
+Funcionamento offline
+•	O sistema deve permitir o registro de dados mesmo sem conexão com a internet, com sincronização posterior. 
+ KPI:
+•	100% das funcionalidades críticas funcionando offline
+
+Adoção do sistema
+•	O sistema deve ser utilizado por pelo menos 1 equipe completa de segurança durante testes reais ou simulados.
+Geração de relatórios
+•	O sistema deve permitir a geração de relatórios em menos de 5 segundos após solicitação. 
+
+
+
+
+📋 Parecer do Comitê de Avaliação
+
+> [!NOTE]
+> Esta seção deverá ser preenchida pelos entrevistados/avaliadores durante a etapa de avaliação do projeto.
+
+## 👤 Avaliador 1
+
+**Nome:** Ramires silva Paes 
+**Status:** [ ] Aprovado  [X ] Ajustar  
+
+**Observações:**  
+Implementar suporte multilíngue: Adicionar suporte para múltiplos idiomas (ex: português e inglês).
+Por quê? Pode ampliar uso em empresas multinacionais.
+
+---
+
+## 👤 Avaliador 2
+
+**Nome:** __________________________  
+**Status:** [ ] Aprovado  [ ] Ajustar  
+
+**Observações:**  
+____________________________________________________  
+____________________________________________________  
+____________________________________________________  
+
+---
+
+## 👤 Avaliador 3
+
+**Nome:** __________________________  
+**Status:** [ ] Aprovado  [ ] Ajustar  
+
+**Observações:**  
+____________________________________________________  
+____________________________________________________  
+____________________________________________________  
