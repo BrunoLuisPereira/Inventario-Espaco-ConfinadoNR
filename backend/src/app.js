@@ -4,6 +4,7 @@ const pool = require("./config/database");
 const usuarioRoutes = require("./routes/usuarioRoutes");
 const authRoutes = require("./routes/authRoutes");
 const campanhaRoutes = require("./routes/campanhaRoutes");
+const localRoutes = require("./routes/localRoutes");
 
 const app = express();
 
@@ -13,6 +14,7 @@ app.use(cors());
 app.use("/api/auth", authRoutes);
 app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/campanhas", campanhaRoutes);
+app.use("/api/locais", localRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({
