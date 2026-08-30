@@ -8,6 +8,7 @@ const checklistRoutes = require("./routes/checklistRoutes");
 const evidenciaRoutes = require("./routes/evidenciaRoutes");
 const dadosTecnicosRoutes = require("./routes/dadosTecnicosRoutes");
 const relatorioRoutes = require("./routes/relatorioRoutes");
+const sincronizacaoRoutes = require("./routes/sincronizacaoRoutes");
 
 const app = express();
 
@@ -100,6 +101,12 @@ app.use(
 app.use(
   "/api/relatorios",
   relatorioRoutes
+);
+
+// Sincronização offline
+app.use(
+  "/api/sincronizacoes",
+  sincronizacaoRoutes
 );
 
 
