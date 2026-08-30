@@ -7,6 +7,7 @@ const localRoutes = require("./routes/localRoutes");
 const checklistRoutes = require("./routes/checklistRoutes");
 const evidenciaRoutes = require("./routes/evidenciaRoutes");
 const dadosTecnicosRoutes = require("./routes/dadosTecnicosRoutes");
+const relatorioRoutes = require("./routes/relatorioRoutes");
 
 const app = express();
 
@@ -95,6 +96,12 @@ app.use(
   dadosTecnicosRoutes
 );
 
+// Relatórios
+app.use(
+  "/api/relatorios",
+  relatorioRoutes
+);
+
 
 // ======================================================
 // Rota não encontrada
@@ -155,7 +162,6 @@ app.use((erro, req, res, next) => {
   // Erros do PostgreSQL
   // ==================================================
 
-  // Violação de UNIQUE
   if (erro.code === "23505") {
     statusCode = 409;
 
@@ -163,7 +169,6 @@ app.use((erro, req, res, next) => {
       "Já existe um registro com esses dados.";
   }
 
-  // Violação de chave estrangeira
   if (erro.code === "23503") {
     statusCode = 400;
 
@@ -171,7 +176,6 @@ app.use((erro, req, res, next) => {
       "Não foi possível realizar a operação devido a um relacionamento inválido.";
   }
 
-  // Violação de CHECK constraint
   if (erro.code === "23514") {
     statusCode = 400;
 
