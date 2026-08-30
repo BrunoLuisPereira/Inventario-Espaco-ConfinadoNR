@@ -1,5 +1,4 @@
 const express = require("express");
-const path = require("path");
 
 const authRoutes = require("./routes/authRoutes");
 const usuarioRoutes = require("./routes/usuarioRoutes");
@@ -7,6 +6,7 @@ const campanhaRoutes = require("./routes/campanhaRoutes");
 const localRoutes = require("./routes/localRoutes");
 const checklistRoutes = require("./routes/checklistRoutes");
 const evidenciaRoutes = require("./routes/evidenciaRoutes");
+const dadosTecnicosRoutes = require("./routes/dadosTecnicosRoutes");
 
 const app = express();
 
@@ -31,7 +31,8 @@ app.use(
 app.get("/", (req, res) => {
   return res.status(200).json({
     status: "success",
-    message: "API do Inventário de Espaços Confinados funcionando.",
+    message:
+      "API do Inventário de Espaços Confinados funcionando.",
   });
 });
 
@@ -52,21 +53,53 @@ app.get("/api/health", (req, res) => {
 // Rotas da aplicação
 // ======================================================
 
-app.use("/api/auth", authRoutes);
+// Autenticação
+app.use(
+  "/api/auth",
+  authRoutes
+);
 
-app.use("/api/usuarios", usuarioRoutes);
+// Usuários
+app.use(
+  "/api/usuarios",
+  usuarioRoutes
+);
 
-app.use("/api/campanhas", campanhaRoutes);
+// Campanhas
+app.use(
+  "/api/campanhas",
+  campanhaRoutes
+);
 
-app.use("/api/locais", localRoutes);
+// Locais
+app.use(
+  "/api/locais",
+  localRoutes
+);
 
-app.use("/api/checklists", checklistRoutes);
+// Checklist NR-33
+app.use(
+  "/api/checklists",
+  checklistRoutes
+);
 
-app.use("/api/evidencias", evidenciaRoutes);
+// Evidências e upload de arquivos
+app.use(
+  "/api/evidencias",
+  evidenciaRoutes
+);
+
+// Dados técnicos
+app.use(
+  "/api/dados-tecnicos",
+  dadosTecnicosRoutes
+);
 
 
 // ======================================================
 // Rota não encontrada
+// IMPORTANTE:
+// Deve ficar depois de todas as rotas da aplicação.
 // ======================================================
 
 app.use((req, res, next) => {
@@ -82,7 +115,8 @@ app.use((req, res, next) => {
 
 // ======================================================
 // Middleware global de tratamento de erros
-// IMPORTANTE: deve ficar por último
+// IMPORTANTE:
+// Deve ser o último middleware do app.
 // ======================================================
 
 app.use((erro, req, res, next) => {
@@ -121,6 +155,7 @@ app.use((erro, req, res, next) => {
   // Erros do PostgreSQL
   // ==================================================
 
+  // Violação de UNIQUE
   if (erro.code === "23505") {
     statusCode = 409;
 
@@ -128,6 +163,7 @@ app.use((erro, req, res, next) => {
       "Já existe um registro com esses dados.";
   }
 
+  // Violação de chave estrangeira
   if (erro.code === "23503") {
     statusCode = 400;
 
@@ -135,6 +171,7 @@ app.use((erro, req, res, next) => {
       "Não foi possível realizar a operação devido a um relacionamento inválido.";
   }
 
+  // Violação de CHECK constraint
   if (erro.code === "23514") {
     statusCode = 400;
 
@@ -144,7 +181,7 @@ app.use((erro, req, res, next) => {
 
 
   // ==================================================
-  // Resposta padronizada
+  // Resposta padronizada da API
   // ==================================================
 
   return res.status(statusCode).json({
