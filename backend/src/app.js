@@ -1,57 +1,157 @@
 const express = require("express");
-const cors = require("cors");
-const pool = require("./config/database");
-const usuarioRoutes = require("./routes/usuarioRoutes");
+const path = require("path");
+
 const authRoutes = require("./routes/authRoutes");
+const usuarioRoutes = require("./routes/usuarioRoutes");
 const campanhaRoutes = require("./routes/campanhaRoutes");
 const localRoutes = require("./routes/localRoutes");
 const checklistRoutes = require("./routes/checklistRoutes");
+const evidenciaRoutes = require("./routes/evidenciaRoutes");
 
 const app = express();
 
-app.use(express.json());
-app.use(cors());
 
-app.use("/api/auth", authRoutes);
-app.use("/api/usuarios", usuarioRoutes);
-app.use("/api/campanhas", campanhaRoutes);
-app.use("/api/locais", localRoutes);
-app.use("/api/checklists", checklistRoutes);
+// ======================================================
+// Middlewares gerais
+// ======================================================
+
+app.use(express.json());
+
+app.use(
+  express.urlencoded({
+    extended: true,
+  })
+);
+
+
+// ======================================================
+// Rota inicial
+// ======================================================
 
 app.get("/", (req, res) => {
-  res.status(200).json({
-    message: "API do Inventário de Espaços Confinados",
+  return res.status(200).json({
+    status: "success",
+    message: "API do Inventário de Espaços Confinados funcionando.",
   });
 });
+
+
+// ======================================================
+// Health check da API
+// ======================================================
 
 app.get("/api/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    message: "API funcionando corretamente",
-    timestamp: new Date().toISOString(),
+  return res.status(200).json({
+    status: "success",
+    message: "API funcionando corretamente.",
   });
 });
 
-app.get("/api/database/health", async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT NOW() AS horario_banco, current_database() AS banco"
-    );
 
-    return res.status(200).json({
-      status: "ok",
-      message: "PostgreSQL conectado corretamente",
-      database: result.rows[0].banco,
-      timestamp: result.rows[0].horario_banco,
-    });
-  } catch (error) {
-    console.error("Erro ao testar conexão com o banco:", error);
+// ======================================================
+// Rotas da aplicação
+// ======================================================
 
-    return res.status(500).json({
-      status: "error",
-      message: "Não foi possível conectar ao PostgreSQL",
-    });
-  }
+app.use("/api/auth", authRoutes);
+
+app.use("/api/usuarios", usuarioRoutes);
+
+app.use("/api/campanhas", campanhaRoutes);
+
+app.use("/api/locais", localRoutes);
+
+app.use("/api/checklists", checklistRoutes);
+
+app.use("/api/evidencias", evidenciaRoutes);
+
+
+// ======================================================
+// Rota não encontrada
+// ======================================================
+
+app.use((req, res, next) => {
+  const erro = new Error(
+    `Rota não encontrada: ${req.method} ${req.originalUrl}`
+  );
+
+  erro.statusCode = 404;
+
+  next(erro);
 });
+
+
+// ======================================================
+// Middleware global de tratamento de erros
+// IMPORTANTE: deve ficar por último
+// ======================================================
+
+app.use((erro, req, res, next) => {
+  console.error(erro);
+
+  let statusCode =
+    erro.statusCode ||
+    erro.status ||
+    500;
+
+  let mensagem =
+    erro.message ||
+    "Erro interno do servidor.";
+
+
+  // ==================================================
+  // Erros específicos do Multer
+  // ==================================================
+
+  if (erro.code === "LIMIT_FILE_SIZE") {
+    statusCode = 400;
+
+    mensagem =
+      "Arquivo muito grande. O tamanho máximo permitido é 10 MB.";
+  }
+
+  if (erro.code === "LIMIT_UNEXPECTED_FILE") {
+    statusCode = 400;
+
+    mensagem =
+      "Campo de arquivo inválido. Utilize o campo 'arquivo'.";
+  }
+
+
+  // ==================================================
+  // Erros do PostgreSQL
+  // ==================================================
+
+  if (erro.code === "23505") {
+    statusCode = 409;
+
+    mensagem =
+      "Já existe um registro com esses dados.";
+  }
+
+  if (erro.code === "23503") {
+    statusCode = 400;
+
+    mensagem =
+      "Não foi possível realizar a operação devido a um relacionamento inválido.";
+  }
+
+  if (erro.code === "23514") {
+    statusCode = 400;
+
+    mensagem =
+      "Um dos valores informados não atende às regras permitidas.";
+  }
+
+
+  // ==================================================
+  // Resposta padronizada
+  // ==================================================
+
+  return res.status(statusCode).json({
+    status: "error",
+    message: mensagem,
+  });
+});
+
 
 module.exports = app;
