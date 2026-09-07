@@ -13,7 +13,10 @@ async function buscarVersao(
 
   const resultado = await pool.query(
     query,
-    [entidade, idEntidade]
+    [
+      entidade,
+      idEntidade,
+    ]
   );
 
   return resultado.rows[0] || null;
@@ -32,8 +35,13 @@ async function criarVersao(
       versao
     )
     VALUES ($1, $2, $3)
-    ON CONFLICT (entidade, id_entidade)
+
+    ON CONFLICT (
+      entidade,
+      id_entidade
+    )
     DO NOTHING
+
     RETURNING *;
   `;
 
@@ -55,6 +63,17 @@ async function criarVersao(
     return resultado.rows[0];
   }
 
+  return buscarVersao(
+    entidade,
+    idEntidade
+  );
+}
+
+
+async function obterVersaoExistente(
+  entidade,
+  idEntidade
+) {
   return buscarVersao(
     entidade,
     idEntidade
@@ -109,7 +128,10 @@ async function incrementarVersao(
 
   const resultado = await pool.query(
     query,
-    [entidade, idEntidade]
+    [
+      entidade,
+      idEntidade,
+    ]
   );
 
   return resultado.rows[0] || null;
@@ -129,7 +151,10 @@ async function definirVersao(
     )
     VALUES ($1, $2, $3)
 
-    ON CONFLICT (entidade, id_entidade)
+    ON CONFLICT (
+      entidade,
+      id_entidade
+    )
 
     DO UPDATE SET
       versao = EXCLUDED.versao,
@@ -164,7 +189,10 @@ async function excluirVersao(
 
   const resultado = await pool.query(
     query,
-    [entidade, idEntidade]
+    [
+      entidade,
+      idEntidade,
+    ]
   );
 
   return resultado.rows[0] || null;
@@ -174,6 +202,7 @@ async function excluirVersao(
 module.exports = {
   buscarVersao,
   criarVersao,
+  obterVersaoExistente,
   obterOuCriarVersao,
   incrementarVersao,
   definirVersao,

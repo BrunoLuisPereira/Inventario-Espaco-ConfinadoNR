@@ -3041,7 +3041,185 @@ else {
 
   }
 }
+async function verificarAcessoEntidade(
+  client,
+  entidade,
+  idEntidade,
+  usuarioAutenticado
+) {
+  if (
+    usuarioAutenticado.perfil_acesso ===
+    "ADMINISTRADOR"
+  ) {
+    return true;
+  }
 
+  const idUsuario =
+    Number(
+      usuarioAutenticado.id_usuario
+    );
+
+  let resultado;
+
+  if (entidade === "CAMPANHA") {
+    resultado =
+      await client.query(
+        `
+          SELECT 1
+          FROM campanha
+          WHERE id_campanha = $1
+            AND id_usuario = $2;
+        `,
+        [
+          idEntidade,
+          idUsuario,
+        ]
+      );
+  }
+
+  else if (entidade === "LOCAL") {
+    resultado =
+      await client.query(
+        `
+          SELECT 1
+          FROM local l
+          INNER JOIN campanha c
+            ON c.id_campanha =
+               l.id_campanha
+          WHERE l.id_local = $1
+            AND c.id_usuario = $2;
+        `,
+        [
+          idEntidade,
+          idUsuario,
+        ]
+      );
+  }
+
+  else if (
+    entidade === "CHECKLIST_NR33"
+  ) {
+    resultado =
+      await client.query(
+        `
+          SELECT 1
+          FROM checklist_nr33 ch
+          INNER JOIN local l
+            ON l.id_local =
+               ch.id_local
+          INNER JOIN campanha c
+            ON c.id_campanha =
+               l.id_campanha
+          WHERE ch.id_checklist = $1
+            AND c.id_usuario = $2;
+        `,
+        [
+          idEntidade,
+          idUsuario,
+        ]
+      );
+  }
+
+  else if (
+    entidade === "DADOS_TECNICOS"
+  ) {
+    resultado =
+      await client.query(
+        `
+          SELECT 1
+          FROM dados_tecnicos dt
+          INNER JOIN local l
+            ON l.id_local =
+               dt.id_local
+          INNER JOIN campanha c
+            ON c.id_campanha =
+               l.id_campanha
+          WHERE dt.id_dados = $1
+            AND c.id_usuario = $2;
+        `,
+        [
+          idEntidade,
+          idUsuario,
+        ]
+      );
+  }
+
+  else {
+    throw criarErro(
+      "Verificação de acesso ainda não implementada para esta entidade.",
+      400
+    );
+  }
+
+  if (
+    resultado.rows.length === 0
+  ) {
+    throw criarErro(
+      "Você não possui permissão para acessar esta entidade.",
+      403
+    );
+  }
+
+  return true;
+}
+async function buscarDadosAtuaisServidor(
+  entidade,
+  idEntidade,
+  usuarioAutenticado
+) {
+  const client =
+    await pool.connect();
+
+  try {
+    await verificarAcessoEntidade(
+      client,
+      entidade,
+      idEntidade,
+      usuarioAutenticado
+    );
+
+    if (entidade === "LOCAL") {
+      return await buscarLocal(
+        client,
+        idEntidade
+      );
+    }
+
+    if (entidade === "CAMPANHA") {
+      return await buscarCampanha(
+        client,
+        idEntidade
+      );
+    }
+
+    if (
+      entidade ===
+      "CHECKLIST_NR33"
+    ) {
+      return await buscarChecklist(
+        client,
+        idEntidade
+      );
+    }
+
+    if (
+      entidade ===
+      "DADOS_TECNICOS"
+    ) {
+      return await buscarDadosTecnicos(
+        client,
+        idEntidade
+      );
+    }
+
+    throw criarErro(
+      "Busca de dados do servidor ainda não implementada para esta entidade.",
+      400
+    );
+  } finally {
+    client.release();
+  }
+}
 
 // ======================================================
 // Exportações
@@ -3053,4 +3231,5 @@ module.exports = {
   resolverConflitoChecklist,
   resolverConflitoDadosTecnicos,
   processarSincronizacaoPendente,
+  buscarDadosAtuaisServidor,
 };
