@@ -45,11 +45,70 @@ function criarErro(
   mensagem,
   statusCode
 ) {
-  const erro = new Error(mensagem);
+  const erro =
+    new Error(mensagem);
 
-  erro.statusCode = statusCode;
+  erro.statusCode =
+    statusCode;
 
   return erro;
+}
+
+
+function usuarioEhAdministrador(
+  usuarioAutenticado
+) {
+  return (
+    usuarioAutenticado &&
+    usuarioAutenticado
+      .perfil_acesso ===
+      "ADMINISTRADOR"
+  );
+}
+
+
+function usuarioEhProprietario(
+  registro,
+  usuarioAutenticado
+) {
+  return (
+    registro &&
+    usuarioAutenticado &&
+    Number(
+      registro.id_usuario
+    ) ===
+      Number(
+        usuarioAutenticado
+          .id_usuario
+      )
+  );
+}
+
+
+function validarPermissaoSincronizacao(
+  registro,
+  usuarioAutenticado
+) {
+  const ehAdministrador =
+    usuarioEhAdministrador(
+      usuarioAutenticado
+    );
+
+  const ehProprietario =
+    usuarioEhProprietario(
+      registro,
+      usuarioAutenticado
+    );
+
+  if (
+    !ehAdministrador &&
+    !ehProprietario
+  ) {
+    throw criarErro(
+      "Você não possui permissão para acessar esta sincronização.",
+      403
+    );
+  }
 }
 
 
@@ -57,7 +116,8 @@ function validarId(
   valor,
   nomeCampo
 ) {
-  const numero = Number(valor);
+  const numero =
+    Number(valor);
 
   if (
     !Number.isInteger(numero) ||
@@ -73,9 +133,13 @@ function validarId(
 }
 
 
-function validarStatus(status) {
+function validarStatus(
+  status
+) {
   if (
-    !STATUS_VALIDOS.includes(status)
+    !STATUS_VALIDOS.includes(
+      status
+    )
   ) {
     throw criarErro(
       `Status inválido. Valores permitidos: ${STATUS_VALIDOS.join(
@@ -145,7 +209,8 @@ function validarVersao(
   valor,
   nomeCampo
 ) {
-  const numero = Number(valor);
+  const numero =
+    Number(valor);
 
   if (
     !Number.isInteger(numero) ||
@@ -187,8 +252,6 @@ function validarUuidOpcional(
 
   return valor;
 }
-
-
 // ======================================================
 // Criar sincronização
 // ======================================================
@@ -237,6 +300,11 @@ async function criarSincronizacao(
         );
 
     if (existente) {
+      validarPermissaoSincronizacao(
+        existente,
+        usuarioAutenticado
+      );
+
       return existente;
     }
   }
@@ -247,84 +315,70 @@ async function criarSincronizacao(
   // ==================================================
 
   if (
-  dados.operacao === "CRIAR"
-) {
-  // ==================================================
-  // CRIAR exige um UUID do registro criado offline
-  // ==================================================
+    dados.operacao === "CRIAR"
+  ) {
+    if (!idRegistroCliente) {
+      throw criarErro(
+        "O ID do registro do cliente é obrigatório para a operação CRIAR.",
+        400
+      );
+    }
 
-  if (!idRegistroCliente) {
-    throw criarErro(
-      "O ID do registro do cliente é obrigatório para a operação CRIAR.",
-      400
-    );
+    const idEntidade =
+      dados.id_entidade
+        ? validarId(
+            dados.id_entidade,
+            "ID da entidade"
+          )
+        : null;
+
+    return sincronizacaoRepository
+      .criar({
+        entidade,
+
+        id_entidade:
+          idEntidade,
+
+        id_operacao_cliente:
+          idOperacaoCliente,
+
+        id_registro_cliente:
+          idRegistroCliente,
+
+        operacao:
+          "CRIAR",
+
+        versao_cliente:
+          versaoCliente,
+
+        versao_servidor:
+          1,
+
+        status:
+          "PENDENTE",
+
+        dados_cliente:
+          dados.dados_cliente ??
+          null,
+
+        dados_servidor:
+          null,
+
+        mensagem_erro:
+          null,
+
+        id_usuario:
+          usuarioAutenticado
+            .id_usuario,
+
+        data_sincronizacao:
+          null,
+      });
   }
 
 
   // ==================================================
-  // O ID do servidor pode ainda não existir
-  // ==================================================
-
-  const idEntidade =
-    dados.id_entidade
-      ? validarId(
-          dados.id_entidade,
-          "ID da entidade"
-        )
-      : null;
-
-
-  // ==================================================
-  // Registrar sincronização como PENDENTE
-  // ==================================================
-
-  return sincronizacaoRepository
-    .criar({
-      entidade,
-
-      id_entidade:
-        idEntidade,
-
-      id_operacao_cliente:
-        idOperacaoCliente,
-
-      id_registro_cliente:
-        idRegistroCliente,
-
-      operacao:
-        "CRIAR",
-
-      versao_cliente:
-        versaoCliente,
-
-      versao_servidor:
-        1,
-
-      status:
-        "PENDENTE",
-
-      dados_cliente:
-        dados.dados_cliente ??
-        null,
-
-      dados_servidor:
-        null,
-
-      mensagem_erro:
-        null,
-
-      id_usuario:
-        usuarioAutenticado
-          .id_usuario,
-
-      data_sincronizacao:
-        null,
-    });
-}
-
-
-  // ==================================================
-  // ATUALIZAR / EXCLUIR exigem id da entidade
+  // ATUALIZAR / EXCLUIR exigem ID da entidade
   // ==================================================
 
   const idEntidade =
@@ -340,10 +394,17 @@ async function criarSincronizacao(
 
   const controleVersao =
     await versaoEntidadeRepository
-      .obterOuCriarVersao(
+      .obterVersaoExistente(
         entidade,
         idEntidade
       );
+
+  if (!controleVersao) {
+    throw criarErro(
+      "Controle de versão da entidade não encontrado.",
+      404
+    );
+  }
 
   const versaoServidor =
     Number(
@@ -361,6 +422,9 @@ async function criarSincronizacao(
   let mensagemErro =
     null;
 
+  let dadosServidor =
+    null;
+
   if (
     versaoCliente !==
     versaoServidor
@@ -370,8 +434,15 @@ async function criarSincronizacao(
 
     mensagemErro =
       "Conflito de versão detectado. O registro do servidor foi alterado desde a última sincronização do cliente.";
-  }
 
+    dadosServidor =
+      await sincronizacaoAplicacaoRepository
+        .buscarDadosAtuaisServidor(
+          entidade,
+          idEntidade,
+          usuarioAutenticado
+        );
+  }
 
   return sincronizacaoRepository
     .criar({
@@ -402,8 +473,7 @@ async function criarSincronizacao(
         null,
 
       dados_servidor:
-        dados.dados_servidor ??
-        null,
+        dadosServidor,
 
       mensagem_erro:
         mensagemErro,
@@ -422,9 +492,31 @@ async function criarSincronizacao(
 // Listar sincronizações
 // ======================================================
 
-async function listarSincronizacoes() {
-  return sincronizacaoRepository
-    .listarTodos();
+async function listarSincronizacoes(
+  usuarioAutenticado
+) {
+  const sincronizacoes =
+    await sincronizacaoRepository
+      .listarTodos();
+
+  if (
+    usuarioEhAdministrador(
+      usuarioAutenticado
+    )
+  ) {
+    return sincronizacoes;
+  }
+
+  return sincronizacoes.filter(
+    (registro) =>
+      Number(
+        registro.id_usuario
+      ) ===
+      Number(
+        usuarioAutenticado
+          .id_usuario
+      )
+  );
 }
 
 
@@ -433,7 +525,8 @@ async function listarSincronizacoes() {
 // ======================================================
 
 async function buscarSincronizacaoPorId(
-  idSincronizacao
+  idSincronizacao,
+  usuarioAutenticado
 ) {
   const id =
     validarId(
@@ -452,6 +545,11 @@ async function buscarSincronizacaoPorId(
     );
   }
 
+  validarPermissaoSincronizacao(
+    registro,
+    usuarioAutenticado
+  );
+
   return registro;
 }
 
@@ -462,7 +560,8 @@ async function buscarSincronizacaoPorId(
 
 async function buscarPorEntidade(
   entidade,
-  idEntidade
+  idEntidade,
+  usuarioAutenticado
 ) {
   const entidadeValidada =
     validarEntidade(
@@ -475,14 +574,32 @@ async function buscarPorEntidade(
       "ID da entidade"
     );
 
-  return sincronizacaoRepository
-    .buscarPorEntidade(
-      entidadeValidada,
-      id
-    );
+  const sincronizacoes =
+    await sincronizacaoRepository
+      .buscarPorEntidade(
+        entidadeValidada,
+        id
+      );
+
+  if (
+    usuarioEhAdministrador(
+      usuarioAutenticado
+    )
+  ) {
+    return sincronizacoes;
+  }
+
+  return sincronizacoes.filter(
+    (registro) =>
+      Number(
+        registro.id_usuario
+      ) ===
+      Number(
+        usuarioAutenticado
+          .id_usuario
+      )
+  );
 }
-
-
 // ======================================================
 // Buscar pendentes
 // ======================================================
@@ -490,6 +607,15 @@ async function buscarPorEntidade(
 async function buscarPendentes(
   usuarioAutenticado
 ) {
+  if (
+    usuarioEhAdministrador(
+      usuarioAutenticado
+    )
+  ) {
+    return sincronizacaoRepository
+      .buscarPendentesTodos();
+  }
+
   return sincronizacaoRepository
     .buscarPendentesPorUsuario(
       usuarioAutenticado
@@ -505,6 +631,15 @@ async function buscarPendentes(
 async function buscarConflitos(
   usuarioAutenticado
 ) {
+  if (
+    usuarioEhAdministrador(
+      usuarioAutenticado
+    )
+  ) {
+    return sincronizacaoRepository
+      .buscarConflitosTodos();
+  }
+
   return sincronizacaoRepository
     .buscarConflitosPorUsuario(
       usuarioAutenticado
@@ -519,7 +654,8 @@ async function buscarConflitos(
 
 async function atualizarStatus(
   idSincronizacao,
-  dados
+  dados,
+  usuarioAutenticado
 ) {
   const id =
     validarId(
@@ -537,6 +673,11 @@ async function atualizarStatus(
       404
     );
   }
+
+  validarPermissaoSincronizacao(
+    registroAtual,
+    usuarioAutenticado
+  );
 
   if (dados.status) {
     validarStatus(
@@ -588,13 +729,30 @@ async function atualizarStatus(
 // ======================================================
 
 async function excluirSincronizacao(
-  idSincronizacao
+  idSincronizacao,
+  usuarioAutenticado
 ) {
   const id =
     validarId(
       idSincronizacao,
       "ID da sincronização"
     );
+
+  const registro =
+    await sincronizacaoRepository
+      .buscarPorId(id);
+
+  if (!registro) {
+    throw criarErro(
+      "Registro de sincronização não encontrado.",
+      404
+    );
+  }
+
+  validarPermissaoSincronizacao(
+    registro,
+    usuarioAutenticado
+  );
 
   const excluido =
     await sincronizacaoRepository
@@ -609,8 +767,6 @@ async function excluirSincronizacao(
 
   return excluido;
 }
-
-
 // ======================================================
 // Resolver conflito
 // ======================================================
@@ -632,7 +788,6 @@ async function resolverConflito(
     "MESCLADO",
   ];
 
-
   if (
     !dados.resolucao ||
     !resolucoesValidas.includes(
@@ -645,11 +800,9 @@ async function resolverConflito(
     );
   }
 
-
   const sincronizacao =
     await sincronizacaoRepository
       .buscarPorId(id);
-
 
   if (!sincronizacao) {
     throw criarErro(
@@ -657,8 +810,6 @@ async function resolverConflito(
       404
     );
   }
-
-
   if (
     sincronizacao.status !==
     "CONFLITO"
@@ -669,40 +820,10 @@ async function resolverConflito(
     );
   }
 
-
-  // ==================================================
-  // Permissão
-  // ==================================================
-
-  const ehProprietario =
-    Number(
-      sincronizacao.id_usuario
-    ) ===
-    Number(
-      usuarioAutenticado
-        .id_usuario
-    );
-
-  const ehAdministrador =
+  validarPermissaoSincronizacao(
+    sincronizacao,
     usuarioAutenticado
-      .perfil_acesso ===
-    "ADMINISTRADOR";
-
-
-  if (
-    !ehProprietario &&
-    !ehAdministrador
-  ) {
-    throw criarErro(
-      "Você não possui permissão para resolver este conflito.",
-      403
-    );
-  }
-
-
-  // ==================================================
-  // Parâmetros comuns
-  // ==================================================
+  );
 
   const parametros = {
     sincronizacao,
@@ -719,44 +840,42 @@ async function resolverConflito(
         .id_usuario,
   };
 
+  switch (
+    sincronizacao.entidade
+  ) {
+    case "LOCAL":
+      return sincronizacaoAplicacaoRepository
+        .resolverConflitoLocal(
+          parametros
+        );
 
-  // ==================================================
-// Resolver conforme entidade
-// ==================================================
+    case "CAMPANHA":
+      return sincronizacaoAplicacaoRepository
+        .resolverConflitoCampanha(
+          parametros
+        );
 
-switch (
-  sincronizacao.entidade
-) {
-  case "LOCAL":
-    return sincronizacaoAplicacaoRepository
-      .resolverConflitoLocal(
-        parametros
-      );
+    case "CHECKLIST_NR33":
+      return sincronizacaoAplicacaoRepository
+        .resolverConflitoChecklist(
+          parametros
+        );
 
-  case "CAMPANHA":
-    return sincronizacaoAplicacaoRepository
-      .resolverConflitoCampanha(
-        parametros
-      );
-
-  case "CHECKLIST_NR33":
-    return sincronizacaoAplicacaoRepository
-      .resolverConflitoChecklist(
-        parametros
-      );
     case "DADOS_TECNICOS":
-  return sincronizacaoAplicacaoRepository
-    .resolverConflitoDadosTecnicos(
-      parametros
-    );
+      return sincronizacaoAplicacaoRepository
+        .resolverConflitoDadosTecnicos(
+          parametros
+        );
 
-  default:
-    throw criarErro(
-      "A resolução manual desta entidade ainda não foi implementada.",
-      400
-    );
+    default:
+      throw criarErro(
+        "A resolução manual desta entidade ainda não foi implementada.",
+        400
+      );
+  }
 }
-}
+
+
 // ======================================================
 // Processar sincronização pendente
 // ======================================================
@@ -792,33 +911,17 @@ async function processarSincronizacao(
     );
   }
 
-  const ehProprietario =
-    Number(
-      sincronizacao.id_usuario
-    ) ===
-    Number(
-      usuarioAutenticado.id_usuario
-    );
-
-  const ehAdministrador =
-    usuarioAutenticado.perfil_acesso ===
-    "ADMINISTRADOR";
-
-  if (
-    !ehProprietario &&
-    !ehAdministrador
-  ) {
-    throw criarErro(
-      "Você não possui permissão para processar esta sincronização.",
-      403
-    );
-  }
+  validarPermissaoSincronizacao(
+    sincronizacao,
+    usuarioAutenticado
+  );
 
   return sincronizacaoAplicacaoRepository
     .processarSincronizacaoPendente(
       sincronizacao
     );
 }
+
 
 // ======================================================
 // Exportações

@@ -1,22 +1,10 @@
 const pool = require("../config/database");
 
-async function criar(dados) {
-  const {
-    entidade,
-    id_entidade,
-    id_operacao_cliente,
-    id_registro_cliente,
-    operacao,
-    versao_cliente,
-    versao_servidor,
-    status,
-    dados_cliente,
-    dados_servidor,
-    mensagem_erro,
-    id_usuario,
-    data_sincronizacao,
-  } = dados;
 
+// ======================================================
+// Criar sincronização
+// ======================================================
+async function criar(dados) {
   const query = `
     INSERT INTO sincronizacao (
       entidade,
@@ -34,36 +22,42 @@ async function criar(dados) {
       data_sincronizacao
     )
     VALUES (
-      $1, $2, $3, $4, $5, $6, $7,
-      $8, $9, $10, $11, $12, $13
+      $1, $2, $3, $4, $5,
+      $6, $7, $8, $9, $10,
+      $11, $12, $13
     )
     RETURNING *;
   `;
 
   const valores = [
-    entidade,
-    id_entidade ?? null,
-    id_operacao_cliente ?? null,
-    id_registro_cliente ?? null,
-    operacao,
-    versao_cliente ?? 1,
-    versao_servidor ?? 1,
-    status ?? "PENDENTE",
-    dados_cliente ?? null,
-    dados_servidor ?? null,
-    mensagem_erro ?? null,
-    id_usuario,
-    data_sincronizacao ?? null,
+    dados.entidade,
+    dados.id_entidade ?? null,
+    dados.id_operacao_cliente ?? null,
+    dados.id_registro_cliente ?? null,
+    dados.operacao,
+    dados.versao_cliente,
+    dados.versao_servidor ?? null,
+    dados.status,
+    dados.dados_cliente ?? null,
+    dados.dados_servidor ?? null,
+    dados.mensagem_erro ?? null,
+    dados.id_usuario,
+    dados.data_sincronizacao ?? null,
   ];
 
-  const resultado = await pool.query(
-    query,
-    valores
-  );
+  const resultado =
+    await pool.query(
+      query,
+      valores
+    );
 
   return resultado.rows[0];
 }
 
+
+// ======================================================
+// Buscar por ID da operação do cliente
+// ======================================================
 
 async function buscarPorOperacaoCliente(
   idOperacaoCliente
@@ -74,14 +68,19 @@ async function buscarPorOperacaoCliente(
     WHERE id_operacao_cliente = $1;
   `;
 
-  const resultado = await pool.query(
-    query,
-    [idOperacaoCliente]
-  );
+  const resultado =
+    await pool.query(
+      query,
+      [idOperacaoCliente]
+    );
 
   return resultado.rows[0] || null;
 }
 
+
+// ======================================================
+// Listar todas
+// ======================================================
 
 async function listarTodos() {
   const query = `
@@ -90,11 +89,16 @@ async function listarTodos() {
     ORDER BY id_sincronizacao DESC;
   `;
 
-  const resultado = await pool.query(query);
+  const resultado =
+    await pool.query(query);
 
   return resultado.rows;
 }
 
+
+// ======================================================
+// Buscar por ID
+// ======================================================
 
 async function buscarPorId(
   idSincronizacao
@@ -105,14 +109,19 @@ async function buscarPorId(
     WHERE id_sincronizacao = $1;
   `;
 
-  const resultado = await pool.query(
-    query,
-    [idSincronizacao]
-  );
+  const resultado =
+    await pool.query(
+      query,
+      [idSincronizacao]
+    );
 
   return resultado.rows[0] || null;
 }
 
+
+// ======================================================
+// Buscar por entidade
+// ======================================================
 
 async function buscarPorEntidade(
   entidade,
@@ -126,14 +135,20 @@ async function buscarPorEntidade(
     ORDER BY id_sincronizacao DESC;
   `;
 
-  const resultado = await pool.query(
-    query,
-    [entidade, idEntidade]
-  );
+  const resultado =
+    await pool.query(
+      query,
+      [
+        entidade,
+        idEntidade,
+      ]
+    );
 
   return resultado.rows;
 }
-
+// ======================================================
+// Buscar pendentes por usuário
+// ======================================================
 
 async function buscarPendentesPorUsuario(
   idUsuario
@@ -146,14 +161,19 @@ async function buscarPendentesPorUsuario(
     ORDER BY data_criacao ASC;
   `;
 
-  const resultado = await pool.query(
-    query,
-    [idUsuario]
-  );
+  const resultado =
+    await pool.query(
+      query,
+      [idUsuario]
+    );
 
   return resultado.rows;
 }
 
+
+// ======================================================
+// Buscar conflitos por usuário
+// ======================================================
 
 async function buscarConflitosPorUsuario(
   idUsuario
@@ -166,39 +186,87 @@ async function buscarConflitosPorUsuario(
     ORDER BY data_criacao DESC;
   `;
 
-  const resultado = await pool.query(
-    query,
-    [idUsuario]
-  );
+  const resultado =
+    await pool.query(
+      query,
+      [idUsuario]
+    );
 
   return resultado.rows;
 }
 
 
+// ======================================================
+// Buscar todas as pendentes
+// Uso administrativo
+// ======================================================
+
+async function buscarPendentesTodos() {
+  const query = `
+    SELECT *
+    FROM sincronizacao
+    WHERE status = 'PENDENTE'
+    ORDER BY data_criacao ASC;
+  `;
+
+  const resultado =
+    await pool.query(query);
+
+  return resultado.rows;
+}
+
+
+// ======================================================
+// Buscar todos os conflitos
+// Uso administrativo
+// ======================================================
+
+async function buscarConflitosTodos() {
+  const query = `
+    SELECT *
+    FROM sincronizacao
+    WHERE status = 'CONFLITO'
+    ORDER BY data_criacao DESC;
+  `;
+
+  const resultado =
+    await pool.query(query);
+
+  return resultado.rows;
+}
+
+
+// ======================================================
+// Atualizar status
+// ======================================================
+
 async function atualizarStatus(
   idSincronizacao,
   dados
 ) {
-  const {
-    status,
-    versao_servidor,
-    dados_servidor,
-    mensagem_erro,
-    data_sincronizacao,
-  } = dados;
-
   const query = `
     UPDATE sincronizacao
     SET
-      status = COALESCE($1, status),
+      status =
+        COALESCE(
+          $1,
+          status
+        ),
 
       versao_servidor =
-        COALESCE($2, versao_servidor),
+        COALESCE(
+          $2,
+          versao_servidor
+        ),
 
       dados_servidor =
-        COALESCE($3, dados_servidor),
+        COALESCE(
+          $3,
+          dados_servidor
+        ),
 
-      mensagem_erro = $4,
+      mensagem_erro =
+        $4,
 
       data_sincronizacao =
         COALESCE(
@@ -214,23 +282,24 @@ async function atualizarStatus(
     RETURNING *;
   `;
 
-  const valores = [
-    status ?? null,
-    versao_servidor ?? null,
-    dados_servidor ?? null,
-    mensagem_erro ?? null,
-    data_sincronizacao ?? null,
-    idSincronizacao,
-  ];
-
-  const resultado = await pool.query(
-    query,
-    valores
-  );
+  const resultado =
+    await pool.query(
+      query,
+      [
+        dados.status ?? null,
+        dados.versao_servidor ?? null,
+        dados.dados_servidor ?? null,
+        dados.mensagem_erro ?? null,
+        dados.data_sincronizacao ?? null,
+        idSincronizacao,
+      ]
+    );
 
   return resultado.rows[0] || null;
 }
-
+// ======================================================
+// Excluir registro de sincronização
+// ======================================================
 
 async function excluir(
   idSincronizacao
@@ -241,25 +310,24 @@ async function excluir(
     RETURNING *;
   `;
 
-  const resultado = await pool.query(
-    query,
-    [idSincronizacao]
-  );
+  const resultado =
+    await pool.query(
+      query,
+      [idSincronizacao]
+    );
 
   return resultado.rows[0] || null;
 }
+
+
+// ======================================================
+// Resolver conflito
+// ======================================================
 
 async function resolverConflito(
   idSincronizacao,
   dados
 ) {
-  const {
-    resolucao,
-    dados_resolvidos,
-    id_usuario_resolucao,
-    versao_servidor,
-  } = dados;
-
   const query = `
     UPDATE sincronizacao
     SET
@@ -277,21 +345,26 @@ async function resolverConflito(
     RETURNING *;
   `;
 
-  const valores = [
-    resolucao,
-    dados_resolvidos ?? null,
-    id_usuario_resolucao,
-    versao_servidor,
-    idSincronizacao,
-  ];
-
-  const resultado = await pool.query(
-    query,
-    valores
-  );
+  const resultado =
+    await pool.query(
+      query,
+      [
+        dados.resolucao,
+        dados.dados_resolvidos ?? null,
+        dados.id_usuario_resolucao,
+        dados.versao_servidor,
+        idSincronizacao,
+      ]
+    );
 
   return resultado.rows[0] || null;
 }
+
+
+// ======================================================
+// Exportações
+// ======================================================
+
 module.exports = {
   criar,
   buscarPorOperacaoCliente,
@@ -300,6 +373,8 @@ module.exports = {
   buscarPorEntidade,
   buscarPendentesPorUsuario,
   buscarConflitosPorUsuario,
+  buscarPendentesTodos,
+  buscarConflitosTodos,
   atualizarStatus,
   excluir,
   resolverConflito,
