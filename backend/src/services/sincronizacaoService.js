@@ -819,11 +819,41 @@ async function resolverConflito(
       409
     );
   }
+   // ==================================================
+  // Conflitos de exclusão possuem regras próprias
+  // ==================================================
 
   validarPermissaoSincronizacao(
     sincronizacao,
     usuarioAutenticado
   );
+
+  if (
+    sincronizacao.operacao ===
+    "EXCLUIR"
+  ) {
+    if (
+      dados.resolucao ===
+      "MESCLADO"
+    ) {
+      throw criarErro(
+        "A resolução MESCLADO não é permitida para conflitos de exclusão.",
+        400
+      );
+    }
+
+    return sincronizacaoAplicacaoRepository
+      .resolverConflitoExclusao({
+        sincronizacao,
+
+        resolucao:
+          dados.resolucao,
+
+        idUsuarioResolucao:
+          usuarioAutenticado
+            .id_usuario,
+      });
+  }
 
   const parametros = {
     sincronizacao,

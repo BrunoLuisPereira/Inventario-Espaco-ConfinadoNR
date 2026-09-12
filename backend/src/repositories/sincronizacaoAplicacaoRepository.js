@@ -2113,7 +2113,294 @@ async function excluirDadosTecnicos(
 
   return exclusao.rows[0] || null;
 }
+// ======================================================
+// Resolver conflito de EXCLUSÃO
+// ======================================================
 
+async function resolverConflitoExclusao({
+  sincronizacao,
+  resolucao,
+  idUsuarioResolucao,
+}) {
+  const client =
+    await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const registroAtual =
+      await buscarSincronizacaoComBloqueio(
+        client,
+        sincronizacao.id_sincronizacao
+      );
+
+    if (!registroAtual) {
+      throw criarErro(
+        "Registro de sincronização não encontrado.",
+        404
+      );
+    }
+
+    if (
+      registroAtual.status !==
+      "CONFLITO"
+    ) {
+      throw criarErro(
+        "Esta sincronização não possui um conflito pendente.",
+        409
+      );
+    }
+
+    if (
+      registroAtual.operacao !==
+      "EXCLUIR"
+    ) {
+      throw criarErro(
+        "Esta resolução é exclusiva para conflitos de exclusão.",
+        400
+      );
+    }
+
+    if (
+      resolucao === "MESCLADO"
+    ) {
+      throw criarErro(
+        "A resolução MESCLADO não é permitida para conflitos de exclusão.",
+        400
+      );
+    }
+
+    const idEntidade =
+      Number(
+        registroAtual.id_entidade
+      );
+
+    if (
+      !Number.isInteger(idEntidade) ||
+      idEntidade <= 0
+    ) {
+      throw criarErro(
+        "ID da entidade inválido.",
+        400
+      );
+    }
+
+    let dadosFinais = null;
+
+    let versaoFinal =
+      Number(
+        registroAtual.versao_servidor
+      );
+
+
+    // ==================================================
+    // SERVIDOR
+    // Mantém a versão atual existente no servidor
+    // ==================================================
+
+    if (
+      resolucao === "SERVIDOR"
+    ) {
+      if (
+        registroAtual.entidade ===
+        "CAMPANHA"
+      ) {
+        dadosFinais =
+          await buscarCampanha(
+            client,
+            idEntidade
+          );
+      }
+
+      else if (
+        registroAtual.entidade ===
+        "LOCAL"
+      ) {
+        dadosFinais =
+          await buscarLocal(
+            client,
+            idEntidade
+          );
+      }
+
+      else if (
+        registroAtual.entidade ===
+        "CHECKLIST_NR33"
+      ) {
+        dadosFinais =
+          await buscarChecklist(
+            client,
+            idEntidade
+          );
+      }
+
+      else if (
+        registroAtual.entidade ===
+        "DADOS_TECNICOS"
+      ) {
+        dadosFinais =
+          await buscarDadosTecnicos(
+            client,
+            idEntidade
+          );
+      }
+
+      else {
+        throw criarErro(
+          "A resolução de exclusão ainda não foi implementada para esta entidade.",
+          400
+        );
+      }
+
+      if (!dadosFinais) {
+        throw criarErro(
+          "Registro não encontrado no servidor.",
+          404
+        );
+      }
+
+      // Busca a versão atual, pois ela pode ter mudado
+      // depois que o conflito foi criado.
+      versaoFinal =
+        await obterVersaoAtual(
+          client,
+          registroAtual.entidade,
+          idEntidade
+        );
+    }
+
+
+    // ==================================================
+    // CLIENTE
+    // A exclusão solicitada offline prevalece
+    // ==================================================
+
+    else if (
+      resolucao === "CLIENTE"
+    ) {
+      let dadosExcluidos = null;
+
+      if (
+        registroAtual.entidade ===
+        "CAMPANHA"
+      ) {
+        dadosExcluidos =
+          await excluirCampanha(
+            client,
+            idEntidade,
+            registroAtual.id_usuario
+          );
+      }
+
+      else if (
+        registroAtual.entidade ===
+        "LOCAL"
+      ) {
+        dadosExcluidos =
+          await excluirLocal(
+            client,
+            idEntidade,
+            registroAtual.id_usuario
+          );
+      }
+
+      else if (
+        registroAtual.entidade ===
+        "CHECKLIST_NR33"
+      ) {
+        dadosExcluidos =
+          await excluirChecklist(
+            client,
+            idEntidade,
+            registroAtual.id_usuario
+          );
+      }
+
+      else if (
+        registroAtual.entidade ===
+        "DADOS_TECNICOS"
+      ) {
+        dadosExcluidos =
+          await excluirDadosTecnicos(
+            client,
+            idEntidade,
+            registroAtual.id_usuario
+          );
+      }
+
+      else {
+        throw criarErro(
+          "A resolução de exclusão ainda não foi implementada para esta entidade.",
+          400
+        );
+      }
+
+      if (!dadosExcluidos) {
+        throw criarErro(
+          "Registro não encontrado para exclusão.",
+          404
+        );
+      }
+
+      // A trigger de DELETE deve ter atualizado
+      // versao_entidade e criado o tombstone.
+      versaoFinal =
+        await obterVersaoAtual(
+          client,
+          registroAtual.entidade,
+          idEntidade
+        );
+
+      dadosFinais = null;
+    }
+
+    else {
+      throw criarErro(
+        "Resolução inválida para conflito de exclusão.",
+        400
+      );
+    }
+
+
+    // ==================================================
+    // Finalizar conflito
+    // ==================================================
+
+    const sincronizacaoResolvida =
+      await finalizarConflito(
+        client,
+        registroAtual.id_sincronizacao,
+        {
+          resolucao,
+
+          dados_resolvidos:
+            dadosFinais,
+
+          id_usuario_resolucao:
+            idUsuarioResolucao,
+
+          versao_servidor:
+            versaoFinal,
+        }
+      );
+
+    await client.query(
+      "COMMIT"
+    );
+
+    return sincronizacaoResolvida;
+
+  } catch (erro) {
+    await client.query(
+      "ROLLBACK"
+    );
+
+    throw erro;
+
+  } finally {
+    client.release();
+  }
+}
 async function processarSincronizacaoPendente(
   sincronizacao
 ) {
@@ -2556,22 +2843,61 @@ if (
   // ==================================================
 
   if (
-    versaoCliente !==
-    versaoAtualServidor
-  ) {
-    let dadosAtuaisServidor =
-      null;
+  versaoCliente !==
+  versaoAtualServidor
+) {
+  let dadosAtuaisServidor =
+    null;
 
-    if (
-      registro.entidade ===
-      "DADOS_TECNICOS"
-    ) {
-      dadosAtuaisServidor =
-        await buscarDadosTecnicos(
-          client,
-          idEntidade
-        );
-    }
+  if (
+    registro.entidade ===
+    "CAMPANHA"
+  ) {
+    dadosAtuaisServidor =
+      await buscarCampanha(
+        client,
+        idEntidade
+      );
+  } else if (
+    registro.entidade ===
+    "LOCAL"
+  ) {
+    dadosAtuaisServidor =
+      await buscarLocal(
+        client,
+        idEntidade
+      );
+  } else if (
+    registro.entidade ===
+    "CHECKLIST_NR33"
+  ) {
+    dadosAtuaisServidor =
+      await buscarChecklist(
+        client,
+        idEntidade
+      );
+  } else if (
+    registro.entidade ===
+    "DADOS_TECNICOS"
+  ) {
+    dadosAtuaisServidor =
+      await buscarDadosTecnicos(
+        client,
+        idEntidade
+      );
+  } else {
+    throw criarErro(
+      "Processamento de exclusão ainda não implementado para esta entidade.",
+      400
+    );
+  }
+
+  if (!dadosAtuaisServidor) {
+    throw criarErro(
+      "Registro da entidade não encontrado no servidor.",
+      404
+    );
+  }
 
     const resultadoConflito =
       await client.query(
@@ -3230,6 +3556,7 @@ module.exports = {
   resolverConflitoCampanha,
   resolverConflitoChecklist,
   resolverConflitoDadosTecnicos,
+  resolverConflitoExclusao,
   processarSincronizacaoPendente,
   buscarDadosAtuaisServidor,
 };
