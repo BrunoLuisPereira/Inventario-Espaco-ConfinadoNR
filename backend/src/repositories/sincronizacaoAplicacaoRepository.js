@@ -15,7 +15,9 @@ function criarErro(
   return erro;
 }
 
-
+const evidenciaArquivoUtils = require(
+  "../utils/evidenciaArquivoUtils"
+);
 // ======================================================
 // Obter versão oficial atual da entidade
 // ======================================================
@@ -1881,6 +1883,47 @@ async function resolverConflitoDadosTecnicos({
   }
 }
 // ======================================================
+// Buscar arquivos de evidências afetados por exclusão
+// ======================================================
+
+async function buscarCaminhosEvidenciasParaExclusao(
+  client,
+  entidade,
+  idEntidade
+) {
+  let resultado;
+
+  if (entidade === "LOCAL") {
+    resultado = await client.query(
+      `
+        SELECT caminho_arquivo
+        FROM evidencia
+        WHERE id_local = $1
+          AND caminho_arquivo IS NOT NULL;
+      `,
+      [idEntidade]
+    );
+  } else if (entidade === "CAMPANHA") {
+    resultado = await client.query(
+      `
+        SELECT e.caminho_arquivo
+        FROM evidencia e
+        INNER JOIN local l
+          ON l.id_local = e.id_local
+        WHERE l.id_campanha = $1
+          AND e.caminho_arquivo IS NOT NULL;
+      `,
+      [idEntidade]
+    );
+  } else {
+    return [];
+  }
+
+  return resultado.rows
+    .map((registro) => registro.caminho_arquivo)
+    .filter(Boolean);
+}
+// ======================================================
 // Excluir CAMPANHA através da sincronização offline
 // ======================================================
 
@@ -2187,6 +2230,8 @@ async function resolverConflitoExclusao({
 
     let dadosFinais = null;
 
+    let caminhosEvidenciasExclusao = [];
+
     let versaoFinal =
       Number(
         registroAtual.versao_servidor
@@ -2284,6 +2329,12 @@ async function resolverConflitoExclusao({
         registroAtual.entidade ===
         "CAMPANHA"
       ) {
+       caminhosEvidenciasExclusao =
+       await buscarCaminhosEvidenciasParaExclusao(
+        client,
+        "CAMPANHA",
+        idEntidade
+      );
         dadosExcluidos =
           await excluirCampanha(
             client,
@@ -2296,7 +2347,13 @@ async function resolverConflitoExclusao({
         registroAtual.entidade ===
         "LOCAL"
       ) {
-        dadosExcluidos =
+        caminhosEvidenciasExclusao =
+        await buscarCaminhosEvidenciasParaExclusao(
+        client,
+        "LOCAL",
+        idEntidade
+        );
+          dadosExcluidos =
           await excluirLocal(
             client,
             idEntidade,
@@ -2387,6 +2444,13 @@ async function resolverConflitoExclusao({
     await client.query(
       "COMMIT"
     );
+    if (
+       caminhosEvidenciasExclusao.length > 0
+      ) {
+        await evidenciaArquivoUtils.removerArquivos(
+        caminhosEvidenciasExclusao
+      );
+  }
 
     return sincronizacaoResolvida;
 
@@ -2931,7 +2995,7 @@ if (
   // ==================================================
 
  let dadosExcluidos = null;
-
+ let caminhosEvidenciasExclusao = [];
 
 // ==================================================
 // CAMPANHA
@@ -2941,6 +3005,13 @@ if (
   registro.entidade ===
   "CAMPANHA"
 ) {
+  caminhosEvidenciasExclusao =
+  await buscarCaminhosEvidenciasParaExclusao(
+    client,
+    "CAMPANHA",
+    idEntidade
+  );
+
   dadosExcluidos =
     await excluirCampanha(
       client,
@@ -2958,6 +3029,12 @@ else if (
   registro.entidade ===
   "LOCAL"
 ) {
+  caminhosEvidenciasExclusao =
+    await buscarCaminhosEvidenciasParaExclusao(
+      client,
+      "LOCAL",
+      idEntidade
+    );
   dadosExcluidos =
     await excluirLocal(
       client,
@@ -3054,7 +3131,13 @@ else {
     );
 
   await client.query("COMMIT");
-
+  if (
+  caminhosEvidenciasExclusao.length > 0
+  ) {
+  await evidenciaArquivoUtils.removerArquivos(
+    caminhosEvidenciasExclusao
+  );
+}
   return resultadoSync.rows[0];
 }
     // ==================================================

@@ -1,7 +1,10 @@
-const fs = require("fs");
+const evidenciaService = require(
+  "../services/evidenciaService"
+);
 
-const evidenciaService = require("../services/evidenciaService");
-
+const evidenciaArquivoUtils = require(
+  "../utils/evidenciaArquivoUtils"
+);
 
 /**
  * Cria uma evidência sem upload de arquivo.
@@ -24,14 +27,19 @@ async function criar(req, res, next) {
   }
 }
 
-
 /**
  * Cria uma evidência com upload de arquivo.
  *
  * JPG e PNG são registrados como FOTO.
  * PDF é registrado como DOCUMENTO.
+ *
+ * O campo id_operacao_cliente pode ser enviado
+ * pelo PWA para garantir idempotência durante
+ * a sincronização offline.
  */
 async function criarComUpload(req, res, next) {
+  let caminhoArquivo = null;
+
   try {
     if (!req.file) {
       const erro = new Error(
@@ -52,10 +60,9 @@ async function criarComUpload(req, res, next) {
         : "FOTO";
 
     /*
-     * Caminho relativo que será salvo
-     * no PostgreSQL.
+     * Caminho relativo salvo no PostgreSQL.
      */
-    const caminhoArquivo =
+    caminhoArquivo =
       `uploads/evidencias/${req.file.filename}`;
 
     const evidencia =
@@ -65,9 +72,39 @@ async function criarComUpload(req, res, next) {
           tipo,
           descricao: req.body.descricao,
           caminho_arquivo: caminhoArquivo,
+          id_operacao_cliente:
+            req.body.id_operacao_cliente,
         },
         req.usuario
       );
+
+    /*
+     * Se o Service devolveu uma evidência cujo
+     * caminho é diferente do arquivo recém-enviado,
+     * significa que o id_operacao_cliente já havia
+     * sido processado anteriormente.
+     *
+     * O Multer já salvou uma nova cópia no disco,
+     * portanto removemos essa cópia para evitar
+     * arquivo órfão.
+     */
+    const operacaoJaProcessada =
+      req.body.id_operacao_cliente &&
+      evidencia.caminho_arquivo !==
+        caminhoArquivo;
+
+    if (operacaoJaProcessada) {
+      await evidenciaArquivoUtils.removerArquivo(
+        caminhoArquivo
+      );
+
+      return res.status(200).json({
+        status: "success",
+        message:
+          "Operação já processada anteriormente. Evidência existente retornada.",
+        data: evidencia,
+      });
+    }
 
     return res.status(201).json({
       status: "success",
@@ -80,27 +117,19 @@ async function criarComUpload(req, res, next) {
      * O Multer salva o arquivo antes de o Service
      * validar completamente a operação.
      *
-     * Portanto, se ocorrer algum erro depois
-     * do upload, removemos o arquivo físico
+     * Se ocorrer algum erro depois do upload,
+     * removemos o arquivo físico recém-recebido
      * para evitar arquivos órfãos.
      */
-    if (req.file && req.file.path) {
-      try {
-        if (fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-        }
-      } catch (erroArquivo) {
-        console.error(
-          "Erro ao remover arquivo após falha no upload:",
-          erroArquivo
-        );
-      }
+    if (caminhoArquivo) {
+      await evidenciaArquivoUtils.removerArquivo(
+        caminhoArquivo
+      );
     }
 
     next(erro);
   }
 }
-
 
 /**
  * Lista todas as evidências.
@@ -120,16 +149,16 @@ async function listar(req, res, next) {
   }
 }
 
-
 /**
  * Busca uma evidência pelo ID.
  */
 async function buscarPorId(req, res, next) {
   try {
     const evidencia =
-      await evidenciaService.buscarEvidenciaPorId(
-        req.params.id
-      );
+      await evidenciaService
+        .buscarEvidenciaPorId(
+          req.params.id
+        );
 
     return res.status(200).json({
       status: "success",
@@ -140,16 +169,20 @@ async function buscarPorId(req, res, next) {
   }
 }
 
-
 /**
  * Lista as evidências de determinado local.
  */
-async function listarPorLocal(req, res, next) {
+async function listarPorLocal(
+  req,
+  res,
+  next
+) {
   try {
     const evidencias =
-      await evidenciaService.listarEvidenciasPorLocal(
-        req.params.idLocal
-      );
+      await evidenciaService
+        .listarEvidenciasPorLocal(
+          req.params.idLocal
+        );
 
     return res.status(200).json({
       status: "success",
@@ -161,18 +194,18 @@ async function listarPorLocal(req, res, next) {
   }
 }
 
-
 /**
  * Atualiza uma evidência existente.
  */
 async function atualizar(req, res, next) {
   try {
     const evidencia =
-      await evidenciaService.atualizarEvidencia(
-        req.params.id,
-        req.body,
-        req.usuario
-      );
+      await evidenciaService
+        .atualizarEvidencia(
+          req.params.id,
+          req.body,
+          req.usuario
+        );
 
     return res.status(200).json({
       status: "success",
@@ -185,7 +218,6 @@ async function atualizar(req, res, next) {
   }
 }
 
-
 /**
  * Exclui uma evidência.
  *
@@ -195,10 +227,11 @@ async function atualizar(req, res, next) {
 async function excluir(req, res, next) {
   try {
     const evidencia =
-      await evidenciaService.excluirEvidencia(
-        req.params.id,
-        req.usuario
-      );
+      await evidenciaService
+        .excluirEvidencia(
+          req.params.id,
+          req.usuario
+        );
 
     return res.status(200).json({
       status: "success",
@@ -210,7 +243,6 @@ async function excluir(req, res, next) {
     next(erro);
   }
 }
-
 
 module.exports = {
   criar,
