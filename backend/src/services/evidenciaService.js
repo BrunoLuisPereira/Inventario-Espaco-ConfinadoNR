@@ -20,9 +20,9 @@ const TIPOS_VALIDOS = [
 
 /**
  * Verifica se o usuário autenticado possui permissão
- * para alterar evidências de determinado local.
+ * para acessar evidências de determinado local.
  *
- * Administrador: pode alterar qualquer evidência.
+ * Administrador: pode acessar qualquer evidência.
  * Engenheiro: somente evidências de locais pertencentes
  * às campanhas pelas quais ele é responsável.
  */
@@ -66,7 +66,7 @@ async function validarPermissaoLocal(
 
   if (!ehAdministrador && !ehResponsavel) {
     const erro = new Error(
-      "Você não possui permissão para alterar evidências deste local."
+      "Você não possui permissão para acessar evidências deste local."
     );
 
     erro.statusCode = 403;
@@ -81,10 +81,6 @@ async function validarPermissaoLocal(
  *
  * Quando id_operacao_cliente é informado,
  * a operação se torna idempotente.
- *
- * Se uma evidência com o mesmo identificador
- * já tiver sido criada anteriormente, ela é
- * retornada sem criar um novo registro.
  */
 async function criarEvidencia(
   dados,
@@ -145,15 +141,6 @@ async function criarEvidencia(
         id_operacao_cliente || null,
     });
   } catch (erro) {
-    /*
-     * PostgreSQL 23505 = violação de UNIQUE.
-     *
-     * Isso pode acontecer se duas tentativas com o
-     * mesmo UUID chegarem praticamente ao mesmo tempo.
-     *
-     * Nesse caso, buscamos e retornamos a evidência
-     * criada pela primeira tentativa.
-     */
     if (
       erro.code === "23505" &&
       id_operacao_cliente
@@ -174,17 +161,33 @@ async function criarEvidencia(
 }
 
 /**
- * Lista todas as evidências.
+ * Lista as evidências que o usuário autenticado
+ * possui permissão para visualizar.
  */
-async function listarEvidencias() {
-  return evidenciaRepository.listarTodos();
+async function listarEvidencias(
+  usuarioAutenticado
+) {
+  const ehAdministrador =
+    usuarioAutenticado.perfil_acesso ===
+    "ADMINISTRADOR";
+
+  if (ehAdministrador) {
+    return evidenciaRepository.listarTodos();
+  }
+
+  return evidenciaRepository
+    .listarPorUsuarioResponsavel(
+      usuarioAutenticado.id_usuario
+    );
 }
 
 /**
- * Busca uma evidência pelo ID.
+ * Busca uma evidência pelo ID respeitando
+ * as permissões do usuário autenticado.
  */
 async function buscarEvidenciaPorId(
-  idEvidencia
+  idEvidencia,
+  usuarioAutenticado
 ) {
   const id = Number(idEvidencia);
 
@@ -209,14 +212,21 @@ async function buscarEvidenciaPorId(
     throw erro;
   }
 
+  await validarPermissaoLocal(
+    evidencia.id_local,
+    usuarioAutenticado
+  );
+
   return evidencia;
 }
 
 /**
- * Lista todas as evidências de determinado local.
+ * Lista as evidências de determinado local
+ * respeitando as permissões do usuário.
  */
 async function listarEvidenciasPorLocal(
-  idLocal
+  idLocal,
+  usuarioAutenticado
 ) {
   const id = Number(idLocal);
 
@@ -229,17 +239,10 @@ async function listarEvidenciasPorLocal(
     throw erro;
   }
 
-  const local =
-    await localRepository.buscarPorId(id);
-
-  if (!local) {
-    const erro = new Error(
-      "Local não encontrado."
-    );
-
-    erro.statusCode = 404;
-    throw erro;
-  }
+  await validarPermissaoLocal(
+    id,
+    usuarioAutenticado
+  );
 
   return evidenciaRepository.listarPorLocal(
     id
@@ -314,10 +317,6 @@ async function atualizarEvidencia(
 
 /**
  * Exclui uma evidência.
- *
- * Além de remover o registro do PostgreSQL,
- * também remove o arquivo físico armazenado
- * em uploads/evidencias, quando existir.
  */
 async function excluirEvidencia(
   idEvidencia,
@@ -346,20 +345,14 @@ async function excluirEvidencia(
     throw erro;
   }
 
-  // Verifica se o usuário possui permissão
   await validarPermissaoLocal(
     evidencia.id_local,
     usuarioAutenticado
   );
 
-  // Primeiro remove o registro do banco
   const evidenciaExcluida =
     await evidenciaRepository.excluir(id);
 
-  /*
-   * Se a evidência possuir um arquivo físico,
-   * tenta removê-lo da pasta uploads.
-   */
   if (evidencia.caminho_arquivo) {
     await evidenciaArquivoUtils.removerArquivo(
       evidencia.caminho_arquivo

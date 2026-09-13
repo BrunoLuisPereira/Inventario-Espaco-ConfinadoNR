@@ -50,18 +50,11 @@ async function criarComUpload(req, res, next) {
       throw erro;
     }
 
-    /*
-     * Define automaticamente o tipo da evidência
-     * de acordo com o arquivo recebido.
-     */
     const tipo =
       req.file.mimetype === "application/pdf"
         ? "DOCUMENTO"
         : "FOTO";
 
-    /*
-     * Caminho relativo salvo no PostgreSQL.
-     */
     caminhoArquivo =
       `uploads/evidencias/${req.file.filename}`;
 
@@ -78,16 +71,6 @@ async function criarComUpload(req, res, next) {
         req.usuario
       );
 
-    /*
-     * Se o Service devolveu uma evidência cujo
-     * caminho é diferente do arquivo recém-enviado,
-     * significa que o id_operacao_cliente já havia
-     * sido processado anteriormente.
-     *
-     * O Multer já salvou uma nova cópia no disco,
-     * portanto removemos essa cópia para evitar
-     * arquivo órfão.
-     */
     const operacaoJaProcessada =
       req.body.id_operacao_cliente &&
       evidencia.caminho_arquivo !==
@@ -113,14 +96,6 @@ async function criarComUpload(req, res, next) {
       data: evidencia,
     });
   } catch (erro) {
-    /*
-     * O Multer salva o arquivo antes de o Service
-     * validar completamente a operação.
-     *
-     * Se ocorrer algum erro depois do upload,
-     * removemos o arquivo físico recém-recebido
-     * para evitar arquivos órfãos.
-     */
     if (caminhoArquivo) {
       await evidenciaArquivoUtils.removerArquivo(
         caminhoArquivo
@@ -132,12 +107,15 @@ async function criarComUpload(req, res, next) {
 }
 
 /**
- * Lista todas as evidências.
+ * Lista as evidências que o usuário autenticado
+ * possui permissão para visualizar.
  */
 async function listar(req, res, next) {
   try {
     const evidencias =
-      await evidenciaService.listarEvidencias();
+      await evidenciaService.listarEvidencias(
+        req.usuario
+      );
 
     return res.status(200).json({
       status: "success",
@@ -150,14 +128,16 @@ async function listar(req, res, next) {
 }
 
 /**
- * Busca uma evidência pelo ID.
+ * Busca uma evidência pelo ID respeitando
+ * as permissões do usuário autenticado.
  */
 async function buscarPorId(req, res, next) {
   try {
     const evidencia =
       await evidenciaService
         .buscarEvidenciaPorId(
-          req.params.id
+          req.params.id,
+          req.usuario
         );
 
     return res.status(200).json({
@@ -170,7 +150,8 @@ async function buscarPorId(req, res, next) {
 }
 
 /**
- * Lista as evidências de determinado local.
+ * Lista as evidências de determinado local
+ * respeitando as permissões do usuário.
  */
 async function listarPorLocal(
   req,
@@ -181,7 +162,8 @@ async function listarPorLocal(
     const evidencias =
       await evidenciaService
         .listarEvidenciasPorLocal(
-          req.params.idLocal
+          req.params.idLocal,
+          req.usuario
         );
 
     return res.status(200).json({
