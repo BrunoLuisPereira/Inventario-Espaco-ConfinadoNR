@@ -56,6 +56,37 @@ async function listarTodos() {
   return resultado.rows;
 }
 
+/**
+ * Lista apenas as evidências pertencentes
+ * a campanhas do usuário responsável.
+ */
+async function listarPorUsuarioResponsavel(
+  idUsuario
+) {
+  const query = `
+    SELECT
+      e.*,
+      l.nome_local,
+      u.nome AS usuario_responsavel
+    FROM evidencia e
+    INNER JOIN local l
+      ON l.id_local = e.id_local
+    INNER JOIN campanha c
+      ON c.id_campanha = l.id_campanha
+    INNER JOIN usuario u
+      ON u.id_usuario = e.id_usuario
+    WHERE c.id_usuario = $1
+    ORDER BY e.id_evidencia ASC;
+  `;
+
+  const resultado = await pool.query(
+    query,
+    [idUsuario]
+  );
+
+  return resultado.rows;
+}
+
 async function buscarPorId(idEvidencia) {
   const query = `
     SELECT
@@ -173,6 +204,7 @@ async function excluir(idEvidencia) {
 module.exports = {
   criar,
   listarTodos,
+  listarPorUsuarioResponsavel,
   buscarPorId,
   buscarPorIdOperacaoCliente,
   listarPorLocal,
