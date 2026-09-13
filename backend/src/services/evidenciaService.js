@@ -1,5 +1,6 @@
-const fs = require("fs");
-const path = require("path");
+const evidenciaArquivoUtils = require(
+  "../utils/evidenciaArquivoUtils"
+);
 
 const evidenciaRepository = require("../repositories/evidenciaRepository");
 const localRepository = require("../repositories/localRepository");
@@ -290,20 +291,13 @@ async function excluirEvidencia(
    * tenta removê-lo da pasta uploads.
    */
   if (evidencia.caminho_arquivo) {
-    const caminhoCompleto = path.join(
-      __dirname,
-      "../../",
+     await evidenciaArquivoUtils.removerArquivo(
       evidencia.caminho_arquivo
     );
-
-    if (fs.existsSync(caminhoCompleto)) {
-      fs.unlinkSync(caminhoCompleto);
-    }
   }
 
   return evidenciaExcluida;
 }
-
 
 module.exports = {
   criarEvidencia,
