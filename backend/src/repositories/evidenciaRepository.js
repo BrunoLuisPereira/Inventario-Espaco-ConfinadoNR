@@ -7,6 +7,7 @@ async function criar(evidencia) {
     caminho_arquivo,
     descricao,
     id_usuario,
+    id_operacao_cliente,
   } = evidencia;
 
   const query = `
@@ -15,9 +16,10 @@ async function criar(evidencia) {
       tipo,
       caminho_arquivo,
       descricao,
-      id_usuario
+      id_usuario,
+      id_operacao_cliente
     )
-    VALUES ($1, $2, $3, $4, $5)
+    VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING *;
   `;
 
@@ -27,6 +29,7 @@ async function criar(evidencia) {
     caminho_arquivo || null,
     descricao || null,
     id_usuario,
+    id_operacao_cliente || null,
   ];
 
   const resultado = await pool.query(query, valores);
@@ -67,7 +70,34 @@ async function buscarPorId(idEvidencia) {
     WHERE e.id_evidencia = $1;
   `;
 
-  const resultado = await pool.query(query, [idEvidencia]);
+  const resultado = await pool.query(
+    query,
+    [idEvidencia]
+  );
+
+  return resultado.rows[0];
+}
+
+async function buscarPorIdOperacaoCliente(
+  idOperacaoCliente
+) {
+  const query = `
+    SELECT
+      e.*,
+      l.nome_local,
+      u.nome AS usuario_responsavel
+    FROM evidencia e
+    INNER JOIN local l
+      ON l.id_local = e.id_local
+    INNER JOIN usuario u
+      ON u.id_usuario = e.id_usuario
+    WHERE e.id_operacao_cliente = $1;
+  `;
+
+  const resultado = await pool.query(
+    query,
+    [idOperacaoCliente]
+  );
 
   return resultado.rows[0];
 }
@@ -84,7 +114,10 @@ async function listarPorLocal(idLocal) {
     ORDER BY e.id_evidencia ASC;
   `;
 
-  const resultado = await pool.query(query, [idLocal]);
+  const resultado = await pool.query(
+    query,
+    [idLocal]
+  );
 
   return resultado.rows;
 }
@@ -114,7 +147,10 @@ async function atualizar(idEvidencia, dados) {
     idEvidencia,
   ];
 
-  const resultado = await pool.query(query, valores);
+  const resultado = await pool.query(
+    query,
+    valores
+  );
 
   return resultado.rows[0];
 }
@@ -126,7 +162,10 @@ async function excluir(idEvidencia) {
     RETURNING *;
   `;
 
-  const resultado = await pool.query(query, [idEvidencia]);
+  const resultado = await pool.query(
+    query,
+    [idEvidencia]
+  );
 
   return resultado.rows[0];
 }
@@ -135,6 +174,7 @@ module.exports = {
   criar,
   listarTodos,
   buscarPorId,
+  buscarPorIdOperacaoCliente,
   listarPorLocal,
   atualizar,
   excluir,

@@ -2,12 +2,21 @@ const evidenciaArquivoUtils = require(
   "../utils/evidenciaArquivoUtils"
 );
 
-const evidenciaRepository = require("../repositories/evidenciaRepository");
-const localRepository = require("../repositories/localRepository");
-const campanhaRepository = require("../repositories/campanhaRepository");
+const evidenciaRepository = require(
+  "../repositories/evidenciaRepository"
+);
+const localRepository = require(
+  "../repositories/localRepository"
+);
+const campanhaRepository = require(
+  "../repositories/campanhaRepository"
+);
 
-const TIPOS_VALIDOS = ["FOTO", "TEXTO", "DOCUMENTO"];
-
+const TIPOS_VALIDOS = [
+  "FOTO",
+  "TEXTO",
+  "DOCUMENTO",
+];
 
 /**
  * Verifica se o usuário autenticado possui permissão
@@ -21,26 +30,35 @@ async function validarPermissaoLocal(
   idLocal,
   usuarioAutenticado
 ) {
-  const local = await localRepository.buscarPorId(idLocal);
+  const local =
+    await localRepository.buscarPorId(idLocal);
 
   if (!local) {
-    const erro = new Error("Local não encontrado.");
+    const erro = new Error(
+      "Local não encontrado."
+    );
+
     erro.statusCode = 404;
     throw erro;
   }
 
-  const campanha = await campanhaRepository.buscarPorId(
-    local.id_campanha
-  );
+  const campanha =
+    await campanhaRepository.buscarPorId(
+      local.id_campanha
+    );
 
   if (!campanha) {
-    const erro = new Error("Campanha não encontrada.");
+    const erro = new Error(
+      "Campanha não encontrada."
+    );
+
     erro.statusCode = 404;
     throw erro;
   }
 
   const ehAdministrador =
-    usuarioAutenticado.perfil_acesso === "ADMINISTRADOR";
+    usuarioAutenticado.perfil_acesso ===
+    "ADMINISTRADOR";
 
   const ehResponsavel =
     Number(campanha.id_usuario) ===
@@ -58,9 +76,15 @@ async function validarPermissaoLocal(
   return local;
 }
 
-
 /**
  * Cria uma nova evidência.
+ *
+ * Quando id_operacao_cliente é informado,
+ * a operação se torna idempotente.
+ *
+ * Se uma evidência com o mesmo identificador
+ * já tiver sido criada anteriormente, ela é
+ * retornada sem criar um novo registro.
  */
 async function criarEvidencia(
   dados,
@@ -71,6 +95,7 @@ async function criarEvidencia(
     tipo,
     caminho_arquivo,
     descricao,
+    id_operacao_cliente,
   } = dados;
 
   if (!id_local) {
@@ -96,15 +121,57 @@ async function criarEvidencia(
     usuarioAutenticado
   );
 
-  return evidenciaRepository.criar({
-    id_local,
-    tipo,
-    caminho_arquivo,
-    descricao,
-    id_usuario: usuarioAutenticado.id_usuario,
-  });
-}
+  if (id_operacao_cliente) {
+    const evidenciaExistente =
+      await evidenciaRepository
+        .buscarPorIdOperacaoCliente(
+          id_operacao_cliente
+        );
 
+    if (evidenciaExistente) {
+      return evidenciaExistente;
+    }
+  }
+
+  try {
+    return await evidenciaRepository.criar({
+      id_local,
+      tipo,
+      caminho_arquivo,
+      descricao,
+      id_usuario:
+        usuarioAutenticado.id_usuario,
+      id_operacao_cliente:
+        id_operacao_cliente || null,
+    });
+  } catch (erro) {
+    /*
+     * PostgreSQL 23505 = violação de UNIQUE.
+     *
+     * Isso pode acontecer se duas tentativas com o
+     * mesmo UUID chegarem praticamente ao mesmo tempo.
+     *
+     * Nesse caso, buscamos e retornamos a evidência
+     * criada pela primeira tentativa.
+     */
+    if (
+      erro.code === "23505" &&
+      id_operacao_cliente
+    ) {
+      const evidenciaExistente =
+        await evidenciaRepository
+          .buscarPorIdOperacaoCliente(
+            id_operacao_cliente
+          );
+
+      if (evidenciaExistente) {
+        return evidenciaExistente;
+      }
+    }
+
+    throw erro;
+  }
+}
 
 /**
  * Lista todas as evidências.
@@ -113,11 +180,12 @@ async function listarEvidencias() {
   return evidenciaRepository.listarTodos();
 }
 
-
 /**
  * Busca uma evidência pelo ID.
  */
-async function buscarEvidenciaPorId(idEvidencia) {
+async function buscarEvidenciaPorId(
+  idEvidencia
+) {
   const id = Number(idEvidencia);
 
   if (!Number.isInteger(id) || id <= 0) {
@@ -144,11 +212,12 @@ async function buscarEvidenciaPorId(idEvidencia) {
   return evidencia;
 }
 
-
 /**
  * Lista todas as evidências de determinado local.
  */
-async function listarEvidenciasPorLocal(idLocal) {
+async function listarEvidenciasPorLocal(
+  idLocal
+) {
   const id = Number(idLocal);
 
   if (!Number.isInteger(id) || id <= 0) {
@@ -160,7 +229,8 @@ async function listarEvidenciasPorLocal(idLocal) {
     throw erro;
   }
 
-  const local = await localRepository.buscarPorId(id);
+  const local =
+    await localRepository.buscarPorId(id);
 
   if (!local) {
     const erro = new Error(
@@ -171,9 +241,10 @@ async function listarEvidenciasPorLocal(idLocal) {
     throw erro;
   }
 
-  return evidenciaRepository.listarPorLocal(id);
+  return evidenciaRepository.listarPorLocal(
+    id
+  );
 }
-
 
 /**
  * Atualiza uma evidência.
@@ -241,7 +312,6 @@ async function atualizarEvidencia(
   );
 }
 
-
 /**
  * Exclui uma evidência.
  *
@@ -291,7 +361,7 @@ async function excluirEvidencia(
    * tenta removê-lo da pasta uploads.
    */
   if (evidencia.caminho_arquivo) {
-     await evidenciaArquivoUtils.removerArquivo(
+    await evidenciaArquivoUtils.removerArquivo(
       evidencia.caminho_arquivo
     );
   }
