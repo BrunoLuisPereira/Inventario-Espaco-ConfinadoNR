@@ -18,6 +18,52 @@ const TIPOS_VALIDOS = [
   "DOCUMENTO",
 ];
 
+function validarUsuarioAutenticado(
+  usuarioAutenticado
+) {
+  if (
+    !usuarioAutenticado ||
+    typeof usuarioAutenticado !== "object"
+  ) {
+    const erro = new Error(
+      "Usuário autenticado inválido."
+    );
+
+    erro.statusCode = 401;
+    throw erro;
+  }
+
+  const idUsuario = Number(
+    usuarioAutenticado.id_usuario
+  );
+
+  const perfisPermitidos = [
+    "ADMINISTRADOR",
+    "ENGENHEIRO_SEGURANCA",
+  ];
+
+  if (
+    !Number.isInteger(idUsuario) ||
+    idUsuario <= 0 ||
+    !perfisPermitidos.includes(
+      usuarioAutenticado.perfil_acesso
+    )
+  ) {
+    const erro = new Error(
+      "Usuário autenticado inválido."
+    );
+
+    erro.statusCode = 401;
+    throw erro;
+  }
+
+  return {
+    id_usuario: idUsuario,
+    perfil_acesso:
+      usuarioAutenticado.perfil_acesso,
+  };
+}
+
 /**
  * Verifica se o usuário autenticado possui permissão
  * para acessar evidências de determinado local.
@@ -30,6 +76,11 @@ async function validarPermissaoLocal(
   idLocal,
   usuarioAutenticado
 ) {
+  usuarioAutenticado =
+    validarUsuarioAutenticado(
+      usuarioAutenticado
+    );
+
   const local =
     await localRepository.buscarPorId(idLocal);
 
@@ -112,6 +163,11 @@ async function criarEvidencia(
     throw erro;
   }
 
+  usuarioAutenticado =
+    validarUsuarioAutenticado(
+      usuarioAutenticado
+    );
+
   await validarPermissaoLocal(
     id_local,
     usuarioAutenticado
@@ -167,6 +223,11 @@ async function criarEvidencia(
 async function listarEvidencias(
   usuarioAutenticado
 ) {
+  usuarioAutenticado =
+    validarUsuarioAutenticado(
+      usuarioAutenticado
+    );
+
   const ehAdministrador =
     usuarioAutenticado.perfil_acesso ===
     "ADMINISTRADOR";
@@ -293,8 +354,7 @@ async function atualizarEvidencia(
     evidencia.caminho_arquivo;
 
   const descricao =
-    dados.descricao ??
-    evidencia.descricao;
+    dados.descricao ?? evidencia.descricao;
 
   if (!TIPOS_VALIDOS.includes(tipo)) {
     const erro = new Error(
