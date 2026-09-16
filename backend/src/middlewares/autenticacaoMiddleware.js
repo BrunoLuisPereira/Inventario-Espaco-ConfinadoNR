@@ -49,8 +49,33 @@ function autenticar(req, res, next) {
       }
     );
 
+    if (!payload || typeof payload !== "object") {
+      return res.status(401).json({
+        status: "error",
+        message: "Token inválido.",
+      });
+    }
+
+    const idUsuario = Number(payload.sub);
+
+    const perfisPermitidos = [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+    ];
+
+    if (
+      !Number.isInteger(idUsuario) ||
+      idUsuario <= 0 ||
+      !perfisPermitidos.includes(payload.perfil)
+    ) {
+      return res.status(401).json({
+        status: "error",
+        message: "Token inválido.",
+      });
+    }
+
     req.usuario = {
-      id_usuario: Number(payload.sub),
+      id_usuario: idUsuario,
       perfil_acesso: payload.perfil,
     };
 
