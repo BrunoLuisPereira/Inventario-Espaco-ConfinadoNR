@@ -44,6 +44,13 @@ export async function listarCampanhas() {
   return request('/campanhas')
 }
 
+export async function criarCampanha(dados) {
+  return request('/campanhas', {
+    method: 'POST',
+    body: JSON.stringify(dados),
+  })
+}
+
 export async function listarLocais() {
   return request('/locais')
 }
