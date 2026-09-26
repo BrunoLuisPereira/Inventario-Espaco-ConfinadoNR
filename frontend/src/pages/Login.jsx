@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import logoInventario from '../assets/logo-inventario.png'
 import { login } from '../services/api'
+import { useAuth } from '../hooks/useAuth'
 import '../styles/Login.css'
 
 function Login() {
+  const { autenticar } = useAuth()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
@@ -24,7 +26,9 @@ function Login() {
 
       const resposta = await login(email, senha)
 
-      console.log('Login realizado com sucesso:', resposta)
+      autenticar(resposta.data)
+
+      
     } catch (error) {
       setErro(error.message)
     } finally {
