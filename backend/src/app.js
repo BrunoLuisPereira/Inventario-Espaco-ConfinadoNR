@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require("cors");
 
 const authRoutes = require("./routes/authRoutes");
 const usuarioRoutes = require("./routes/usuarioRoutes");
@@ -16,6 +17,13 @@ const app = express();
 // ======================================================
 // Middlewares gerais
 // ======================================================
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 app.use(express.json());
 
