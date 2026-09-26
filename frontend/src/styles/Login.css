@@ -1,0 +1,195 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #111827 0%,
+      #1f2937 55%,
+      #374151 100%
+    );
+}
+
+.login-card {
+  width: 100%;
+  max-width: 440px;
+  padding: 40px;
+
+  background-color: #ffffff;
+
+  border-radius: 16px;
+
+  box-shadow:
+    0 20px 45px rgba(0, 0, 0, 0.25);
+}
+
+/* Logo e apresentação */
+
+.login-header {
+  margin-bottom: 32px;
+}
+
+.login-logo {
+  display: block;
+  width: 100%;
+  max-width: 250px;
+  height: auto;
+
+  margin: 0 auto 24px;
+
+  object-fit: contain;
+}
+
+.login-header p {
+  color: #6b7280;
+
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* Formulário */
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  color: #374151;
+
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.form-group input {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+
+  color: #111827;
+  background-color: #ffffff;
+
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.form-group input::placeholder {
+  color: #9ca3af;
+}
+
+.form-group input:focus {
+  border-color: #eab308;
+
+  box-shadow:
+    0 0 0 3px rgba(234, 179, 8, 0.18);
+}
+
+/* Criar conta e recuperar senha */
+
+.login-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-top: -8px;
+}
+
+.login-options button {
+  padding: 0;
+
+  background: none;
+  color: #6b7280;
+
+  border: none;
+
+  font-size: 0.85rem;
+  font-weight: 500;
+
+  transition: color 0.2s ease;
+}
+
+.login-options button:hover {
+  color: #ca8a04;
+
+  text-decoration: underline;
+}
+
+/* Botão Entrar */
+
+.login-button {
+  width: 100%;
+  height: 48px;
+  margin-top: 4px;
+
+  background-color: #facc15;
+  color: #111827;
+
+  border: none;
+  border-radius: 8px;
+
+  font-weight: 700;
+
+  transition:
+    background-color 0.2s ease,
+    transform 0.1s ease;
+}
+
+.login-button:hover {
+  background-color: #eab308;
+}
+
+.login-button:active {
+  transform: scale(0.99);
+}
+
+/* Rodapé */
+
+.login-footer {
+  margin-top: 28px;
+
+  color: #9ca3af;
+
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* Responsividade */
+
+@media (max-width: 520px) {
+  .login-page {
+    padding: 16px;
+  }
+
+  .login-card {
+    padding: 28px 22px;
+  }
+
+  .login-logo {
+    max-width: 220px;
+  }
+
+  .login-options {
+    gap: 16px;
+  }
+
+  .login-options button {
+    font-size: 0.8rem;
+  }
+}
