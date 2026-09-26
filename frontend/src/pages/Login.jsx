@@ -3,9 +3,11 @@ import logoInventario from '../assets/logo-inventario.png'
 import { login } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import '../styles/Login.css'
+import { useNavigate } from 'react-router-dom'
 
 function Login() {
   const { autenticar } = useAuth()
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
@@ -27,6 +29,8 @@ function Login() {
       const resposta = await login(email, senha)
 
       autenticar(resposta.data)
+
+      navigate('/dashboard', { replace: true })
 
       
     } catch (error) {
