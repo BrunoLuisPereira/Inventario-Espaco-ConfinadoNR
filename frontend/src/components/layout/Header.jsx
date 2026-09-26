@@ -1,14 +1,14 @@
 import { useAuth } from '../../hooks/useAuth'
 import '../../styles/Header.css'
 
-function Header() {
+function Header({ titulo, subtitulo }) {
   const { usuario } = useAuth()
 
   return (
     <header className="app-header">
       <div>
-        <h1>Dashboard</h1>
-        <p>Visão geral do inventário de espaços confinados</p>
+        <h1>{titulo}</h1>
+        <p>{subtitulo}</p>
       </div>
 
       <div className="header-user">

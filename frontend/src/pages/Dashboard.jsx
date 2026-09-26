@@ -67,7 +67,10 @@ function Dashboard() {
       <Sidebar />
 
       <main className="dashboard-content">
-        <Header />
+        <Header
+        titulo="Dashboard"
+        subtitulo="Visão geral do inventário de espaços confinados"
+        />
 
         <section className="dashboard-main">
           <h2>Visão geral</h2>
