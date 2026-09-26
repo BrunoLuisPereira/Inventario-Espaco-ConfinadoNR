@@ -1,19 +1,29 @@
 const API_URL = 'http://localhost:3000/api'
 
 async function request(endpoint, options = {}) {
+  const token = localStorage.getItem('token')
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  }
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   })
 
   const data = await response.json()
 
   if (!response.ok) {
     throw new Error(
-      data.message || data.mensagem || 'Erro ao comunicar com o servidor'
+      data.message ||
+        data.mensagem ||
+        'Erro ao comunicar com o servidor'
     )
   }
 
@@ -28,4 +38,12 @@ export async function login(email, senha) {
       senha,
     }),
   })
+}
+
+export async function listarCampanhas() {
+  return request('/campanhas')
+}
+
+export async function listarLocais() {
+  return request('/locais')
 }
