@@ -1,0 +1,28 @@
+.dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: #f5f6f8;
+}
+
+.dashboard-content {
+  flex: 1;
+  padding: 32px;
+}
+
+.dashboard-content h1 {
+  margin-bottom: 8px;
+  font-size: 2rem;
+  color: #172033;
+}
+
+.dashboard-content p {
+  color: #667085;
+}
+.dashboard-main {
+  padding-top: 32px;
+}
+
+.dashboard-main h2 {
+  margin-bottom: 8px;
+  color: #172033;
+}
