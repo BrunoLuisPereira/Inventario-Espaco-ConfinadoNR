@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/layout/Sidebar'
 import Header from '../components/layout/Header'
 import CampanhaForm from '../components/campanhas/CampanhaForm'
@@ -9,6 +10,8 @@ import {
 import '../styles/Campanhas.css'
 
 function Campanhas() {
+  const navigate = useNavigate()
+
   const [campanhas, setCampanhas] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
@@ -53,6 +56,12 @@ function Campanhas() {
     setMostrarFormulario(false)
   }
 
+  function abrirLocais(campanha) {
+    navigate(
+      `/campanhas/${campanha.id_campanha}/locais`
+    )
+  }
+
   function campanhaSalva(campanhaSalva) {
     if (campanhaEmEdicao) {
       setCampanhas((campanhasAtuais) =>
@@ -90,7 +99,7 @@ function Campanhas() {
       setCampanhas((campanhasAtuais) =>
         campanhasAtuais.map((item) =>
           item.id_campanha === resposta.data.id_campanha
-            ? resposta.data
+            ? { ...item, ...resposta.data }
             : item
         )
       )
@@ -257,6 +266,20 @@ function Campanhas() {
                                 CANCELADA
                               </option>
                             </select>
+
+                            <button
+                              type="button"
+                              className="campanha-button-locais"
+                              onClick={() =>
+                                abrirLocais(campanha)
+                              }
+                              disabled={
+                                mostrarFormulario ||
+                                atualizando
+                              }
+                            >
+                              Ver locais →
+                            </button>
                           </div>
                         </td>
                       </tr>

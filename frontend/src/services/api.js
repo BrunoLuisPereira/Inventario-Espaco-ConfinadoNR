@@ -73,3 +73,29 @@ export async function alterarStatusCampanha(
 export async function listarLocais() {
   return request('/locais')
 }
+
+export async function criarLocal(dados) {
+  return request('/locais', {
+    method: 'POST',
+    body: JSON.stringify(dados),
+  })
+}
+
+export async function atualizarLocal(idLocal, dados) {
+  return request(`/locais/${idLocal}`, {
+    method: 'PUT',
+    body: JSON.stringify(dados),
+  })
+}
+
+export async function alterarStatusLocal(
+  idLocal,
+  status
+) {
+  return request(`/locais/${idLocal}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      status,
+    }),
+  })
+}
