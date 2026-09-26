@@ -51,6 +51,25 @@ export async function criarCampanha(dados) {
   })
 }
 
+export async function atualizarCampanha(idCampanha, dados) {
+  return request(`/campanhas/${idCampanha}`, {
+    method: 'PUT',
+    body: JSON.stringify(dados),
+  })
+}
+
+export async function alterarStatusCampanha(
+  idCampanha,
+  status
+) {
+  return request(`/campanhas/${idCampanha}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      status,
+    }),
+  })
+}
+
 export async function listarLocais() {
   return request('/locais')
 }

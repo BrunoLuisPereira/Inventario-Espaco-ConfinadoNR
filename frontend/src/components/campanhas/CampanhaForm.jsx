@@ -1,12 +1,29 @@
 import { useState } from 'react'
-import { criarCampanha } from '../../services/api'
+import {
+  atualizarCampanha,
+  criarCampanha,
+} from '../../services/api'
 
-function CampanhaForm({ onCancelar, onCampanhaCriada }) {
+function formatarDataParaInput(data) {
+  if (!data) {
+    return ''
+  }
+
+  return data.slice(0, 10)
+}
+
+function CampanhaForm({
+  campanha = null,
+  onCancelar,
+  onCampanhaSalva,
+}) {
+  const editando = Boolean(campanha)
+
   const [formulario, setFormulario] = useState({
-    nome_campanha: '',
-    empresa: '',
-    responsavel: '',
-    data_inicio: '',
+    nome_campanha: campanha?.nome_campanha || '',
+    empresa: campanha?.empresa || '',
+    responsavel: campanha?.responsavel || '',
+    data_inicio: formatarDataParaInput(campanha?.data_inicio),
   })
 
   const [salvando, setSalvando] = useState(false)
@@ -28,15 +45,28 @@ function CampanhaForm({ onCancelar, onCampanhaCriada }) {
       setSalvando(true)
       setErro('')
 
-      const resposta = await criarCampanha({
+      const dados = {
         nome_campanha: formulario.nome_campanha.trim(),
         empresa: formulario.empresa.trim(),
         responsavel: formulario.responsavel.trim(),
         data_inicio: formulario.data_inicio,
-        status: 'ATIVA',
-      })
+      }
 
-      onCampanhaCriada(resposta.data)
+      let resposta
+
+      if (editando) {
+        resposta = await atualizarCampanha(
+          campanha.id_campanha,
+          dados
+        )
+      } else {
+        resposta = await criarCampanha({
+          ...dados,
+          status: 'ATIVA',
+        })
+      }
+
+      onCampanhaSalva(resposta.data)
     } catch (error) {
       setErro(error.message)
     } finally {
@@ -132,7 +162,11 @@ function CampanhaForm({ onCancelar, onCampanhaCriada }) {
           className="campanha-button-primary"
           disabled={salvando}
         >
-          {salvando ? 'Salvando...' : 'Cadastrar campanha'}
+          {salvando
+            ? 'Salvando...'
+            : editando
+              ? 'Salvar alterações'
+              : 'Cadastrar campanha'}
         </button>
       </div>
     </form>
