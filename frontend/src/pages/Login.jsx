@@ -1,7 +1,45 @@
+import { useState } from 'react'
 import logoInventario from '../assets/logo-inventario.png'
+import { login } from '../services/api'
+import { useAuth } from '../hooks/useAuth'
 import '../styles/Login.css'
+import { useNavigate } from 'react-router-dom'
 
 function Login() {
+  const { autenticar } = useAuth()
+  const navigate = useNavigate()
+  const [email, setEmail] = useState('')
+  const [senha, setSenha] = useState('')
+  const [erro, setErro] = useState('')
+  const [carregando, setCarregando] = useState(false)
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+
+    setErro('')
+
+    if (!email || !senha) {
+      setErro('Informe o e-mail e a senha.')
+      return
+    }
+
+    try {
+      setCarregando(true)
+
+      const resposta = await login(email, senha)
+
+      autenticar(resposta.data)
+
+      navigate('/dashboard', { replace: true })
+
+      
+    } catch (error) {
+      setErro(error.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
+
   return (
     <main className="login-page">
       <section className="login-card">
@@ -18,7 +56,7 @@ function Login() {
           </p>
         </div>
 
-        <form className="login-form">
+        <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="email">E-mail</label>
 
@@ -28,6 +66,8 @@ function Login() {
               type="email"
               placeholder="seu@email.com"
               autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
             />
           </div>
 
@@ -40,21 +80,33 @@ function Login() {
               type="password"
               placeholder="Digite sua senha"
               autoComplete="current-password"
+              value={senha}
+              onChange={(event) => setSenha(event.target.value)}
             />
           </div>
 
+          {erro && (
+            <p className="login-error">
+              {erro}
+            </p>
+          )}
+
           <div className="login-options">
-  <button type="button">
-    Criar conta
-  </button>
+            <button type="button">
+              Criar conta
+            </button>
 
-  <button type="button">
-    Esqueci minha senha
-  </button>
-</div>
+            <button type="button">
+              Esqueci minha senha
+            </button>
+          </div>
 
-          <button type="submit" className="login-button">
-            Entrar
+          <button
+            type="submit"
+            className="login-button"
+            disabled={carregando}
+          >
+            {carregando ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
 
