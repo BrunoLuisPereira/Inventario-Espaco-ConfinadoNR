@@ -1,4 +1,9 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import {
+  Navigate,
+  Route,
+  Routes,
+} from 'react-router-dom'
+
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Campanhas from './pages/Campanhas'
@@ -7,6 +12,8 @@ import InventarioLocal from './pages/InventarioLocal'
 import ChecklistLocal from './pages/ChecklistLocal'
 import DadosTecnicosLocal from './pages/DadosTecnicosLocal'
 import EvidenciasLocal from './pages/EvidenciasLocal'
+import RelatorioLocal from './pages/RelatorioLocal'
+
 import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './hooks/useAuth'
 
@@ -15,15 +22,22 @@ function App() {
 
   return (
     <Routes>
+      {/* Login */}
       <Route
         path="/login"
         element={
-          autenticado
-            ? <Navigate to="/dashboard" replace />
-            : <Login />
+          autenticado ? (
+            <Navigate
+              to="/dashboard"
+              replace
+            />
+          ) : (
+            <Login />
+          )
         }
       />
 
+      {/* Dashboard */}
       <Route
         path="/dashboard"
         element={
@@ -33,6 +47,7 @@ function App() {
         }
       />
 
+      {/* Campanhas */}
       <Route
         path="/campanhas"
         element={
@@ -42,6 +57,7 @@ function App() {
         }
       />
 
+      {/* Locais da campanha */}
       <Route
         path="/campanhas/:idCampanha/locais"
         element={
@@ -51,6 +67,7 @@ function App() {
         }
       />
 
+      {/* Inventário do local */}
       <Route
         path="/locais/:idLocal/inventario"
         element={
@@ -60,6 +77,7 @@ function App() {
         }
       />
 
+      {/* Checklist NR-33 */}
       <Route
         path="/locais/:idLocal/checklist"
         element={
@@ -69,6 +87,7 @@ function App() {
         }
       />
 
+      {/* Dados Técnicos */}
       <Route
         path="/locais/:idLocal/dados-tecnicos"
         element={
@@ -78,6 +97,7 @@ function App() {
         }
       />
 
+      {/* Evidências / Fotos */}
       <Route
         path="/locais/:idLocal/evidencias"
         element={
@@ -87,11 +107,26 @@ function App() {
         }
       />
 
+      {/* Relatório / PDF */}
+      <Route
+        path="/locais/:idLocal/relatorio"
+        element={
+          <ProtectedRoute>
+            <RelatorioLocal />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Rota inexistente */}
       <Route
         path="*"
         element={
           <Navigate
-            to={autenticado ? '/dashboard' : '/login'}
+            to={
+              autenticado
+                ? '/dashboard'
+                : '/login'
+            }
             replace
           />
         }

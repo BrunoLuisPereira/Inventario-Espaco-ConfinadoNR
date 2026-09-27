@@ -1,0 +1,261 @@
+.relatorio-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f5f6f8;
+}
+
+.relatorio-content {
+  flex: 1;
+  margin-left: 220px;
+  min-width: 0;
+}
+
+.relatorio-main {
+  padding: 28px;
+}
+
+.relatorio-back {
+  display: inline-block;
+  margin-bottom: 28px;
+  color: #334155;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.relatorio-back:hover {
+  color: #0f172a;
+}
+
+.relatorio-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.relatorio-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.relatorio-title h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 22px;
+}
+
+.relatorio-title p {
+  margin: 6px 0 0;
+  color: #64748b;
+}
+
+.relatorio-status {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.relatorio-status-disponivel {
+  color: #15803d;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+}
+
+.relatorio-status-pendente {
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+}
+
+.relatorio-card {
+  padding: 26px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.relatorio-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.relatorio-card-header h3 {
+  margin: 0 0 7px;
+  color: #0f172a;
+  font-size: 18px;
+}
+
+.relatorio-card-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.relatorio-document-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.relatorio-info {
+  display: grid;
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.relatorio-info > div {
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.relatorio-info span {
+  display: block;
+  margin-bottom: 7px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.relatorio-info strong {
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.relatorio-observacao {
+  margin-top: 22px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.relatorio-observacao strong {
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.relatorio-observacao p {
+  margin: 7px 0 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.relatorio-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.relatorio-btn {
+  min-width: 150px;
+  padding: 11px 18px;
+  border-radius: 7px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.relatorio-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.relatorio-btn-primary {
+  border: 1px solid #f5b800;
+  background: #f5b800;
+  color: #111827;
+}
+
+.relatorio-btn-primary:hover:not(:disabled) {
+  background: #e5ac00;
+}
+
+.relatorio-btn-secondary {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+}
+
+.relatorio-btn-secondary:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.relatorio-message,
+.relatorio-error,
+.relatorio-success {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-radius: 7px;
+  font-size: 14px;
+}
+
+.relatorio-message {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.relatorio-error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.relatorio-success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+@media (max-width: 1000px) {
+  .relatorio-info {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .relatorio-content {
+    margin-left: 0;
+  }
+
+  .relatorio-main {
+    padding: 18px;
+  }
+
+  .relatorio-title,
+  .relatorio-card-header {
+    flex-direction: column;
+  }
+
+  .relatorio-info {
+    grid-template-columns: 1fr;
+  }
+
+  .relatorio-actions {
+    flex-direction: column;
+  }
+
+  .relatorio-btn {
+    width: 100%;
+  }
+}
