@@ -6,7 +6,11 @@ import {
 } from 'react-router-dom'
 import Sidebar from '../components/layout/Sidebar'
 import Header from '../components/layout/Header'
-import { buscarLocalPorId } from '../services/api'
+import {
+  buscarDadosTecnicosPorLocal,
+  buscarLocalPorId,
+  listarChecklists,
+} from '../services/api'
 import '../styles/InventarioLocal.css'
 
 function InventarioLocal() {
@@ -14,18 +18,64 @@ function InventarioLocal() {
   const navigate = useNavigate()
 
   const [local, setLocal] = useState(null)
+  const [statusChecklist, setStatusChecklist] =
+    useState('PENDENTE')
+  const [
+    statusDadosTecnicos,
+    setStatusDadosTecnicos,
+  ] = useState('PENDENTE')
+
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
 
   useEffect(() => {
-    async function carregarLocal() {
+    async function carregarInventario() {
       try {
         setCarregando(true)
         setErro('')
 
-        const resposta = await buscarLocalPorId(idLocal)
+        const respostaLocal =
+          await buscarLocalPorId(idLocal)
 
-        setLocal(resposta.data)
+        setLocal(respostaLocal.data)
+
+        // Checklist
+        try {
+          const respostaChecklists =
+            await listarChecklists()
+
+          const checklists =
+            respostaChecklists.data || []
+
+          const checklistDoLocal = checklists.find(
+            (checklist) =>
+              Number(checklist.id_local) ===
+              Number(idLocal)
+          )
+
+          setStatusChecklist(
+            checklistDoLocal?.status || 'PENDENTE'
+          )
+        } catch {
+          setStatusChecklist('PENDENTE')
+        }
+
+        // Dados Técnicos
+        try {
+          const respostaDadosTecnicos =
+            await buscarDadosTecnicosPorLocal(idLocal)
+
+          setStatusDadosTecnicos(
+            respostaDadosTecnicos.data?.status ||
+              'PENDENTE'
+          )
+        } catch (error) {
+          if (error.status === 404) {
+            setStatusDadosTecnicos('PENDENTE')
+          } else {
+            setStatusDadosTecnicos('PENDENTE')
+          }
+        }
       } catch (error) {
         setErro(error.message)
       } finally {
@@ -33,8 +83,16 @@ function InventarioLocal() {
       }
     }
 
-    carregarLocal()
+    carregarInventario()
   }, [idLocal])
+
+  function formatarStatus(status) {
+    if (status === 'CONCLUIDO') {
+      return 'CONCLUÍDO'
+    }
+
+    return 'PENDENTE'
+  }
 
   return (
     <div className="inventario-layout">
@@ -155,7 +213,17 @@ function InventarioLocal() {
                     )
                   }
                 >
-                  <strong>Checklist NR-33</strong>
+                  <div className="inventario-module-header">
+                    <strong>Checklist NR-33</strong>
+
+                    <span
+                      className={`inventario-module-status inventario-module-status-${statusChecklist.toLowerCase()}`}
+                    >
+                      {formatarStatus(
+                        statusChecklist
+                      )}
+                    </span>
+                  </div>
 
                   <span>
                     Avaliação dos requisitos do local
@@ -171,7 +239,17 @@ function InventarioLocal() {
                     )
                   }
                 >
-                  <strong>Dados Técnicos</strong>
+                  <div className="inventario-module-header">
+                    <strong>Dados Técnicos</strong>
+
+                    <span
+                      className={`inventario-module-status inventario-module-status-${statusDadosTecnicos.toLowerCase()}`}
+                    >
+                      {formatarStatus(
+                        statusDadosTecnicos
+                      )}
+                    </span>
+                  </div>
 
                   <span>
                     Informações técnicas do espaço
