@@ -1,11 +1,17 @@
-const API_URL = 'http://localhost:3000/api'
+const API_URL =
+  `http://${window.location.hostname}:3000/api`
 
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem('token')
 
+  const ehFormData = options.body instanceof FormData
+
   const headers = {
-    'Content-Type': 'application/json',
     ...options.headers,
+  }
+
+  if (!ehFormData) {
+    headers['Content-Type'] = 'application/json'
   }
 
   if (token) {
@@ -32,6 +38,51 @@ async function request(endpoint, options = {}) {
   }
 
   return data
+}
+
+/**
+ * Realiza uma requisição autenticada para um arquivo.
+ *
+ * Diferente de request(), esta função não tenta
+ * converter a resposta para JSON. O conteúdo é
+ * retornado como Blob para JPG, PNG, PDF etc.
+ */
+async function requestArquivo(endpoint) {
+  const token = localStorage.getItem('token')
+
+  const headers = {}
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    method: 'GET',
+    headers,
+  })
+
+  if (!response.ok) {
+    let mensagem =
+      'Erro ao carregar o arquivo da evidência'
+
+    try {
+      const data = await response.json()
+
+      mensagem =
+        data.message ||
+        data.mensagem ||
+        mensagem
+    } catch {
+      // A resposta pode não ser JSON.
+    }
+
+    const error = new Error(mensagem)
+    error.status = response.status
+
+    throw error
+  }
+
+  return response.blob()
 }
 
 export async function login(email, senha) {
@@ -152,6 +203,7 @@ export async function alterarStatusChecklist(
     }
   )
 }
+
 // Dados Técnicos
 
 export async function buscarDadosTecnicosPorLocal(
@@ -174,5 +226,68 @@ export async function atualizarDadosTecnicos(
   return request(`/dados-tecnicos/${idDadosTecnicos}`, {
     method: 'PUT',
     body: JSON.stringify(dados),
+  })
+}
+
+// Evidências
+
+export async function listarEvidenciasPorLocal(
+  idLocal
+) {
+  return request(`/evidencias/local/${idLocal}`)
+}
+
+export async function enviarEvidencia(
+  idLocal,
+  arquivo,
+  descricao
+) {
+  const formData = new FormData()
+
+  formData.append('id_local', idLocal)
+  formData.append('arquivo', arquivo)
+
+  if (descricao?.trim()) {
+    formData.append(
+      'descricao',
+      descricao.trim()
+    )
+  }
+
+  return request('/evidencias/upload', {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+/**
+ * Busca o arquivo físico de uma evidência.
+ *
+ * A requisição envia o JWT e recebe o arquivo
+ * como Blob.
+ */
+export async function buscarArquivoEvidencia(
+  idEvidencia
+) {
+  return requestArquivo(
+    `/evidencias/${idEvidencia}/arquivo`
+  )
+}
+
+export async function atualizarEvidencia(
+  idEvidencia,
+  dados
+) {
+  return request(`/evidencias/${idEvidencia}`, {
+    method: 'PUT',
+    body: JSON.stringify(dados),
+  })
+}
+
+export async function excluirEvidencia(
+  idEvidencia
+) {
+  return request(`/evidencias/${idEvidencia}`, {
+    method: 'DELETE',
   })
 }

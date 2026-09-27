@@ -18,8 +18,10 @@ function InventarioLocal() {
   const navigate = useNavigate()
 
   const [local, setLocal] = useState(null)
+
   const [statusChecklist, setStatusChecklist] =
     useState('PENDENTE')
+
   const [
     statusDadosTecnicos,
     setStatusDadosTecnicos,
@@ -69,12 +71,8 @@ function InventarioLocal() {
             respostaDadosTecnicos.data?.status ||
               'PENDENTE'
           )
-        } catch (error) {
-          if (error.status === 404) {
-            setStatusDadosTecnicos('PENDENTE')
-          } else {
-            setStatusDadosTecnicos('PENDENTE')
-          }
+        } catch {
+          setStatusDadosTecnicos('PENDENTE')
         }
       } catch (error) {
         setErro(error.message)
@@ -259,7 +257,11 @@ function InventarioLocal() {
                 <button
                   type="button"
                   className="inventario-module"
-                  disabled
+                  onClick={() =>
+                    navigate(
+                      `/locais/${idLocal}/evidencias`
+                    )
+                  }
                 >
                   <strong>Evidências / Fotos</strong>
 

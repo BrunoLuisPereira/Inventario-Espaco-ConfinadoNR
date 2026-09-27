@@ -177,6 +177,64 @@ async function listarPorLocal(
 }
 
 /**
+ * Retorna o arquivo físico de uma evidência.
+ *
+ * A evidência é buscada pelo service para garantir
+ * que o usuário autenticado possui permissão para
+ * acessar o local ao qual ela pertence.
+ */
+async function visualizarArquivo(
+  req,
+  res,
+  next
+) {
+  try {
+    const evidencia =
+      await evidenciaService.buscarEvidenciaPorId(
+        req.params.id,
+        req.usuario
+      );
+
+    if (!evidencia.caminho_arquivo) {
+      const erro = new Error(
+        "Esta evidência não possui arquivo."
+      );
+
+      erro.statusCode = 404;
+      throw erro;
+    }
+
+    const caminhoCompleto =
+      evidenciaArquivoUtils.obterCaminhoCompleto(
+        evidencia.caminho_arquivo
+      );
+
+    if (!caminhoCompleto) {
+      const erro = new Error(
+        "Arquivo da evidência inválido."
+      );
+
+      erro.statusCode = 404;
+      throw erro;
+    }
+
+    return res.sendFile(
+      caminhoCompleto,
+      (erro) => {
+        if (erro && !res.headersSent) {
+          erro.statusCode =
+            erro.statusCode || 404;
+
+          next(erro);
+        }
+      }
+    );
+  } catch (erro) {
+    next(erro);
+  }
+}
+
+/**
  * Atualiza uma evidência existente.
  */
 async function atualizar(req, res, next) {
@@ -232,6 +290,7 @@ module.exports = {
   listar,
   buscarPorId,
   listarPorLocal,
+  visualizarArquivo,
   atualizar,
   excluir,
 };
