@@ -22,6 +22,12 @@ function Campanhas() {
   const [statusAtualizando, setStatusAtualizando] =
     useState(null)
 
+  // Filtros
+  const [busca, setBusca] = useState('')
+  const [filtroStatus, setFiltroStatus] = useState('')
+  const [dataInicial, setDataInicial] = useState('')
+  const [dataFinal, setDataFinal] = useState('')
+
   useEffect(() => {
     async function carregarCampanhas() {
       try {
@@ -118,6 +124,68 @@ function Campanhas() {
       .replace(/\s+/g, '-')
   }
 
+  function normalizarTexto(texto) {
+    return String(texto || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim()
+  }
+
+  function limparFiltros() {
+    setBusca('')
+    setFiltroStatus('')
+    setDataInicial('')
+    setDataFinal('')
+  }
+
+  const campanhasFiltradas = campanhas.filter(
+    (campanha) => {
+      const textoBusca = normalizarTexto(busca)
+
+      const correspondeBusca =
+        !textoBusca ||
+        normalizarTexto(
+          campanha.nome_campanha
+        ).includes(textoBusca) ||
+        normalizarTexto(
+          campanha.empresa
+        ).includes(textoBusca) ||
+        normalizarTexto(
+          campanha.responsavel
+        ).includes(textoBusca)
+
+      const correspondeStatus =
+        !filtroStatus ||
+        campanha.status === filtroStatus
+
+      const dataCampanha = String(
+        campanha.data_inicio || ''
+      ).slice(0, 10)
+
+      const correspondeDataInicial =
+        !dataInicial ||
+        dataCampanha >= dataInicial
+
+      const correspondeDataFinal =
+        !dataFinal ||
+        dataCampanha <= dataFinal
+
+      return (
+        correspondeBusca &&
+        correspondeStatus &&
+        correspondeDataInicial &&
+        correspondeDataFinal
+      )
+    }
+  )
+
+  const possuiFiltros =
+    busca ||
+    filtroStatus ||
+    dataInicial ||
+    dataFinal
+
   return (
     <div className="campanhas-layout">
       <Sidebar />
@@ -188,114 +256,264 @@ function Campanhas() {
           )}
 
           {!carregando && campanhas.length > 0 && (
-            <div className="campanhas-table-container">
-              <table className="campanhas-table">
-                <thead>
-                  <tr>
-                    <th>Campanha</th>
-                    <th>Empresa</th>
-                    <th>Responsável</th>
-                    <th>Data de início</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                  </tr>
-                </thead>
+            <>
+              <div className="campanhas-filtros">
+                <div className="campanhas-filtro-busca">
+                  <label htmlFor="busca-campanha">
+                    Buscar
+                  </label>
 
-                <tbody>
-                  {campanhas.map((campanha) => {
-                    const atualizando =
-                      statusAtualizando ===
-                      campanha.id_campanha
+                  <input
+                    id="busca-campanha"
+                    type="text"
+                    value={busca}
+                    onChange={(event) =>
+                      setBusca(event.target.value)
+                    }
+                    placeholder="Campanha, empresa ou responsável..."
+                  />
+                </div>
 
-                    return (
-                      <tr key={campanha.id_campanha}>
-                        <td>{campanha.nome_campanha}</td>
+                <div className="campanhas-filtro">
+                  <label htmlFor="filtro-status">
+                    Status
+                  </label>
 
-                        <td>{campanha.empresa}</td>
+                  <select
+                    id="filtro-status"
+                    value={filtroStatus}
+                    onChange={(event) =>
+                      setFiltroStatus(
+                        event.target.value
+                      )
+                    }
+                  >
+                    <option value="">
+                      Todos os status
+                    </option>
 
-                        <td>{campanha.responsavel}</td>
+                    <option value="EM ANDAMENTO">
+                      Em andamento
+                    </option>
 
-                        <td>
-                          {new Date(
-                            campanha.data_inicio
-                          ).toLocaleDateString('pt-BR')}
-                        </td>
+                    <option value="CONCLUIDO">
+                      Concluído
+                    </option>
 
-                        <td>
-                          <span
-                            className={`campanhas-status campanhas-status-${obterClasseStatus(
-                              campanha.status
-                            )}`}
-                          >
-                            {campanha.status}
-                          </span>
-                        </td>
+                    <option value="CANCELADA">
+                      Cancelada
+                    </option>
+                  </select>
+                </div>
 
-                        <td>
-                          <div className="campanha-actions">
-                            <button
-                              type="button"
-                              className="campanha-button-edit"
-                              onClick={() =>
-                                abrirEdicao(campanha)
-                              }
-                              disabled={
-                                mostrarFormulario ||
-                                atualizando
-                              }
-                            >
-                              Editar
-                            </button>
+                <div className="campanhas-filtro">
+                  <label htmlFor="data-inicial">
+                    Data inicial
+                  </label>
 
-                            <select
-                              className="campanha-status-select"
-                              value={campanha.status}
-                              onChange={(event) =>
-                                alterarStatus(
-                                  campanha,
-                                  event.target.value
-                                )
-                              }
-                              disabled={
-                                mostrarFormulario ||
-                                atualizando
-                              }
-                              aria-label={`Alterar status da campanha ${campanha.nome_campanha}`}
-                            >
-                              <option value="EM ANDAMENTO">
-                                EM ANDAMENTO
-                              </option>
+                  <input
+                    id="data-inicial"
+                    type="date"
+                    value={dataInicial}
+                    onChange={(event) =>
+                      setDataInicial(
+                        event.target.value
+                      )
+                    }
+                  />
+                </div>
 
-                              <option value="CONCLUIDO">
-                                CONCLUÍDO
-                              </option>
+                <div className="campanhas-filtro">
+                  <label htmlFor="data-final">
+                    Data final
+                  </label>
 
-                              <option value="CANCELADA">
-                                CANCELADA
-                              </option>
-                            </select>
+                  <input
+                    id="data-final"
+                    type="date"
+                    value={dataFinal}
+                    onChange={(event) =>
+                      setDataFinal(
+                        event.target.value
+                      )
+                    }
+                  />
+                </div>
 
-                            <button
-                              type="button"
-                              className="campanha-button-locais"
-                              onClick={() =>
-                                abrirLocais(campanha)
-                              }
-                              disabled={
-                                mostrarFormulario ||
-                                atualizando
-                              }
-                            >
-                              Ver locais →
-                            </button>
-                          </div>
-                        </td>
+                <div className="campanhas-filtro-limpar">
+                  <button
+                    type="button"
+                    className="campanha-button-clear"
+                    onClick={limparFiltros}
+                    disabled={!possuiFiltros}
+                  >
+                    Limpar filtros
+                  </button>
+                </div>
+              </div>
+
+              <div className="campanhas-resultado-filtro">
+                <span>
+                  {campanhasFiltradas.length}{' '}
+                  {campanhasFiltradas.length === 1
+                    ? 'campanha encontrada'
+                    : 'campanhas encontradas'}
+                </span>
+              </div>
+
+              {campanhasFiltradas.length === 0 ? (
+                <div className="campanhas-sem-resultados">
+                  <p>
+                    Nenhuma campanha encontrada com os
+                    filtros selecionados.
+                  </p>
+
+                  <button
+                    type="button"
+                    className="campanha-button-clear"
+                    onClick={limparFiltros}
+                  >
+                    Limpar filtros
+                  </button>
+                </div>
+              ) : (
+                <div className="campanhas-table-container">
+                  <table className="campanhas-table">
+                    <thead>
+                      <tr>
+                        <th>Campanha</th>
+                        <th>Empresa</th>
+                        <th>Responsável</th>
+                        <th>Data de início</th>
+                        <th>Status</th>
+                        <th>Ações</th>
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+
+                    <tbody>
+                      {campanhasFiltradas.map(
+                        (campanha) => {
+                          const atualizando =
+                            statusAtualizando ===
+                            campanha.id_campanha
+
+                          return (
+                            <tr
+                              key={
+                                campanha.id_campanha
+                              }
+                            >
+                              <td>
+                                {
+                                  campanha.nome_campanha
+                                }
+                              </td>
+
+                              <td>
+                                {campanha.empresa}
+                              </td>
+
+                              <td>
+                                {
+                                  campanha.responsavel
+                                }
+                              </td>
+
+                              <td>
+                                {new Date(
+                                  campanha.data_inicio
+                                ).toLocaleDateString(
+                                  'pt-BR'
+                                )}
+                              </td>
+
+                              <td>
+                                <span
+                                  className={`campanhas-status campanhas-status-${obterClasseStatus(
+                                    campanha.status
+                                  )}`}
+                                >
+                                  {campanha.status}
+                                </span>
+                              </td>
+
+                              <td>
+                                <div className="campanha-actions">
+                                  <button
+                                    type="button"
+                                    className="campanha-button-edit"
+                                    onClick={() =>
+                                      abrirEdicao(
+                                        campanha
+                                      )
+                                    }
+                                    disabled={
+                                      mostrarFormulario ||
+                                      atualizando
+                                    }
+                                  >
+                                    Editar
+                                  </button>
+
+                                  <select
+                                    className="campanha-status-select"
+                                    value={
+                                      campanha.status
+                                    }
+                                    onChange={(
+                                      event
+                                    ) =>
+                                      alterarStatus(
+                                        campanha,
+                                        event.target
+                                          .value
+                                      )
+                                    }
+                                    disabled={
+                                      mostrarFormulario ||
+                                      atualizando
+                                    }
+                                    aria-label={`Alterar status da campanha ${campanha.nome_campanha}`}
+                                  >
+                                    <option value="EM ANDAMENTO">
+                                      EM ANDAMENTO
+                                    </option>
+
+                                    <option value="CONCLUIDO">
+                                      CONCLUÍDO
+                                    </option>
+
+                                    <option value="CANCELADA">
+                                      CANCELADA
+                                    </option>
+                                  </select>
+
+                                  <button
+                                    type="button"
+                                    className="campanha-button-locais"
+                                    onClick={() =>
+                                      abrirLocais(
+                                        campanha
+                                      )
+                                    }
+                                    disabled={
+                                      mostrarFormulario ||
+                                      atualizando
+                                    }
+                                  >
+                                    Ver locais →
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        }
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </section>
       </main>

@@ -273,14 +273,9 @@ function LocaisCampanha() {
                             >
                               <option value="ATIVO">
                                 ATIVO
-                              </option>
-
+                              </option>                                                         
                               <option value="INATIVO">
                                 INATIVO
-                              </option>
-
-                              <option value="CONCLUIDO">
-                                CONCLUÍDO
                               </option>
                             </select>
                           </td>
