@@ -323,6 +323,27 @@ function InventarioLocal() {
                       PDF
                     </span>
                   </button>
+
+                  {/* Responsáveis pelo Relatório */}
+                  <button
+                    type="button"
+                    className="inventario-module"
+                    onClick={() =>
+                      navigate(
+                        `/locais/${idLocal}/responsaveis`
+                      )
+                    }
+                  >
+                    <strong>
+                      Responsáveis pelo Relatório
+                    </strong>
+
+                    <span>
+                      Usuário responsável e
+                      informações do responsável
+                      técnico
+                    </span>
+                  </button>
                 </div>
               </>
             )}

@@ -13,6 +13,7 @@ import ChecklistLocal from './pages/ChecklistLocal'
 import DadosTecnicosLocal from './pages/DadosTecnicosLocal'
 import EvidenciasLocal from './pages/EvidenciasLocal'
 import RelatorioLocal from './pages/RelatorioLocal'
+import ResponsaveisRelatorio from './pages/ResponsaveisRelatorio'
 
 import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './hooks/useAuth'
@@ -113,6 +114,16 @@ function App() {
         element={
           <ProtectedRoute>
             <RelatorioLocal />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Responsáveis pelo relatório */}
+      <Route
+        path="/locais/:idLocal/responsaveis"
+        element={
+          <ProtectedRoute>
+            <ResponsaveisRelatorio />
           </ProtectedRoute>
         }
       />

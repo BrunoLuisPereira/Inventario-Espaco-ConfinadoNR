@@ -112,6 +112,12 @@ function Campanhas() {
     }
   }
 
+  function obterClasseStatus(status) {
+    return String(status || '')
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+  }
+
   return (
     <div className="campanhas-layout">
       <Sidebar />
@@ -217,7 +223,9 @@ function Campanhas() {
 
                         <td>
                           <span
-                            className={`campanhas-status campanhas-status-${campanha.status.toLowerCase()}`}
+                            className={`campanhas-status campanhas-status-${obterClasseStatus(
+                              campanha.status
+                            )}`}
                           >
                             {campanha.status}
                           </span>
@@ -254,12 +262,12 @@ function Campanhas() {
                               }
                               aria-label={`Alterar status da campanha ${campanha.nome_campanha}`}
                             >
-                              <option value="ATIVA">
-                                ATIVA
+                              <option value="EM ANDAMENTO">
+                                EM ANDAMENTO
                               </option>
 
-                              <option value="CONCLUIDA">
-                                CONCLUÍDA
+                              <option value="CONCLUIDO">
+                                CONCLUÍDO
                               </option>
 
                               <option value="CANCELADA">

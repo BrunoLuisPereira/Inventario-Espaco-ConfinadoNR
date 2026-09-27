@@ -6,7 +6,7 @@ async function criarCampanha(dados, usuarioAutenticado) {
     empresa,
     responsavel,
     data_inicio: dataInicio,
-    status = "ATIVA",
+    status = "EM ANDAMENTO",
   } = dados;
 
   if (!nomeCampanha || !nomeCampanha.trim()) {
@@ -34,8 +34,8 @@ async function criarCampanha(dados, usuarioAutenticado) {
   }
 
   const statusPermitidos = [
-    "ATIVA",
-    "CONCLUIDA",
+    "EM ANDAMENTO",
+    "CONCLUIDO",
     "CANCELADA",
   ];
 
@@ -186,14 +186,14 @@ async function alterarStatusCampanha(
   }
 
   const statusPermitidos = [
-    "ATIVA",
-    "CONCLUIDA",
+    "EM ANDAMENTO",
+    "CONCLUIDO",
     "CANCELADA",
   ];
 
   if (!statusPermitidos.includes(dados.status)) {
     const error = new Error(
-      "O status deve ser ATIVA, CONCLUIDA ou CANCELADA."
+      "O status deve ser EM ANDAMENTO, CONCLUIDO ou CANCELADA."
     );
     error.statusCode = 400;
     throw error;

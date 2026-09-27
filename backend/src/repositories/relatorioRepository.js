@@ -4,7 +4,10 @@ async function criar(dados) {
   const {
     id_local,
     id_usuario_responsavel,
+    nome_responsavel_tecnico,
+    crea,
     numero_art,
+    data_art,
     caminho_pdf,
     hash_pdf,
     status,
@@ -15,20 +18,26 @@ async function criar(dados) {
     INSERT INTO relatorio (
       id_local,
       id_usuario_responsavel,
+      nome_responsavel_tecnico,
+      crea,
       numero_art,
+      data_art,
       caminho_pdf,
       hash_pdf,
       status,
       data_emissao
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     RETURNING *;
   `;
 
   const valores = [
     id_local,
     id_usuario_responsavel,
+    nome_responsavel_tecnico ?? null,
+    crea ?? null,
     numero_art ?? null,
+    data_art ?? null,
     caminho_pdf ?? null,
     hash_pdf ?? null,
     status ?? "RASCUNHO",
@@ -45,7 +54,9 @@ async function listarTodos() {
     SELECT
       r.*,
       l.nome_local,
-      u.nome AS usuario_responsavel
+      u.nome AS usuario_responsavel,
+      u.email AS email_usuario_responsavel,
+      u.perfil_acesso AS perfil_usuario_responsavel
     FROM relatorio r
     INNER JOIN local l
       ON l.id_local = r.id_local
@@ -58,18 +69,19 @@ async function listarTodos() {
 
   return resultado.rows;
 }
+
 /**
  * Lista apenas os relatórios pertencentes
  * a campanhas do usuário responsável.
  */
-async function listarPorUsuarioResponsavel(
-  idUsuario
-) {
+async function listarPorUsuarioResponsavel(idUsuario) {
   const query = `
     SELECT
       r.*,
       l.nome_local,
-      u.nome AS usuario_responsavel
+      u.nome AS usuario_responsavel,
+      u.email AS email_usuario_responsavel,
+      u.perfil_acesso AS perfil_usuario_responsavel
     FROM relatorio r
     INNER JOIN local l
       ON l.id_local = r.id_local
@@ -88,12 +100,15 @@ async function listarPorUsuarioResponsavel(
 
   return resultado.rows;
 }
+
 async function buscarPorId(idRelatorio) {
   const query = `
     SELECT
       r.*,
       l.nome_local,
-      u.nome AS usuario_responsavel
+      u.nome AS usuario_responsavel,
+      u.email AS email_usuario_responsavel,
+      u.perfil_acesso AS perfil_usuario_responsavel
     FROM relatorio r
     INNER JOIN local l
       ON l.id_local = r.id_local
@@ -102,7 +117,10 @@ async function buscarPorId(idRelatorio) {
     WHERE r.id_relatorio = $1;
   `;
 
-  const resultado = await pool.query(query, [idRelatorio]);
+  const resultado = await pool.query(
+    query,
+    [idRelatorio]
+  );
 
   return resultado.rows[0];
 }
@@ -111,14 +129,19 @@ async function buscarPorLocal(idLocal) {
   const query = `
     SELECT
       r.*,
-      u.nome AS usuario_responsavel
+      u.nome AS usuario_responsavel,
+      u.email AS email_usuario_responsavel,
+      u.perfil_acesso AS perfil_usuario_responsavel
     FROM relatorio r
     INNER JOIN usuario u
       ON u.id_usuario = r.id_usuario_responsavel
     WHERE r.id_local = $1;
   `;
 
-  const resultado = await pool.query(query, [idLocal]);
+  const resultado = await pool.query(
+    query,
+    [idLocal]
+  );
 
   return resultado.rows[0];
 }
@@ -127,7 +150,10 @@ async function buscarDadosCompletos(idRelatorio) {
   const query = `
     SELECT
       r.id_relatorio,
+      r.nome_responsavel_tecnico,
+      r.crea,
       r.numero_art,
+      r.data_art,
       r.status AS status_relatorio,
       r.data_emissao,
       r.caminho_pdf,
@@ -136,6 +162,7 @@ async function buscarDadosCompletos(idRelatorio) {
       u.id_usuario AS id_responsavel,
       u.nome AS responsavel,
       u.email AS email_responsavel,
+      u.perfil_acesso AS perfil_responsavel,
 
       l.id_local,
       l.nome_local,
@@ -213,14 +240,20 @@ async function buscarDadosCompletos(idRelatorio) {
     WHERE r.id_relatorio = $1;
   `;
 
-  const resultado = await pool.query(query, [idRelatorio]);
+  const resultado = await pool.query(
+    query,
+    [idRelatorio]
+  );
 
   return resultado.rows[0];
 }
 
 async function atualizar(idRelatorio, dados) {
   const {
+    nome_responsavel_tecnico,
+    crea,
     numero_art,
+    data_art,
     caminho_pdf,
     hash_pdf,
     status,
@@ -230,18 +263,24 @@ async function atualizar(idRelatorio, dados) {
   const query = `
     UPDATE relatorio
     SET
-      numero_art = $1,
-      caminho_pdf = $2,
-      hash_pdf = $3,
-      status = $4,
-      data_emissao = $5,
+      nome_responsavel_tecnico = $1,
+      crea = $2,
+      numero_art = $3,
+      data_art = $4,
+      caminho_pdf = $5,
+      hash_pdf = $6,
+      status = $7,
+      data_emissao = $8,
       data_atualizacao = CURRENT_TIMESTAMP
-    WHERE id_relatorio = $6
+    WHERE id_relatorio = $9
     RETURNING *;
   `;
 
   const valores = [
+    nome_responsavel_tecnico ?? null,
+    crea ?? null,
     numero_art ?? null,
+    data_art ?? null,
     caminho_pdf ?? null,
     hash_pdf ?? null,
     status,
@@ -249,7 +288,10 @@ async function atualizar(idRelatorio, dados) {
     idRelatorio,
   ];
 
-  const resultado = await pool.query(query, valores);
+  const resultado = await pool.query(
+    query,
+    valores
+  );
 
   return resultado.rows[0];
 }
@@ -261,7 +303,10 @@ async function excluir(idRelatorio) {
     RETURNING *;
   `;
 
-  const resultado = await pool.query(query, [idRelatorio]);
+  const resultado = await pool.query(
+    query,
+    [idRelatorio]
+  );
 
   return resultado.rows[0];
 }

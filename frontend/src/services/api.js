@@ -291,6 +291,7 @@ export async function excluirEvidencia(
     method: 'DELETE',
   })
 }
+
 // Relatórios
 
 export async function buscarRelatorioPorLocal(
@@ -302,6 +303,16 @@ export async function buscarRelatorioPorLocal(
 export async function criarRelatorio(dados) {
   return request('/relatorios', {
     method: 'POST',
+    body: JSON.stringify(dados),
+  })
+}
+
+export async function atualizarRelatorio(
+  idRelatorio,
+  dados
+) {
+  return request(`/relatorios/${idRelatorio}`, {
+    method: 'PUT',
     body: JSON.stringify(dados),
   })
 }

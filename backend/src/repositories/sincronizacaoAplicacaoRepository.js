@@ -668,7 +668,7 @@ async function criarCampanha(
         dados.empresa.trim(),
         dados.responsavel.trim(),
         dados.data_inicio,
-        dados.status ?? "ATIVA",
+        dados.status ?? "EM ANDAMENTO",
         idUsuario,
       ]
     );

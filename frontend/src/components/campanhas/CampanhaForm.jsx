@@ -62,7 +62,7 @@ function CampanhaForm({
       } else {
         resposta = await criarCampanha({
           ...dados,
-          status: 'ATIVA',
+          status: 'EM ANDAMENTO',
         })
       }
 

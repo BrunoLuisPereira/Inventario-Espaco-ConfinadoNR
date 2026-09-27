@@ -126,6 +126,44 @@ function validarStatus(status) {
   }
 }
 
+function normalizarTextoOpcional(valor) {
+  if (
+    valor === undefined ||
+    valor === null
+  ) {
+    return null;
+  }
+
+  const texto = String(valor).trim();
+
+  return texto || null;
+}
+
+function normalizarDataOpcional(valor) {
+  if (
+    valor === undefined ||
+    valor === null ||
+    valor === ""
+  ) {
+    return null;
+  }
+
+  const texto = String(valor).trim();
+
+  const formatoValido =
+    /^\d{4}-\d{2}-\d{2}$/.test(texto);
+
+  if (!formatoValido) {
+    const erro = new Error(
+      "Data da ART inválida. Use o formato AAAA-MM-DD."
+    );
+    erro.statusCode = 400;
+    throw erro;
+  }
+
+  return texto;
+}
+
 async function criarRelatorio(
   dados,
   usuarioAutenticado
@@ -165,9 +203,32 @@ async function criarRelatorio(
 
   return relatorioRepository.criar({
     id_local: idLocal,
+
+    // O usuário responsável vem da autenticação.
     id_usuario_responsavel:
       usuarioAutenticado.id_usuario,
-    numero_art: dados.numero_art ?? null,
+
+    // Dados do responsável técnico.
+    nome_responsavel_tecnico:
+      normalizarTextoOpcional(
+        dados.nome_responsavel_tecnico
+      ),
+
+    crea:
+      normalizarTextoOpcional(
+        dados.crea
+      ),
+
+    numero_art:
+      normalizarTextoOpcional(
+        dados.numero_art
+      ),
+
+    data_art:
+      normalizarDataOpcional(
+        dados.data_art
+      ),
+
     caminho_pdf: null,
     hash_pdf: null,
     status,
@@ -282,22 +343,76 @@ async function atualizarRelatorio(
   );
 
   const status =
-    dados.status ?? relatorioAtual.status;
+    dados.status ??
+    relatorioAtual.status;
 
   validarStatus(status);
 
-  return relatorioRepository.atualizar(id, {
-    numero_art:
-      dados.numero_art ??
-      relatorioAtual.numero_art,
-    caminho_pdf:
-      relatorioAtual.caminho_pdf,
-    hash_pdf:
-      relatorioAtual.hash_pdf,
-    status,
-    data_emissao:
-      relatorioAtual.data_emissao,
-  });
+  /*
+   * Se determinado campo não vier no PUT,
+   * preservamos o valor que já existe.
+   *
+   * Se vier como string vazia, ele será
+   * transformado em NULL.
+   */
+
+  const nomeResponsavelTecnico =
+    dados.nome_responsavel_tecnico !==
+    undefined
+      ? normalizarTextoOpcional(
+          dados.nome_responsavel_tecnico
+        )
+      : relatorioAtual.nome_responsavel_tecnico;
+
+  const crea =
+    dados.crea !== undefined
+      ? normalizarTextoOpcional(
+          dados.crea
+        )
+      : relatorioAtual.crea;
+
+  const numeroArt =
+    dados.numero_art !== undefined
+      ? normalizarTextoOpcional(
+          dados.numero_art
+        )
+      : relatorioAtual.numero_art;
+
+  const dataArt =
+    dados.data_art !== undefined
+      ? normalizarDataOpcional(
+          dados.data_art
+        )
+      : relatorioAtual.data_art;
+
+  return relatorioRepository.atualizar(
+    id,
+    {
+      nome_responsavel_tecnico:
+        nomeResponsavelTecnico,
+
+      crea,
+
+      numero_art:
+        numeroArt,
+
+      data_art:
+        dataArt,
+
+      // Estes campos continuam controlados
+      // pelo fluxo de geração do relatório.
+      caminho_pdf:
+        relatorioAtual.caminho_pdf,
+
+      hash_pdf:
+        relatorioAtual.hash_pdf,
+
+      status,
+
+      data_emissao:
+        relatorioAtual.data_emissao,
+    }
+  );
 }
 
 async function excluirRelatorio(
@@ -416,23 +531,48 @@ async function gerarPdfRelatorio(
 
   const dataEmissao = new Date();
 
+  /*
+   * Importante:
+   * ao atualizar caminho/hash/status do PDF,
+   * preservamos também os dados técnicos.
+   */
   const relatorioAtualizado =
-    await relatorioRepository.atualizar(id, {
-      numero_art:
-        relatorioAtual.numero_art,
-      caminho_pdf:
-        resultadoPdf.caminhoRelativo,
-      hash_pdf:
-        resultadoPdf.hash,
-      status: "GERADO",
-      data_emissao: dataEmissao,
-    });
+    await relatorioRepository.atualizar(
+      id,
+      {
+        nome_responsavel_tecnico:
+          relatorioAtual.nome_responsavel_tecnico,
+
+        crea:
+          relatorioAtual.crea,
+
+        numero_art:
+          relatorioAtual.numero_art,
+
+        data_art:
+          relatorioAtual.data_art,
+
+        caminho_pdf:
+          resultadoPdf.caminhoRelativo,
+
+        hash_pdf:
+          resultadoPdf.hash,
+
+        status: "GERADO",
+
+        data_emissao:
+          dataEmissao,
+      }
+    );
 
   return {
-    relatorio: relatorioAtualizado,
+    relatorio:
+      relatorioAtualizado,
+
     arquivo: {
       caminho:
         resultadoPdf.caminhoRelativo,
+
       hash_sha256:
         resultadoPdf.hash,
     },
