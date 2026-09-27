@@ -7,7 +7,7 @@ import '../styles/Dashboard.css'
 function Dashboard() {
   const [indicadores, setIndicadores] = useState({
     totalCampanhas: 0,
-    campanhasAtivas: 0,
+    campanhasEmAndamento: 0,
     campanhasConcluidas: 0,
     totalLocais: 0,
     locaisAtivos: 0,
@@ -28,16 +28,16 @@ function Dashboard() {
           listarLocais(),
         ])
 
-        const campanhasAtivas = campanhas.data.filter(
-          (campanha) => campanha.status === 'ATIVA'
+        const campanhasEmAndamento = campanhas.data.filter(
+          (campanha) => campanha.status === 'EM ANDAMENTO'
         ).length
 
         const campanhasConcluidas = campanhas.data.filter(
-          (campanha) => campanha.status === 'CONCLUIDA'
+          (campanha) => campanha.status === 'CONCLUIDO'
         ).length
 
         const locaisAtivos = locais.data.filter(
-          (local) => local.status === 'ATIVO'
+          (local) => local.status === 'EM ANDAMENTO'
         ).length
 
         const locaisConcluidos = locais.data.filter(
@@ -46,7 +46,7 @@ function Dashboard() {
 
         setIndicadores({
           totalCampanhas: campanhas.total,
-          campanhasAtivas,
+          campanhasEmAndamento,
           campanhasConcluidas,
           totalLocais: locais.total,
           locaisAtivos,
@@ -68,8 +68,8 @@ function Dashboard() {
 
       <main className="dashboard-content">
         <Header
-        titulo="Dashboard"
-        subtitulo="Visão geral do inventário de espaços confinados"
+          titulo="Dashboard"
+          subtitulo="Visão geral do inventário de espaços confinados"
         />
 
         <section className="dashboard-main">
@@ -109,8 +109,10 @@ function Dashboard() {
 
                 <div className="dashboard-card-status">
                   <span>
-                    Ativas
-                    <strong>{indicadores.campanhasAtivas}</strong>
+                    Em andamento
+                    <strong>
+                      {indicadores.campanhasEmAndamento}
+                    </strong>
                   </span>
 
                   <span>
@@ -138,12 +140,16 @@ function Dashboard() {
                 <div className="dashboard-card-status">
                   <span>
                     Ativos
-                    <strong>{indicadores.locaisAtivos}</strong>
+                    <strong>
+                      {indicadores.locaisAtivos}
+                    </strong>
                   </span>
 
                   <span>
                     Concluídos
-                    <strong>{indicadores.locaisConcluidos}</strong>
+                    <strong>
+                      {indicadores.locaisConcluidos}
+                    </strong>
                   </span>
                 </div>
               </article>

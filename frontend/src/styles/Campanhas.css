@@ -66,6 +66,10 @@
   border-bottom: 0;
 }
 
+/* ========================================
+   STATUS
+======================================== */
+
 .campanhas-status {
   display: inline-block;
   padding: 4px 10px;
@@ -74,15 +78,27 @@
   font-weight: 600;
 }
 
-.campanhas-status-ativa {
+/* EM ANDAMENTO - amarelo */
+.campanhas-status-em-andamento {
+  background-color: #fffaeb;
+  color: #b54708;
+}
+
+/* CONCLUIDO - verde */
+.campanhas-status-concluido {
   background-color: #ecfdf3;
   color: #027a48;
 }
 
-.campanhas-status-concluida {
-  background-color: #f2f4f7;
-  color: #344054;
+/* CANCELADA - vermelho */
+.campanhas-status-cancelada {
+  background-color: #fef3f2;
+  color: #b42318;
 }
+
+/* ========================================
+   MENSAGENS
+======================================== */
 
 .campanhas-message {
   margin-top: 28px;
@@ -98,11 +114,10 @@
   color: #b42318;
 }
 
-@media (max-width: 768px) {
-  .campanhas-content {
-    padding: 20px;
-  }
-}
+/* ========================================
+   BOTÕES
+======================================== */
+
 .campanha-button-primary,
 .campanha-button-secondary {
   padding: 10px 16px;
@@ -137,6 +152,10 @@
   cursor: not-allowed;
   opacity: 0.6;
 }
+
+/* ========================================
+   FORMULÁRIO
+======================================== */
 
 .campanha-form-container {
   margin-top: 28px;
@@ -191,20 +210,10 @@
   margin-top: 24px;
 }
 
-@media (max-width: 768px) {
-  .campanhas-title {
-    align-items: stretch;
-    flex-direction: column;
-  }
+/* ========================================
+   BOTÃO EDITAR
+======================================== */
 
-  .campanha-form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .campanha-form-actions {
-    flex-direction: column-reverse;
-  }
-}
 .campanha-button-edit {
   padding: 7px 12px;
   border: 1px solid #d0d5dd;
@@ -226,6 +235,11 @@
   cursor: not-allowed;
   opacity: 0.5;
 }
+
+/* ========================================
+   AÇÕES DA CAMPANHA
+======================================== */
+
 .campanha-actions {
   display: flex;
   align-items: center;
@@ -256,6 +270,11 @@
   cursor: not-allowed;
   opacity: 0.5;
 }
+
+/* ========================================
+   BOTÃO VER LOCAIS
+======================================== */
+
 .campanha-button-locais {
   padding: 7px 10px;
   border: 1px solid #344054;
@@ -273,5 +292,27 @@
   background: #f9fafb;
   border-color: #101828;
   color: #101828;
+}
 
+/* ========================================
+   RESPONSIVIDADE
+======================================== */
+
+@media (max-width: 768px) {
+  .campanhas-content {
+    padding: 20px;
+  }
+
+  .campanhas-title {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .campanha-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .campanha-form-actions {
+    flex-direction: column-reverse;
+  }
 }

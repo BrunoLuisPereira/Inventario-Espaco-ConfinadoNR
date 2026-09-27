@@ -307,6 +307,7 @@ function adicionarRodapes(doc, dados, dataGeracao) {
     const largura = larguraUtil(doc);
     const yLinha = doc.page.height - 42;
 
+    // Linha superior do rodapé
     doc
       .save()
       .strokeColor(CORES.borda)
@@ -322,6 +323,7 @@ function adicionarRodapes(doc, dados, dataGeracao) {
       )
       .stroke();
 
+    // Informação do relatório
     doc
       .fillColor(CORES.textoClaro)
       .font("Helvetica")
@@ -335,19 +337,25 @@ function adicionarRodapes(doc, dados, dataGeracao) {
         PAGINA.margemEsquerda,
         yLinha + 7,
         {
-          width: largura / 1.5,
+          width: largura * 0.7,
+          height: 12,
           lineBreak: false,
         }
       );
 
+    // Número da página
     doc
+      .fillColor(CORES.textoClaro)
       .font("Helvetica-Bold")
+      .fontSize(7.5)
       .text(
         `Página ${i + 1} de ${range.count}`,
-        PAGINA.margemEsquerda,
+        PAGINA.margemEsquerda +
+          largura * 0.7,
         yLinha + 7,
         {
-          width: largura,
+          width: largura * 0.3,
+          height: 12,
           align: "right",
           lineBreak: false,
         }
@@ -512,7 +520,6 @@ function obterCorStatus(status) {
     [
       "CONCLUIDO",
       "CONCLUÍDO",
-      "ATIVA",
       "ATIVO",
       "SIM",
     ].includes(valor)
@@ -1161,12 +1168,13 @@ async function gerarPdfRelatorio(dados) {
       );
 
       // ==================================================
-      // 1. IDENTIFICAÇÃO DO RELATÓRIO
+           // ==================================================
+      // 1. IDENTIFICAÇÃO E RESPONSABILIDADE
       // ==================================================
 
       adicionarTitulo(
         doc,
-        "1. Identificação do Relatório",
+        "1. Identificação e Responsabilidade",
         dados
       );
 
@@ -1177,16 +1185,23 @@ async function gerarPdfRelatorio(dados) {
         dados
       );
 
-      adicionarCampo(
+      adicionarStatus(
         doc,
-        "Número ART",
-        dados.numero_art,
+        "Status do relatório",
+        dados.status_relatorio,
         dados
       );
 
       adicionarCampo(
         doc,
-        "Responsável",
+        "Data de emissão",
+        formatarData(dados.data_emissao),
+        dados
+      );
+
+      adicionarCampo(
+        doc,
+        "Usuário responsável",
         dados.responsavel,
         dados
       );
@@ -1198,6 +1213,40 @@ async function gerarPdfRelatorio(dados) {
         dados
       );
 
+      adicionarCampo(
+        doc,
+        "Perfil",
+        dados.perfil_responsavel,
+        dados
+      );
+
+      adicionarCampo(
+        doc,
+        "Responsável técnico",
+        dados.nome_responsavel_tecnico,
+        dados
+      );
+
+      adicionarCampo(
+        doc,
+        "CREA",
+        dados.crea,
+        dados
+      );
+
+      adicionarCampo(
+        doc,
+        "Número da ART",
+        dados.numero_art,
+        dados
+      );
+
+      adicionarCampo(
+        doc,
+        "Data da ART",
+        formatarData(dados.data_art),
+        dados
+      );
       // ==================================================
       // 2. CAMPANHA
       // ==================================================

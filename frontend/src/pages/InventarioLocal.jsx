@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+
 import {
   Link,
   useNavigate,
@@ -11,7 +12,9 @@ import Header from '../components/layout/Header'
 import {
   buscarDadosTecnicosPorLocal,
   buscarLocalPorId,
+  buscarRelatorioPorLocal,
   listarChecklists,
+  listarEvidenciasPorLocal,
 } from '../services/api'
 
 import '../styles/InventarioLocal.css'
@@ -28,6 +31,16 @@ function InventarioLocal() {
   const [
     statusDadosTecnicos,
     setStatusDadosTecnicos,
+  ] = useState('PENDENTE')
+
+  const [
+    statusEvidencias,
+    setStatusEvidencias,
+  ] = useState('PENDENTE')
+
+  const [
+    statusResponsaveis,
+    setStatusResponsaveis,
   ] = useState('PENDENTE')
 
   const [carregando, setCarregando] =
@@ -84,6 +97,56 @@ function InventarioLocal() {
           setStatusDadosTecnicos(
             'PENDENTE'
           )
+        }
+
+        // Evidências / Fotos
+        try {
+          const respostaEvidencias =
+            await listarEvidenciasPorLocal(
+              idLocal
+            )
+
+          const evidencias =
+            respostaEvidencias.data || []
+
+          setStatusEvidencias(
+            evidencias.length > 0
+              ? 'CONCLUIDO'
+              : 'PENDENTE'
+          )
+        } catch {
+          setStatusEvidencias('PENDENTE')
+        }
+
+        // Responsáveis pelo Relatório
+        try {
+          const respostaRelatorio =
+            await buscarRelatorioPorLocal(
+              idLocal
+            )
+
+          const relatorio =
+            respostaRelatorio.data
+
+          const responsaveisPreenchidos =
+            Boolean(
+              relatorio
+                ?.nome_responsavel_tecnico
+                ?.trim()
+            ) &&
+            Boolean(relatorio?.crea?.trim()) &&
+            Boolean(
+              relatorio?.numero_art?.trim()
+            ) &&
+            Boolean(relatorio?.data_art)
+
+          setStatusResponsaveis(
+            responsaveisPreenchidos
+              ? 'CONCLUIDO'
+              : 'PENDENTE'
+          )
+        } catch {
+          setStatusResponsaveis('PENDENTE')
         }
       } catch (error) {
         setErro(error.message)
@@ -284,7 +347,7 @@ function InventarioLocal() {
                     </span>
                   </button>
 
-                  {/* Evidências */}
+                  {/* Evidências / Fotos */}
                   <button
                     type="button"
                     className="inventario-module"
@@ -294,13 +357,54 @@ function InventarioLocal() {
                       )
                     }
                   >
-                    <strong>
-                      Evidências / Fotos
-                    </strong>
+                    <div className="inventario-module-header">
+                      <strong>
+                        Evidências / Fotos
+                      </strong>
+
+                      <span
+                        className={`inventario-module-status inventario-module-status-${statusEvidencias.toLowerCase()}`}
+                      >
+                        {formatarStatus(
+                          statusEvidencias
+                        )}
+                      </span>
+                    </div>
 
                     <span>
                       Registros e evidências do
                       local
+                    </span>
+                  </button>
+
+                  {/* Responsáveis pelo Relatório */}
+                  <button
+                    type="button"
+                    className="inventario-module"
+                    onClick={() =>
+                      navigate(
+                        `/locais/${idLocal}/responsaveis`
+                      )
+                    }
+                  >
+                    <div className="inventario-module-header">
+                      <strong>
+                        Responsáveis pelo Relatório
+                      </strong>
+
+                      <span
+                        className={`inventario-module-status inventario-module-status-${statusResponsaveis.toLowerCase()}`}
+                      >
+                        {formatarStatus(
+                          statusResponsaveis
+                        )}
+                      </span>
+                    </div>
+
+                    <span>
+                      Usuário responsável e
+                      informações do responsável
+                      técnico
                     </span>
                   </button>
 
