@@ -15,6 +15,7 @@ import {
   atualizarRelatorio,
   buscarLocalPorId,
   buscarRelatorioPorLocal,
+  criarRelatorio,
 } from '../services/api'
 
 import '../styles/ResponsaveisRelatorio.css'
@@ -44,6 +45,7 @@ function ResponsaveisRelatorio() {
   const { idLocal } = useParams()
 
   const [local, setLocal] = useState(null)
+
   const [relatorio, setRelatorio] =
     useState(null)
 
@@ -53,8 +55,10 @@ function ResponsaveisRelatorio() {
   ] = useState('')
 
   const [crea, setCrea] = useState('')
+
   const [numeroArt, setNumeroArt] =
     useState('')
+
   const [dataArt, setDataArt] =
     useState('')
 
@@ -65,6 +69,7 @@ function ResponsaveisRelatorio() {
     useState(false)
 
   const [erro, setErro] = useState('')
+
   const [sucesso, setSucesso] =
     useState('')
 
@@ -75,39 +80,90 @@ function ResponsaveisRelatorio() {
         setErro('')
         setSucesso('')
 
-        const [
-          respostaLocal,
-          respostaRelatorio,
-        ] = await Promise.all([
-          buscarLocalPorId(idLocal),
-          buscarRelatorioPorLocal(idLocal),
-        ])
+        // Carrega primeiro os dados do local.
+        const respostaLocal =
+          await buscarLocalPorId(idLocal)
 
         const dadosLocal =
           respostaLocal.data
 
-        const dadosRelatorio =
-          respostaRelatorio.data
-
         setLocal(dadosLocal)
+
+        let dadosRelatorio
+
+        try {
+          // Tenta localizar um relatório já
+          // existente para este local.
+          const respostaRelatorio =
+            await buscarRelatorioPorLocal(
+              idLocal
+            )
+
+          dadosRelatorio =
+            respostaRelatorio.data
+        } catch (error) {
+          // Se o erro não for 404, existe algum
+          // outro problema e ele deve ser exibido.
+          if (error.status !== 404) {
+            throw error
+          }
+
+          // Se não existir relatório, cria um
+          // RASCUNHO. Isso NÃO gera o PDF.
+          try {
+            const respostaNovoRelatorio =
+              await criarRelatorio({
+                id_local: Number(idLocal),
+                status: 'RASCUNHO',
+              })
+
+            dadosRelatorio =
+              respostaNovoRelatorio.data
+          } catch (erroCriacao) {
+            /*
+             * Em desenvolvimento, o React pode
+             * executar o efeito mais de uma vez.
+             *
+             * Se duas requisições tentarem criar
+             * o relatório praticamente ao mesmo
+             * tempo, uma delas pode receber 409
+             * porque o relatório já foi criado.
+             *
+             * Nesse caso, apenas buscamos o
+             * relatório existente.
+             */
+            if (erroCriacao.status !== 409) {
+              throw erroCriacao
+            }
+
+            const respostaRelatorioExistente =
+              await buscarRelatorioPorLocal(
+                idLocal
+              )
+
+            dadosRelatorio =
+              respostaRelatorioExistente.data
+          }
+        }
+
         setRelatorio(dadosRelatorio)
 
         setNomeResponsavelTecnico(
           dadosRelatorio
-            .nome_responsavel_tecnico || ''
+            ?.nome_responsavel_tecnico || ''
         )
 
         setCrea(
-          dadosRelatorio.crea || ''
+          dadosRelatorio?.crea || ''
         )
 
         setNumeroArt(
-          dadosRelatorio.numero_art || ''
+          dadosRelatorio?.numero_art || ''
         )
 
         setDataArt(
           converterDataParaInput(
-            dadosRelatorio.data_art
+            dadosRelatorio?.data_art
           )
         )
       } catch (error) {
