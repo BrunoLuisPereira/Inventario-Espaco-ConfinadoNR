@@ -6,6 +6,7 @@ import LocaisCampanha from './pages/LocaisCampanha'
 import InventarioLocal from './pages/InventarioLocal'
 import ChecklistLocal from './pages/ChecklistLocal'
 import DadosTecnicosLocal from './pages/DadosTecnicosLocal'
+import EvidenciasLocal from './pages/EvidenciasLocal'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './hooks/useAuth'
 
@@ -73,6 +74,15 @@ function App() {
         element={
           <ProtectedRoute>
             <DadosTecnicosLocal />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/locais/:idLocal/evidencias"
+        element={
+          <ProtectedRoute>
+            <EvidenciasLocal />
           </ProtectedRoute>
         }
       />

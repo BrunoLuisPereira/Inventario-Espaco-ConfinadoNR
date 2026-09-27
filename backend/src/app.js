@@ -17,11 +17,49 @@ const app = express();
 // ======================================================
 // Middlewares gerais
 // ======================================================
+
+const origensPermitidas = [
+  "http://localhost:5173",
+  "http://192.168.1.8:5173",
+];
+
 app.use(
   cors({
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    origin: (origin, callback) => {
+      /*
+       * Requisições sem Origin também são permitidas.
+       * Isso mantém compatibilidade com ferramentas
+       * como Postman e chamadas diretas à API.
+       */
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (origensPermitidas.includes(origin)) {
+        return callback(null, true);
+      }
+
+      const erro = new Error(
+        "Origem não permitida pelo CORS."
+      );
+
+      erro.statusCode = 403;
+
+      return callback(erro);
+    },
+
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+    ],
+
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
   })
 );
 
