@@ -40,6 +40,8 @@ export async function login(email, senha) {
   })
 }
 
+// Campanhas
+
 export async function listarCampanhas() {
   return request('/campanhas')
 }
@@ -51,7 +53,10 @@ export async function criarCampanha(dados) {
   })
 }
 
-export async function atualizarCampanha(idCampanha, dados) {
+export async function atualizarCampanha(
+  idCampanha,
+  dados
+) {
   return request(`/campanhas/${idCampanha}`, {
     method: 'PUT',
     body: JSON.stringify(dados),
@@ -70,8 +75,14 @@ export async function alterarStatusCampanha(
   })
 }
 
+// Locais
+
 export async function listarLocais() {
   return request('/locais')
+}
+
+export async function buscarLocalPorId(idLocal) {
+  return request(`/locais/${idLocal}`)
 }
 
 export async function criarLocal(dados) {
@@ -98,4 +109,42 @@ export async function alterarStatusLocal(
       status,
     }),
   })
+}
+
+// Checklist NR-33
+
+export async function listarChecklists() {
+  return request('/checklists')
+}
+
+export async function criarChecklist(dados) {
+  return request('/checklists', {
+    method: 'POST',
+    body: JSON.stringify(dados),
+  })
+}
+
+export async function atualizarChecklist(
+  idChecklist,
+  dados
+) {
+  return request(`/checklists/${idChecklist}`, {
+    method: 'PUT',
+    body: JSON.stringify(dados),
+  })
+}
+
+export async function alterarStatusChecklist(
+  idChecklist,
+  status
+) {
+  return request(
+    `/checklists/${idChecklist}/status`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        status,
+      }),
+    }
+  )
 }

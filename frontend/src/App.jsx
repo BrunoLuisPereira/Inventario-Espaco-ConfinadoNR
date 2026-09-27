@@ -3,6 +3,8 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Campanhas from './pages/Campanhas'
 import LocaisCampanha from './pages/LocaisCampanha'
+import InventarioLocal from './pages/InventarioLocal'
+import ChecklistLocal from './pages/ChecklistLocal'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './hooks/useAuth'
 
@@ -43,6 +45,24 @@ function App() {
         element={
           <ProtectedRoute>
             <LocaisCampanha />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/locais/:idLocal/inventario"
+        element={
+          <ProtectedRoute>
+            <InventarioLocal />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/locais/:idLocal/checklist"
+        element={
+          <ProtectedRoute>
+            <ChecklistLocal />
           </ProtectedRoute>
         }
       />
