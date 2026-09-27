@@ -5,6 +5,7 @@ import Campanhas from './pages/Campanhas'
 import LocaisCampanha from './pages/LocaisCampanha'
 import InventarioLocal from './pages/InventarioLocal'
 import ChecklistLocal from './pages/ChecklistLocal'
+import DadosTecnicosLocal from './pages/DadosTecnicosLocal'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './hooks/useAuth'
 
@@ -63,6 +64,15 @@ function App() {
         element={
           <ProtectedRoute>
             <ChecklistLocal />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/locais/:idLocal/dados-tecnicos"
+        element={
+          <ProtectedRoute>
+            <DadosTecnicosLocal />
           </ProtectedRoute>
         }
       />

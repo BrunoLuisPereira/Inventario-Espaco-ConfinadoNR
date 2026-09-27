@@ -20,11 +20,15 @@ async function request(endpoint, options = {}) {
   const data = await response.json()
 
   if (!response.ok) {
-    throw new Error(
+    const error = new Error(
       data.message ||
         data.mensagem ||
         'Erro ao comunicar com o servidor'
     )
+
+    error.status = response.status
+
+    throw error
   }
 
   return data
@@ -147,4 +151,28 @@ export async function alterarStatusChecklist(
       }),
     }
   )
+}
+// Dados Técnicos
+
+export async function buscarDadosTecnicosPorLocal(
+  idLocal
+) {
+  return request(`/dados-tecnicos/local/${idLocal}`)
+}
+
+export async function criarDadosTecnicos(dados) {
+  return request('/dados-tecnicos', {
+    method: 'POST',
+    body: JSON.stringify(dados),
+  })
+}
+
+export async function atualizarDadosTecnicos(
+  idDadosTecnicos,
+  dados
+) {
+  return request(`/dados-tecnicos/${idDadosTecnicos}`, {
+    method: 'PUT',
+    body: JSON.stringify(dados),
+  })
 }

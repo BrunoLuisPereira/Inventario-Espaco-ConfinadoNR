@@ -156,6 +156,7 @@ function InventarioLocal() {
                   }
                 >
                   <strong>Checklist NR-33</strong>
+
                   <span>
                     Avaliação dos requisitos do local
                   </span>
@@ -164,9 +165,14 @@ function InventarioLocal() {
                 <button
                   type="button"
                   className="inventario-module"
-                  disabled
+                  onClick={() =>
+                    navigate(
+                      `/locais/${idLocal}/dados-tecnicos`
+                    )
+                  }
                 >
                   <strong>Dados Técnicos</strong>
+
                   <span>
                     Informações técnicas do espaço
                   </span>
@@ -178,6 +184,7 @@ function InventarioLocal() {
                   disabled
                 >
                   <strong>Evidências / Fotos</strong>
+
                   <span>
                     Registros e evidências do local
                   </span>
@@ -189,6 +196,7 @@ function InventarioLocal() {
                   disabled
                 >
                   <strong>Relatório</strong>
+
                   <span>
                     Visualização e geração do PDF
                   </span>
