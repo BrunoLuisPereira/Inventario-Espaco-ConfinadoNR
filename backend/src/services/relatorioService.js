@@ -5,25 +5,84 @@ const pdfService = require("./pdfService");
 
 const STATUS_VALIDOS = ["RASCUNHO", "GERADO"];
 
-async function validarPermissaoLocal(idLocal, usuarioAutenticado) {
-  const local = await localRepository.buscarPorId(idLocal);
+function validarUsuarioAutenticado(usuarioAutenticado) {
+  if (
+    !usuarioAutenticado ||
+    typeof usuarioAutenticado !== "object"
+  ) {
+    const erro = new Error(
+      "Usuário autenticado inválido."
+    );
+    erro.statusCode = 401;
+    throw erro;
+  }
+
+  const idUsuario = Number(
+    usuarioAutenticado.id_usuario
+  );
+
+  const perfisPermitidos = [
+    "ADMINISTRADOR",
+    "ENGENHEIRO_SEGURANCA",
+  ];
+
+  if (
+    !Number.isInteger(idUsuario) ||
+    idUsuario <= 0 ||
+    !perfisPermitidos.includes(
+      usuarioAutenticado.perfil_acesso
+    )
+  ) {
+    const erro = new Error(
+      "Usuário autenticado inválido."
+    );
+    erro.statusCode = 401;
+    throw erro;
+  }
+
+  return {
+    id_usuario: idUsuario,
+    perfil_acesso:
+      usuarioAutenticado.perfil_acesso,
+  };
+}
+
+async function validarPermissaoLocal(
+  idLocal,
+  usuarioAutenticado
+) {
+  usuarioAutenticado =
+    validarUsuarioAutenticado(
+      usuarioAutenticado
+    );
+
+  const local =
+    await localRepository.buscarPorId(idLocal);
 
   if (!local) {
-    const erro = new Error("Local não encontrado.");
+    const erro = new Error(
+      "Local não encontrado."
+    );
     erro.statusCode = 404;
     throw erro;
   }
 
-  const campanha = await campanhaRepository.buscarPorId(local.id_campanha);
+  const campanha =
+    await campanhaRepository.buscarPorId(
+      local.id_campanha
+    );
 
   if (!campanha) {
-    const erro = new Error("Campanha não encontrada.");
+    const erro = new Error(
+      "Campanha não encontrada."
+    );
     erro.statusCode = 404;
     throw erro;
   }
 
   const ehAdministrador =
-    usuarioAutenticado.perfil_acesso === "ADMINISTRADOR";
+    usuarioAutenticado.perfil_acesso ===
+    "ADMINISTRADOR";
 
   const ehResponsavel =
     Number(campanha.id_usuario) ===
@@ -31,7 +90,7 @@ async function validarPermissaoLocal(idLocal, usuarioAutenticado) {
 
   if (!ehAdministrador && !ehResponsavel) {
     const erro = new Error(
-      "Você não possui permissão para alterar o relatório deste local."
+      "Você não possui permissão para acessar o relatório deste local."
     );
     erro.statusCode = 403;
     throw erro;
@@ -44,7 +103,9 @@ function validarId(id, nomeCampo) {
   const numero = Number(id);
 
   if (!Number.isInteger(numero) || numero <= 0) {
-    const erro = new Error(`${nomeCampo} inválido.`);
+    const erro = new Error(
+      `${nomeCampo} inválido.`
+    );
     erro.statusCode = 400;
     throw erro;
   }
@@ -53,7 +114,10 @@ function validarId(id, nomeCampo) {
 }
 
 function validarStatus(status) {
-  if (status && !STATUS_VALIDOS.includes(status)) {
+  if (
+    status &&
+    !STATUS_VALIDOS.includes(status)
+  ) {
     const erro = new Error(
       "Status inválido. Use RASCUNHO ou GERADO."
     );
@@ -62,12 +126,29 @@ function validarStatus(status) {
   }
 }
 
-async function criarRelatorio(dados, usuarioAutenticado) {
-  const idLocal = validarId(dados.id_local, "ID do local");
+async function criarRelatorio(
+  dados,
+  usuarioAutenticado
+) {
+  usuarioAutenticado =
+    validarUsuarioAutenticado(
+      usuarioAutenticado
+    );
 
-  await validarPermissaoLocal(idLocal, usuarioAutenticado);
+  const idLocal = validarId(
+    dados.id_local,
+    "ID do local"
+  );
 
-  const existente = await relatorioRepository.buscarPorLocal(idLocal);
+  await validarPermissaoLocal(
+    idLocal,
+    usuarioAutenticado
+  );
+
+  const existente =
+    await relatorioRepository.buscarPorLocal(
+      idLocal
+    );
 
   if (existente) {
     const erro = new Error(
@@ -77,7 +158,8 @@ async function criarRelatorio(dados, usuarioAutenticado) {
     throw erro;
   }
 
-  const status = dados.status ?? "RASCUNHO";
+  const status =
+    dados.status ?? "RASCUNHO";
 
   validarStatus(status);
 
@@ -93,36 +175,74 @@ async function criarRelatorio(dados, usuarioAutenticado) {
   });
 }
 
-async function listarRelatorios() {
-  return relatorioRepository.listarTodos();
+async function listarRelatorios(
+  usuarioAutenticado
+) {
+  usuarioAutenticado =
+    validarUsuarioAutenticado(
+      usuarioAutenticado
+    );
+
+  const ehAdministrador =
+    usuarioAutenticado.perfil_acesso ===
+    "ADMINISTRADOR";
+
+  if (ehAdministrador) {
+    return relatorioRepository.listarTodos();
+  }
+
+  return relatorioRepository
+    .listarPorUsuarioResponsavel(
+      usuarioAutenticado.id_usuario
+    );
 }
 
-async function buscarRelatorioPorId(idRelatorio) {
-  const id = validarId(idRelatorio, "ID do relatório");
+async function buscarRelatorioPorId(
+  idRelatorio,
+  usuarioAutenticado
+) {
+  const id = validarId(
+    idRelatorio,
+    "ID do relatório"
+  );
 
-  const relatorio = await relatorioRepository.buscarPorId(id);
+  const relatorio =
+    await relatorioRepository.buscarPorId(id);
 
   if (!relatorio) {
-    const erro = new Error("Relatório não encontrado.");
+    const erro = new Error(
+      "Relatório não encontrado."
+    );
     erro.statusCode = 404;
     throw erro;
   }
+
+  await validarPermissaoLocal(
+    relatorio.id_local,
+    usuarioAutenticado
+  );
 
   return relatorio;
 }
 
-async function buscarRelatorioPorLocal(idLocal) {
-  const id = validarId(idLocal, "ID do local");
+async function buscarRelatorioPorLocal(
+  idLocal,
+  usuarioAutenticado
+) {
+  const id = validarId(
+    idLocal,
+    "ID do local"
+  );
 
-  const local = await localRepository.buscarPorId(id);
+  await validarPermissaoLocal(
+    id,
+    usuarioAutenticado
+  );
 
-  if (!local) {
-    const erro = new Error("Local não encontrado.");
-    erro.statusCode = 404;
-    throw erro;
-  }
-
-  const relatorio = await relatorioRepository.buscarPorLocal(id);
+  const relatorio =
+    await relatorioRepository.buscarPorLocal(
+      id
+    );
 
   if (!relatorio) {
     const erro = new Error(
@@ -140,13 +260,18 @@ async function atualizarRelatorio(
   dados,
   usuarioAutenticado
 ) {
-  const id = validarId(idRelatorio, "ID do relatório");
+  const id = validarId(
+    idRelatorio,
+    "ID do relatório"
+  );
 
   const relatorioAtual =
     await relatorioRepository.buscarPorId(id);
 
   if (!relatorioAtual) {
-    const erro = new Error("Relatório não encontrado.");
+    const erro = new Error(
+      "Relatório não encontrado."
+    );
     erro.statusCode = 404;
     throw erro;
   }
@@ -163,7 +288,8 @@ async function atualizarRelatorio(
 
   return relatorioRepository.atualizar(id, {
     numero_art:
-      dados.numero_art ?? relatorioAtual.numero_art,
+      dados.numero_art ??
+      relatorioAtual.numero_art,
     caminho_pdf:
       relatorioAtual.caminho_pdf,
     hash_pdf:
@@ -178,13 +304,18 @@ async function excluirRelatorio(
   idRelatorio,
   usuarioAutenticado
 ) {
-  const id = validarId(idRelatorio, "ID do relatório");
+  const id = validarId(
+    idRelatorio,
+    "ID do relatório"
+  );
 
   const relatorio =
     await relatorioRepository.buscarPorId(id);
 
   if (!relatorio) {
-    const erro = new Error("Relatório não encontrado.");
+    const erro = new Error(
+      "Relatório não encontrado."
+    );
     erro.statusCode = 404;
     throw erro;
   }
@@ -196,23 +327,51 @@ async function excluirRelatorio(
 
   return relatorioRepository.excluir(id);
 }
-async function buscarRelatorioCompleto(idRelatorio) {
+
+async function buscarRelatorioCompleto(
+  idRelatorio,
+  usuarioAutenticado
+) {
   const id = validarId(
     idRelatorio,
     "ID do relatório"
   );
 
+  /*
+   * Primeiro buscamos o registro básico para
+   * descobrir o local e validar a permissão.
+   */
+  const relatorioAtual =
+    await relatorioRepository.buscarPorId(id);
+
+  if (!relatorioAtual) {
+    const erro = new Error(
+      "Relatório não encontrado."
+    );
+    erro.statusCode = 404;
+    throw erro;
+  }
+
+  await validarPermissaoLocal(
+    relatorioAtual.id_local,
+    usuarioAutenticado
+  );
+
   const relatorio =
-    await relatorioRepository.buscarDadosCompletos(id);
+    await relatorioRepository
+      .buscarDadosCompletos(id);
 
   if (!relatorio) {
-    const erro = new Error("Relatório não encontrado.");
+    const erro = new Error(
+      "Relatório não encontrado."
+    );
     erro.statusCode = 404;
     throw erro;
   }
 
   return relatorio;
 }
+
 async function gerarPdfRelatorio(
   idRelatorio,
   usuarioAutenticado
@@ -226,7 +385,9 @@ async function gerarPdfRelatorio(
     await relatorioRepository.buscarPorId(id);
 
   if (!relatorioAtual) {
-    const erro = new Error("Relatório não encontrado.");
+    const erro = new Error(
+      "Relatório não encontrado."
+    );
     erro.statusCode = 404;
     throw erro;
   }
@@ -237,7 +398,8 @@ async function gerarPdfRelatorio(
   );
 
   const dadosCompletos =
-    await relatorioRepository.buscarDadosCompletos(id);
+    await relatorioRepository
+      .buscarDadosCompletos(id);
 
   if (!dadosCompletos) {
     const erro = new Error(
@@ -256,9 +418,12 @@ async function gerarPdfRelatorio(
 
   const relatorioAtualizado =
     await relatorioRepository.atualizar(id, {
-      numero_art: relatorioAtual.numero_art,
-      caminho_pdf: resultadoPdf.caminhoRelativo,
-      hash_pdf: resultadoPdf.hash,
+      numero_art:
+        relatorioAtual.numero_art,
+      caminho_pdf:
+        resultadoPdf.caminhoRelativo,
+      hash_pdf:
+        resultadoPdf.hash,
       status: "GERADO",
       data_emissao: dataEmissao,
     });
@@ -266,11 +431,14 @@ async function gerarPdfRelatorio(
   return {
     relatorio: relatorioAtualizado,
     arquivo: {
-      caminho: resultadoPdf.caminhoRelativo,
-      hash_sha256: resultadoPdf.hash,
+      caminho:
+        resultadoPdf.caminhoRelativo,
+      hash_sha256:
+        resultadoPdf.hash,
     },
   };
 }
+
 async function obterPdfParaDownload(
   idRelatorio,
   usuarioAutenticado
@@ -284,7 +452,9 @@ async function obterPdfParaDownload(
     await relatorioRepository.buscarPorId(id);
 
   if (!relatorio) {
-    const erro = new Error("Relatório não encontrado.");
+    const erro = new Error(
+      "Relatório não encontrado."
+    );
     erro.statusCode = 404;
     throw erro;
   }
@@ -304,6 +474,7 @@ async function obterPdfParaDownload(
 
   return relatorio;
 }
+
 module.exports = {
   criarRelatorio,
   listarRelatorios,
@@ -311,7 +482,7 @@ module.exports = {
   buscarRelatorioPorLocal,
   atualizarRelatorio,
   excluirRelatorio,
-  buscarRelatorioCompleto, 
+  buscarRelatorioCompleto,
   gerarPdfRelatorio,
   obterPdfParaDownload,
 };

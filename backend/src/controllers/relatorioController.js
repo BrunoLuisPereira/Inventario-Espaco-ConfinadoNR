@@ -4,10 +4,11 @@ const path = require("path");
 
 async function criar(req, res, next) {
   try {
-    const relatorio = await relatorioService.criarRelatorio(
-      req.body,
-      req.usuario
-    );
+    const relatorio =
+      await relatorioService.criarRelatorio(
+        req.body,
+        req.usuario
+      );
 
     return res.status(201).json({
       status: "success",
@@ -21,7 +22,10 @@ async function criar(req, res, next) {
 
 async function listar(req, res, next) {
   try {
-    const relatorios = await relatorioService.listarRelatorios();
+    const relatorios =
+      await relatorioService.listarRelatorios(
+        req.usuario
+      );
 
     return res.status(200).json({
       status: "success",
@@ -36,7 +40,10 @@ async function listar(req, res, next) {
 async function buscarPorId(req, res, next) {
   try {
     const relatorio =
-      await relatorioService.buscarRelatorioPorId(req.params.id);
+      await relatorioService.buscarRelatorioPorId(
+        req.params.id,
+        req.usuario
+      );
 
     return res.status(200).json({
       status: "success",
@@ -51,7 +58,8 @@ async function buscarPorLocal(req, res, next) {
   try {
     const relatorio =
       await relatorioService.buscarRelatorioPorLocal(
-        req.params.idLocal
+        req.params.idLocal,
+        req.usuario
       );
 
     return res.status(200).json({
@@ -99,11 +107,13 @@ async function excluir(req, res, next) {
     next(erro);
   }
 }
+
 async function buscarCompleto(req, res, next) {
   try {
     const relatorio =
       await relatorioService.buscarRelatorioCompleto(
-        req.params.id
+        req.params.id,
+        req.usuario
       );
 
     return res.status(200).json({
@@ -114,6 +124,7 @@ async function buscarCompleto(req, res, next) {
     next(erro);
   }
 }
+
 async function gerarPdf(req, res, next) {
   try {
     const resultado =
@@ -131,6 +142,7 @@ async function gerarPdf(req, res, next) {
     next(erro);
   }
 }
+
 async function baixarPdf(req, res, next) {
   try {
     const relatorio =
@@ -161,6 +173,7 @@ async function baixarPdf(req, res, next) {
     next(erro);
   }
 }
+
 module.exports = {
   criar,
   listar,

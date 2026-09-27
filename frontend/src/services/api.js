@@ -291,3 +291,36 @@ export async function excluirEvidencia(
     method: 'DELETE',
   })
 }
+// Relatórios
+
+export async function buscarRelatorioPorLocal(
+  idLocal
+) {
+  return request(`/relatorios/local/${idLocal}`)
+}
+
+export async function criarRelatorio(dados) {
+  return request('/relatorios', {
+    method: 'POST',
+    body: JSON.stringify(dados),
+  })
+}
+
+export async function gerarPdfRelatorio(
+  idRelatorio
+) {
+  return request(
+    `/relatorios/${idRelatorio}/gerar-pdf`,
+    {
+      method: 'POST',
+    }
+  )
+}
+
+export async function buscarPdfRelatorio(
+  idRelatorio
+) {
+  return requestArquivo(
+    `/relatorios/${idRelatorio}/pdf`
+  )
+}

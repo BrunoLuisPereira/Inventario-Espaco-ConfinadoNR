@@ -58,7 +58,36 @@ async function listarTodos() {
 
   return resultado.rows;
 }
+/**
+ * Lista apenas os relatórios pertencentes
+ * a campanhas do usuário responsável.
+ */
+async function listarPorUsuarioResponsavel(
+  idUsuario
+) {
+  const query = `
+    SELECT
+      r.*,
+      l.nome_local,
+      u.nome AS usuario_responsavel
+    FROM relatorio r
+    INNER JOIN local l
+      ON l.id_local = r.id_local
+    INNER JOIN campanha c
+      ON c.id_campanha = l.id_campanha
+    INNER JOIN usuario u
+      ON u.id_usuario = r.id_usuario_responsavel
+    WHERE c.id_usuario = $1
+    ORDER BY r.id_relatorio ASC;
+  `;
 
+  const resultado = await pool.query(
+    query,
+    [idUsuario]
+  );
+
+  return resultado.rows;
+}
 async function buscarPorId(idRelatorio) {
   const query = `
     SELECT
@@ -240,6 +269,7 @@ async function excluir(idRelatorio) {
 module.exports = {
   criar,
   listarTodos,
+  listarPorUsuarioResponsavel,
   buscarPorId,
   buscarPorLocal,
   buscarDadosCompletos,
