@@ -201,3 +201,52 @@
     grid-template-columns: 1fr;
   }
 }
+/* Status das etapas do inventário */
+
+.inventario-module-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.inventario-module-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  padding: 6px 12px;
+  border-radius: 999px;
+
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+/* Etapa ainda não concluída */
+.inventario-module-status-pendente {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+/* Etapa concluída */
+.inventario-module-status-concluido {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+@media (max-width: 600px) {
+  .inventario-module-header {
+    align-items: flex-start;
+  }
+
+  .inventario-module-status {
+    padding: 5px 9px;
+    font-size: 0.65rem;
+  }
+}
