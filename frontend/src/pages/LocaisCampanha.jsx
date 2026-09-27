@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import {
+  Link,
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
 import Sidebar from '../components/layout/Sidebar'
 import Header from '../components/layout/Header'
 import LocalForm from '../components/locais/LocalForm'
@@ -12,6 +16,7 @@ import '../styles/Locais.css'
 
 function LocaisCampanha() {
   const { idCampanha } = useParams()
+  const navigate = useNavigate()
 
   const [campanha, setCampanha] = useState(null)
   const [locais, setLocais] = useState([])
@@ -73,6 +78,10 @@ function LocaisCampanha() {
   function abrirFormularioEdicao(local) {
     setLocalEdicao(local)
     setMostrarFormulario(true)
+  }
+
+  function abrirInventario(local) {
+    navigate(`/locais/${local.id_local}/inventario`)
   }
 
   function cancelarFormulario() {
@@ -298,7 +307,14 @@ function LocaisCampanha() {
                               <button
                                 type="button"
                                 className="local-button-open"
-                                disabled
+                                onClick={() =>
+                                  abrirInventario(local)
+                                }
+                                disabled={
+                                  mostrarFormulario ||
+                                  statusAlterando ===
+                                    local.id_local
+                                }
                               >
                                 Abrir inventário
                               </button>
