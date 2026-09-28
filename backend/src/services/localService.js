@@ -25,7 +25,9 @@ async function criarLocal(dados, usuarioAutenticado) {
     throw error;
   }
 
-  const campanha = await campanhaRepository.buscarPorId(idCampanha);
+  const campanha = await campanhaRepository.buscarPorId(
+    idCampanha
+  );
 
   if (!campanha) {
     const error = new Error("Campanha não encontrada.");
@@ -51,11 +53,12 @@ async function criarLocal(dados, usuarioAutenticado) {
   const statusPermitidos = [
     "ATIVO",
     "INATIVO",
-    "CONCLUIDO",
   ];
 
   if (!statusPermitidos.includes(status)) {
-    const error = new Error("Status do local inválido.");
+    const error = new Error(
+      "O status deve ser ATIVO ou INATIVO."
+    );
     error.statusCode = 400;
     throw error;
   }
@@ -95,7 +98,12 @@ async function buscarLocalPorId(idLocal) {
 
   return local;
 }
-async function atualizarLocal(idLocal, dados, usuarioAutenticado) {
+
+async function atualizarLocal(
+  idLocal,
+  dados,
+  usuarioAutenticado
+) {
   const id = Number(idLocal);
 
   if (!Number.isInteger(id) || id <= 0) {
@@ -104,7 +112,8 @@ async function atualizarLocal(idLocal, dados, usuarioAutenticado) {
     throw error;
   }
 
-  const localAtual = await localRepository.buscarPorId(id);
+  const localAtual =
+    await localRepository.buscarPorId(id);
 
   if (!localAtual) {
     const error = new Error("Local não encontrado.");
@@ -112,9 +121,10 @@ async function atualizarLocal(idLocal, dados, usuarioAutenticado) {
     throw error;
   }
 
-  const campanha = await campanhaRepository.buscarPorId(
-    localAtual.id_campanha
-  );
+  const campanha =
+    await campanhaRepository.buscarPorId(
+      localAtual.id_campanha
+    );
 
   const ehAdministrador =
     usuarioAutenticado.perfil_acesso === "ADMINISTRADOR";
@@ -141,7 +151,9 @@ async function atualizarLocal(idLocal, dados, usuarioAutenticado) {
   } = dados;
 
   if (!nomeLocal || !nomeLocal.trim()) {
-    const error = new Error("O nome do local é obrigatório.");
+    const error = new Error(
+      "O nome do local é obrigatório."
+    );
     error.statusCode = 400;
     throw error;
   }
@@ -169,7 +181,8 @@ async function alterarStatusLocal(
     throw error;
   }
 
-  const localAtual = await localRepository.buscarPorId(id);
+  const localAtual =
+    await localRepository.buscarPorId(id);
 
   if (!localAtual) {
     const error = new Error("Local não encontrado.");
@@ -177,9 +190,10 @@ async function alterarStatusLocal(
     throw error;
   }
 
-  const campanha = await campanhaRepository.buscarPorId(
-    localAtual.id_campanha
-  );
+  const campanha =
+    await campanhaRepository.buscarPorId(
+      localAtual.id_campanha
+    );
 
   const ehAdministrador =
     usuarioAutenticado.perfil_acesso === "ADMINISTRADOR";
@@ -199,12 +213,11 @@ async function alterarStatusLocal(
   const statusPermitidos = [
     "ATIVO",
     "INATIVO",
-    "CONCLUIDO",
   ];
 
   if (!statusPermitidos.includes(dados.status)) {
     const error = new Error(
-      "O status deve ser ATIVO, INATIVO ou CONCLUIDO."
+      "O status deve ser ATIVO ou INATIVO."
     );
     error.statusCode = 400;
     throw error;
@@ -215,6 +228,7 @@ async function alterarStatusLocal(
     dados.status
   );
 }
+
 module.exports = {
   criarLocal,
   listarLocais,
