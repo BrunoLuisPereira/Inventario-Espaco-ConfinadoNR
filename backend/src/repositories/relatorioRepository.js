@@ -181,7 +181,9 @@ async function buscarDadosCompletos(idRelatorio) {
       c.status AS status_campanha,
 
       ch.id_checklist,
-      ch.identificacao_espaco,
+      ch.criterio_a,
+      ch.criterio_b,
+      ch.criterio_c,
       ch.acesso_controlado,
       ch.ventilacao_adequada,
       ch.monitoramento_atmosferico,

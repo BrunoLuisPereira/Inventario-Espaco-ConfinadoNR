@@ -3,7 +3,9 @@ const pool = require("../config/database");
 async function criar(checklist) {
   const {
     id_local,
-    identificacao_espaco,
+    criterio_a,
+    criterio_b,
+    criterio_c,
     acesso_controlado,
     ventilacao_adequada,
     monitoramento_atmosferico,
@@ -16,7 +18,9 @@ async function criar(checklist) {
   const query = `
     INSERT INTO checklist_nr33 (
       id_local,
-      identificacao_espaco,
+      criterio_a,
+      criterio_b,
+      criterio_c,
       acesso_controlado,
       ventilacao_adequada,
       monitoramento_atmosferico,
@@ -25,13 +29,15 @@ async function criar(checklist) {
       status,
       id_usuario
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     RETURNING *;
   `;
 
   const valores = [
     id_local,
-    identificacao_espaco,
+    criterio_a,
+    criterio_b,
+    criterio_c,
     acesso_controlado,
     ventilacao_adequada,
     monitoramento_atmosferico,
@@ -95,9 +101,12 @@ async function buscarPorLocal(idLocal) {
 
   return resultado.rows[0];
 }
+
 async function atualizar(idChecklist, dados) {
   const {
-    identificacao_espaco,
+    criterio_a,
+    criterio_b,
+    criterio_c,
     acesso_controlado,
     ventilacao_adequada,
     monitoramento_atmosferico,
@@ -108,19 +117,23 @@ async function atualizar(idChecklist, dados) {
   const query = `
     UPDATE checklist_nr33
     SET
-      identificacao_espaco = $1,
-      acesso_controlado = $2,
-      ventilacao_adequada = $3,
-      monitoramento_atmosferico = $4,
-      procedimento_emergencia = $5,
-      observacoes = $6,
+      criterio_a = $1,
+      criterio_b = $2,
+      criterio_c = $3,
+      acesso_controlado = $4,
+      ventilacao_adequada = $5,
+      monitoramento_atmosferico = $6,
+      procedimento_emergencia = $7,
+      observacoes = $8,
       data_atualizacao = CURRENT_TIMESTAMP
-    WHERE id_checklist = $7
+    WHERE id_checklist = $9
     RETURNING *;
   `;
 
   const valores = [
-    identificacao_espaco,
+    criterio_a,
+    criterio_b,
+    criterio_c,
     acesso_controlado,
     ventilacao_adequada,
     monitoramento_atmosferico,
@@ -133,6 +146,7 @@ async function atualizar(idChecklist, dados) {
 
   return resultado.rows[0];
 }
+
 async function atualizarStatus(idChecklist, status) {
   const query = `
     UPDATE checklist_nr33
@@ -150,6 +164,7 @@ async function atualizarStatus(idChecklist, status) {
 
   return resultado.rows[0];
 }
+
 module.exports = {
   criar,
   listarTodos,

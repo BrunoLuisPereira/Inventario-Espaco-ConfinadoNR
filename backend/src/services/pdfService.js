@@ -423,7 +423,7 @@ function adicionarCampo(
 ) {
   garantirEspaco(doc, 22, dados);
 
-  const larguraTitulo = 165;
+  const larguraTitulo = 205;
   const largura = larguraUtil(doc);
   const y = doc.y;
 
@@ -574,7 +574,7 @@ function adicionarStatus(
 
   const y = doc.y;
   const largura = larguraUtil(doc);
-  const larguraTitulo = 165;
+  const larguraTitulo = 205;
 
   const texto =
     valorOuNaoInformado(status);
@@ -1353,9 +1353,18 @@ async function gerarPdfRelatorio(dados) {
         dados
       );
 
-      // ==================================================
+
+            // ==================================================
       // 4. CHECKLIST NR-33
       // ==================================================
+
+      // Mantém o título e os três critérios de identificação
+      // agrupados na mesma página sempre que possível.
+      garantirEspaco(
+        doc,
+        180,
+        dados
+      );
 
       adicionarTitulo(
         doc,
@@ -1364,35 +1373,57 @@ async function gerarPdfRelatorio(dados) {
       );
 
       if (dados.id_checklist) {
-        adicionarCampo(
+        // --------------------------------------------------
+        // Critérios de identificação do espaço confinado
+        // --------------------------------------------------
+
+        adicionarStatus(
           doc,
-          "Identificação do espaço",
-          dados.identificacao_espaco,
+          "Critério A - Não projetado para ocupação humana contínua",
+          dados.criterio_a,
           dados
         );
 
-        adicionarCampo(
+        adicionarStatus(
+          doc,
+          "Critério B - Meios limitados de entrada/saída",
+          dados.criterio_b,
+          dados
+        );
+
+        adicionarStatus(
+          doc,
+          "Critério C - Atmosfera perigosa existente OU potencial",
+          dados.criterio_c,
+          dados
+        );
+
+        // --------------------------------------------------
+        // Demais itens do Checklist NR-33
+        // --------------------------------------------------
+
+        adicionarStatus(
           doc,
           "Acesso controlado",
           dados.acesso_controlado,
           dados
         );
 
-        adicionarCampo(
+        adicionarStatus(
           doc,
           "Ventilação adequada",
           dados.ventilacao_adequada,
           dados
         );
 
-        adicionarCampo(
+        adicionarStatus(
           doc,
           "Monitoramento atmosférico",
           dados.monitoramento_atmosferico,
           dados
         );
 
-        adicionarCampo(
+        adicionarStatus(
           doc,
           "Procedimento de emergência",
           dados.procedimento_emergencia,
@@ -1443,9 +1474,32 @@ async function gerarPdfRelatorio(dados) {
         );
       }
 
-      // ==================================================
+            // ==================================================
       // 6. EVIDÊNCIAS
       // ==================================================
+
+      if (
+        Array.isArray(
+          dados.evidencias
+        ) &&
+        dados.evidencias.length > 0
+      ) {
+        // Reserva espaço para manter o título da seção
+        // junto com o início da primeira evidência.
+        garantirEspaco(
+          doc,
+          390,
+          dados
+        );
+      } else {
+        // Quando não existem evidências, reserva apenas
+        // espaço para o título e a mensagem informativa.
+        garantirEspaco(
+          doc,
+          100,
+          dados
+        );
+      }
 
       adicionarTitulo(
         doc,
