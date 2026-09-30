@@ -6,6 +6,7 @@
 
 .dashboard-content {
   flex: 1;
+  min-width: 0;
   padding: 32px;
 }
 
@@ -24,7 +25,10 @@
 
 .dashboard-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(280px, 1fr)
+  );
   gap: 20px;
   margin-top: 28px;
 }
@@ -92,6 +96,167 @@
   color: #b42318;
 }
 
+/* ==========================================================
+   CALENDÁRIO
+   ========================================================== */
+
+.dashboard-calendar {
+  margin-top: 24px;
+  overflow: hidden;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  background-color: #ffffff;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04);
+}
+
+.dashboard-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #eaecf0;
+}
+
+.dashboard-calendar-label {
+  color: #667085;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.dashboard-calendar-header h3 {
+  margin: 5px 0 0;
+  color: #172033;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.dashboard-calendar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-calendar-actions button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.dashboard-calendar-today {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #344054;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.dashboard-calendar-today:hover {
+  border-color: #98a2b3;
+  background-color: #f9fafb;
+}
+
+.dashboard-calendar-navigation {
+  display: flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #344054;
+  font-size: 1.5rem;
+  line-height: 1;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.dashboard-calendar-navigation:hover {
+  border-color: #f4b400;
+  background-color: #fff9e6;
+}
+
+.dashboard-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border-bottom: 1px solid #eaecf0;
+  background-color: #f9fafb;
+}
+
+.dashboard-calendar-weekdays span {
+  padding: 8px;
+  color: #667085;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.dashboard-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.dashboard-calendar-day {
+  position: relative;
+  min-height: 58px;
+  padding: 8px 12px;
+  border-right: 1px solid #eaecf0;
+  border-bottom: 1px solid #eaecf0;
+  background-color: #ffffff;
+  color: #344054;
+  box-sizing: border-box;
+}
+
+.dashboard-calendar-day:nth-child(7n) {
+  border-right: none;
+}
+
+.dashboard-calendar-day span {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.dashboard-calendar-day small {
+  display: block;
+  margin-top: 7px;
+  color: #b78103;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.dashboard-calendar-day-outside {
+  background-color: #fcfcfd;
+  color: #c4c9d1;
+}
+
+.dashboard-calendar-day-today {
+  background-color: #fffdf5;
+}
+
+.dashboard-calendar-day-today span {
+  background-color: #f4b400;
+  color: #172033;
+  font-weight: 700;
+}
+
+/* ==========================================================
+   RESPONSIVIDADE
+   ========================================================== */
+
 @media (max-width: 768px) {
   .dashboard-content {
     padding: 20px;
@@ -99,5 +264,63 @@
 
   .dashboard-cards {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-calendar-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-calendar-actions {
+    width: 100%;
+  }
+
+  .dashboard-calendar-today {
+    margin-right: auto;
+  }
+
+  .dashboard-calendar-day {
+    min-height: 65px;
+    padding: 8px;
+  }
+
+  .dashboard-calendar-day span {
+    width: 27px;
+    height: 27px;
+    font-size: 0.78rem;
+  }
+
+  .dashboard-calendar-day small {
+    font-size: 0.62rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .dashboard-content {
+    padding: 16px;
+  }
+
+  .dashboard-calendar-header {
+    padding: 18px;
+  }
+
+  .dashboard-calendar-weekdays span {
+    padding: 10px 2px;
+    font-size: 0.65rem;
+  }
+
+  .dashboard-calendar-day {
+    min-height: 52px;
+    padding: 5px;
+  }
+
+  .dashboard-calendar-day span {
+    width: 24px;
+    height: 24px;
+    font-size: 0.72rem;
+  }
+
+  .dashboard-calendar-day small {
+    display: none;
   }
 }

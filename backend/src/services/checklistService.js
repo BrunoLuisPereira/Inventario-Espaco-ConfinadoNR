@@ -2,14 +2,15 @@ const checklistRepository = require("../repositories/checklistRepository");
 const localRepository = require("../repositories/localRepository");
 const campanhaRepository = require("../repositories/campanhaRepository");
 
-const IDENTIFICACOES_VALIDAS = ["A", "B", "C"];
 const RESPOSTAS_VALIDAS = ["SIM", "NAO"];
 const STATUS_VALIDOS = ["PENDENTE", "CONCLUIDO"];
 
 async function criarChecklist(dados, usuarioAutenticado) {
   const {
     id_local,
-    identificacao_espaco,
+    criterio_a,
+    criterio_b,
+    criterio_c,
     acesso_controlado,
     ventilacao_adequada,
     monitoramento_atmosferico,
@@ -68,15 +69,10 @@ async function criarChecklist(dados, usuarioAutenticado) {
     throw erro;
   }
 
-  if (!IDENTIFICACOES_VALIDAS.includes(identificacao_espaco)) {
-    const erro = new Error(
-      "identificacao_espaco deve ser A, B ou C."
-    );
-    erro.statusCode = 400;
-    throw erro;
-  }
-
   const respostas = {
+    criterio_a,
+    criterio_b,
+    criterio_c,
     acesso_controlado,
     ventilacao_adequada,
     monitoramento_atmosferico,
@@ -85,7 +81,9 @@ async function criarChecklist(dados, usuarioAutenticado) {
 
   for (const [campo, valor] of Object.entries(respostas)) {
     if (!RESPOSTAS_VALIDAS.includes(valor)) {
-      const erro = new Error(`${campo} deve ser SIM ou NAO.`);
+      const erro = new Error(
+        `${campo} deve ser SIM ou NAO.`
+      );
       erro.statusCode = 400;
       throw erro;
     }
@@ -101,7 +99,9 @@ async function criarChecklist(dados, usuarioAutenticado) {
 
   return checklistRepository.criar({
     id_local,
-    identificacao_espaco,
+    criterio_a,
+    criterio_b,
+    criterio_c,
     acesso_controlado,
     ventilacao_adequada,
     monitoramento_atmosferico,
@@ -192,9 +192,14 @@ async function atualizarChecklist(
     throw erro;
   }
 
-  const identificacao_espaco =
-    dados.identificacao_espaco ??
-    checklist.identificacao_espaco;
+  const criterio_a =
+    dados.criterio_a ?? checklist.criterio_a;
+
+  const criterio_b =
+    dados.criterio_b ?? checklist.criterio_b;
+
+  const criterio_c =
+    dados.criterio_c ?? checklist.criterio_c;
 
   const acesso_controlado =
     dados.acesso_controlado ??
@@ -215,15 +220,10 @@ async function atualizarChecklist(
   const observacoes =
     dados.observacoes ?? checklist.observacoes;
 
-  if (!IDENTIFICACOES_VALIDAS.includes(identificacao_espaco)) {
-    const erro = new Error(
-      "identificacao_espaco deve ser A, B ou C."
-    );
-    erro.statusCode = 400;
-    throw erro;
-  }
-
   const respostas = {
+    criterio_a,
+    criterio_b,
+    criterio_c,
     acesso_controlado,
     ventilacao_adequada,
     monitoramento_atmosferico,
@@ -232,14 +232,18 @@ async function atualizarChecklist(
 
   for (const [campo, valor] of Object.entries(respostas)) {
     if (!RESPOSTAS_VALIDAS.includes(valor)) {
-      const erro = new Error(`${campo} deve ser SIM ou NAO.`);
+      const erro = new Error(
+        `${campo} deve ser SIM ou NAO.`
+      );
       erro.statusCode = 400;
       throw erro;
     }
   }
 
   return checklistRepository.atualizar(id, {
-    identificacao_espaco,
+    criterio_a,
+    criterio_b,
+    criterio_c,
     acesso_controlado,
     ventilacao_adequada,
     monitoramento_atmosferico,

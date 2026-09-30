@@ -12,7 +12,9 @@ import {
 import '../styles/ChecklistLocal.css'
 
 const FORMULARIO_INICIAL = {
-  identificacao_espaco: '',
+  criterio_a: '',
+  criterio_b: '',
+  criterio_c: '',
   acesso_controlado: '',
   ventilacao_adequada: '',
   monitoramento_atmosferico: '',
@@ -40,8 +42,9 @@ function ChecklistLocal() {
 
   function preencherFormulario(dadosChecklist) {
     setFormulario({
-      identificacao_espaco:
-        dadosChecklist.identificacao_espaco || '',
+      criterio_a: dadosChecklist.criterio_a || '',
+      criterio_b: dadosChecklist.criterio_b || '',
+      criterio_c: dadosChecklist.criterio_c || '',
       acesso_controlado:
         dadosChecklist.acesso_controlado || '',
       ventilacao_adequada:
@@ -50,10 +53,8 @@ function ChecklistLocal() {
         dadosChecklist.monitoramento_atmosferico || '',
       procedimento_emergencia:
         dadosChecklist.procedimento_emergencia || '',
-      observacoes:
-        dadosChecklist.observacoes || '',
-      status:
-        dadosChecklist.status || 'PENDENTE',
+      observacoes: dadosChecklist.observacoes || '',
+      status: dadosChecklist.status || 'PENDENTE',
     })
   }
 
@@ -107,8 +108,16 @@ function ChecklistLocal() {
   }
 
   function validarFormulario() {
-    if (!formulario.identificacao_espaco) {
-      return 'Selecione a identificação do espaço.'
+    if (!formulario.criterio_a) {
+      return 'Responda o Critério A.'
+    }
+
+    if (!formulario.criterio_b) {
+      return 'Responda o Critério B.'
+    }
+
+    if (!formulario.criterio_c) {
+      return 'Responda o Critério C.'
     }
 
     if (!formulario.acesso_controlado) {
@@ -148,8 +157,9 @@ function ChecklistLocal() {
 
       const dados = {
         id_local: Number(idLocal),
-        identificacao_espaco:
-          formulario.identificacao_espaco,
+        criterio_a: formulario.criterio_a,
+        criterio_b: formulario.criterio_b,
+        criterio_c: formulario.criterio_c,
         acesso_controlado:
           formulario.acesso_controlado,
         ventilacao_adequada:
@@ -158,8 +168,7 @@ function ChecklistLocal() {
           formulario.monitoramento_atmosferico,
         procedimento_emergencia:
           formulario.procedimento_emergencia,
-        observacoes:
-          formulario.observacoes.trim(),
+        observacoes: formulario.observacoes.trim(),
         status: formulario.status,
       }
 
@@ -197,8 +206,9 @@ function ChecklistLocal() {
       setSucesso('')
 
       const dados = {
-        identificacao_espaco:
-          formulario.identificacao_espaco,
+        criterio_a: formulario.criterio_a,
+        criterio_b: formulario.criterio_b,
+        criterio_c: formulario.criterio_c,
         acesso_controlado:
           formulario.acesso_controlado,
         ventilacao_adequada:
@@ -207,8 +217,7 @@ function ChecklistLocal() {
           formulario.monitoramento_atmosferico,
         procedimento_emergencia:
           formulario.procedimento_emergencia,
-        observacoes:
-          formulario.observacoes.trim(),
+        observacoes: formulario.observacoes.trim(),
       }
 
       const resposta = await atualizarChecklist(
@@ -282,7 +291,10 @@ function ChecklistLocal() {
     setSucesso('')
   }
 
-  function renderizarFormulario(onSubmit, modoEdicao = false) {
+  function renderizarFormulario(
+    onSubmit,
+    modoEdicao = false
+  ) {
     return (
       <form
         className="checklist-form"
@@ -307,24 +319,145 @@ function ChecklistLocal() {
           </span>
         </div>
 
-        <div className="checklist-field">
-          <label htmlFor="identificacao_espaco">
-            Identificação do espaço
-          </label>
+        <div className="checklist-identificacao">
+          <div className="checklist-identificacao-header">
+            <h4>Identificação do espaço</h4>
 
-          <select
-            id="identificacao_espaco"
-            name="identificacao_espaco"
-            value={formulario.identificacao_espaco}
-            onChange={alterarCampo}
-            disabled={salvando}
-            required
-          >
-            <option value="">Selecione</option>
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
-          </select>
+            <p>
+              Responda aos critérios de caracterização do
+              espaço confinado.
+            </p>
+          </div>
+
+          <div className="checklist-criterios">
+            <div className="checklist-criterio-card">
+              <div className="checklist-criterio-texto">
+                <strong>Critério A</strong>
+
+                <span>
+                  Não projetado para ocupação humana
+                  contínua.
+                </span>
+              </div>
+
+              <div className="checklist-criterio-respostas">
+                <label>
+                  <input
+                    type="radio"
+                    name="criterio_a"
+                    value="SIM"
+                    checked={
+                      formulario.criterio_a === 'SIM'
+                    }
+                    onChange={alterarCampo}
+                    disabled={salvando}
+                    required
+                  />
+                  Sim
+                </label>
+
+                <label>
+                  <input
+                    type="radio"
+                    name="criterio_a"
+                    value="NAO"
+                    checked={
+                      formulario.criterio_a === 'NAO'
+                    }
+                    onChange={alterarCampo}
+                    disabled={salvando}
+                    required
+                  />
+                  Não
+                </label>
+              </div>
+            </div>
+
+            <div className="checklist-criterio-card">
+              <div className="checklist-criterio-texto">
+                <strong>Critério B</strong>
+
+                <span>
+                  Meios limitados de entrada/saída.
+                </span>
+              </div>
+
+              <div className="checklist-criterio-respostas">
+                <label>
+                  <input
+                    type="radio"
+                    name="criterio_b"
+                    value="SIM"
+                    checked={
+                      formulario.criterio_b === 'SIM'
+                    }
+                    onChange={alterarCampo}
+                    disabled={salvando}
+                    required
+                  />
+                  Sim
+                </label>
+
+                <label>
+                  <input
+                    type="radio"
+                    name="criterio_b"
+                    value="NAO"
+                    checked={
+                      formulario.criterio_b === 'NAO'
+                    }
+                    onChange={alterarCampo}
+                    disabled={salvando}
+                    required
+                  />
+                  Não
+                </label>
+              </div>
+            </div>
+
+            <div className="checklist-criterio-card">
+              <div className="checklist-criterio-texto">
+                <strong>Critério C</strong>
+
+                <span>
+                  Atmosfera perigosa existente OU
+                  potencial.
+                </span>
+              </div>
+
+              <div className="checklist-criterio-respostas">
+                <label>
+                  <input
+                    type="radio"
+                    name="criterio_c"
+                    value="SIM"
+                    checked={
+                      formulario.criterio_c === 'SIM'
+                    }
+                    onChange={alterarCampo}
+                    disabled={salvando}
+                    required
+                  />
+                  Sim
+                </label>
+
+                <label>
+                  <input
+                    type="radio"
+                    name="criterio_c"
+                    value="NAO"
+                    checked={
+                      formulario.criterio_c === 'NAO'
+                    }
+                    onChange={alterarCampo}
+                    disabled={salvando}
+                    required
+                  />
+                  Não
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="checklist-questions">
@@ -572,11 +705,23 @@ function ChecklistLocal() {
 
                     <div className="checklist-details">
                       <div>
-                        <span>Identificação</span>
+                        <span>Critério A</span>
                         <strong>
-                          {
-                            checklist.identificacao_espaco
-                          }
+                          {checklist.criterio_a}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Critério B</span>
+                        <strong>
+                          {checklist.criterio_b}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Critério C</span>
+                        <strong>
+                          {checklist.criterio_c}
                         </strong>
                       </div>
 
@@ -590,9 +735,7 @@ function ChecklistLocal() {
                       <div>
                         <span>Ventilação adequada</span>
                         <strong>
-                          {
-                            checklist.ventilacao_adequada
-                          }
+                          {checklist.ventilacao_adequada}
                         </strong>
                       </div>
 
