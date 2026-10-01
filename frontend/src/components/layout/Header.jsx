@@ -1,14 +1,27 @@
 import { useAuth } from '../../hooks/useAuth'
+import { useLayout } from '../../contexts/useLayout'
 import '../../styles/Header.css'
 
 function Header({ titulo, subtitulo }) {
   const { usuario } = useAuth()
+  const { abrirMenu } = useLayout()
 
   return (
     <header className="app-header">
-      <div>
-        <h1>{titulo}</h1>
-        <p>{subtitulo}</p>
+      <div className="header-main">
+        <button
+          type="button"
+          className="header-menu-button"
+          onClick={abrirMenu}
+          aria-label="Abrir menu principal"
+        >
+          <span aria-hidden="true">☰</span>
+        </button>
+
+        <div className="header-title">
+          <h1>{titulo}</h1>
+          <p>{subtitulo}</p>
+        </div>
       </div>
 
       <div className="header-user">
