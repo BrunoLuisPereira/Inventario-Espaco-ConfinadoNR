@@ -1,58 +1,131 @@
-import { NavLink } from 'react-router-dom'
+import { useEffect } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import logoInventario from '../../assets/logo-inventario.png'
 import { useAuth } from '../../hooks/useAuth'
+import { useLayout } from '../../contexts/useLayout'
 import '../../styles/Sidebar.css'
 
 function Sidebar() {
   const { usuario, logout } = useAuth()
+  const { menuAberto, fecharMenu } = useLayout()
+  const location = useLocation()
+
+  useEffect(() => {
+    fecharMenu()
+  }, [location.pathname, fecharMenu])
+
+  useEffect(() => {
+    if (!menuAberto) {
+      return undefined
+    }
+
+    const fecharComEscape = (event) => {
+      if (event.key === 'Escape') {
+        fecharMenu()
+      }
+    }
+
+    document.addEventListener('keydown', fecharComEscape)
+
+    return () => {
+      document.removeEventListener('keydown', fecharComEscape)
+    }
+  }, [menuAberto, fecharMenu])
+
+  useEffect(() => {
+    if (!menuAberto) {
+      return undefined
+    }
+
+    const larguraMobile = window.matchMedia('(max-width: 1024px)')
+
+    if (larguraMobile.matches) {
+      document.body.classList.add('menu-mobile-aberto')
+    }
+
+    return () => {
+      document.body.classList.remove('menu-mobile-aberto')
+    }
+  }, [menuAberto])
+
+  const handleLogout = () => {
+    fecharMenu()
+    logout()
+  }
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-header">
-        <img
-          src={logoInventario}
-          alt="Inventário de Espaços Confinados"
-          className="sidebar-logo"
-        />
+    <>
+      <button
+        type="button"
+        className={`sidebar-overlay ${
+          menuAberto ? 'sidebar-overlay-visible' : ''
+        }`}
+        onClick={fecharMenu}
+        aria-label="Fechar menu"
+        tabIndex={menuAberto ? 0 : -1}
+      />
 
-        <div>
-          <strong>Inventário</strong>
-          <span>Espaços Confinados</span>
-        </div>
-      </div>
-
-      <nav
-        className="sidebar-nav"
-        aria-label="Navegação principal"
+      <aside
+        className={`sidebar ${
+          menuAberto ? 'sidebar-open' : ''
+        }`}
+        aria-label="Menu principal"
       >
-        <NavLink to="/dashboard">
-          Dashboard
-        </NavLink>
+        <div className="sidebar-header">
+          <img
+            src={logoInventario}
+            alt="Inventário de Espaços Confinados"
+            className="sidebar-logo"
+          />
 
-        <NavLink to="/campanhas">
-          Campanhas
-        </NavLink>
+          <div className="sidebar-brand">
+            <strong>Inventário</strong>
+            <span>Espaços Confinados</span>
+          </div>
 
-        <NavLink to="/locais">
-          Locais
-        </NavLink>
-      </nav>
-
-      <div className="sidebar-footer">
-        <div className="sidebar-user">
-          <strong>{usuario?.nome}</strong>
-          <span>{usuario?.perfil_acesso}</span>
+          <button
+            type="button"
+            className="sidebar-close"
+            onClick={fecharMenu}
+            aria-label="Fechar menu"
+          >
+            ×
+          </button>
         </div>
 
-        <button
-          type="button"
-          className="sidebar-logout"
-          onClick={logout}
+        <nav
+          className="sidebar-nav"
+          aria-label="Navegação principal"
         >
-          Sair
-        </button>
-      </div>
-    </aside>
+          <NavLink to="/dashboard">
+            Dashboard
+          </NavLink>
+
+          <NavLink to="/campanhas">
+            Campanhas
+          </NavLink>
+
+          <NavLink to="/locais">
+            Locais
+          </NavLink>
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="sidebar-user">
+            <strong>{usuario?.nome}</strong>
+            <span>{usuario?.perfil_acesso}</span>
+          </div>
+
+          <button
+            type="button"
+            className="sidebar-logout"
+            onClick={handleLogout}
+          >
+            Sair
+          </button>
+        </div>
+      </aside>
+    </>
   )
 }
 
