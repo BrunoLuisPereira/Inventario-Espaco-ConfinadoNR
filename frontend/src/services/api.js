@@ -1,5 +1,4 @@
-const API_URL =
-  `http://${window.location.hostname}:3000/api`
+const API_URL = '/api'
 
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem('token')
@@ -84,6 +83,8 @@ async function requestArquivo(endpoint) {
 
   return response.blob()
 }
+
+// Autenticação
 
 export async function login(email, senha) {
   return request('/auth/login', {
@@ -237,10 +238,26 @@ export async function listarEvidenciasPorLocal(
   return request(`/evidencias/local/${idLocal}`)
 }
 
+/**
+ * Envia fotografias ou documentos.
+ *
+ * As coordenadas são opcionais.
+ *
+ * Quando disponíveis, envia:
+ * - Latitude;
+ * - Longitude;
+ * - Origem das coordenadas;
+ * - Precisão do GPS;
+ * - Data da obtenção da localização.
+ *
+ * Fotografias sem GPS e documentos PDF
+ * continuam sendo aceitos.
+ */
 export async function enviarEvidencia(
   idLocal,
   arquivo,
-  descricao
+  descricao,
+  coordenadas = {}
 ) {
   const formData = new FormData()
 
@@ -252,6 +269,68 @@ export async function enviarEvidencia(
       'descricao',
       descricao.trim()
     )
+  }
+
+  const temLatitude =
+    coordenadas.latitude !== null &&
+    coordenadas.latitude !== undefined &&
+    coordenadas.latitude !== ''
+
+  const temLongitude =
+    coordenadas.longitude !== null &&
+    coordenadas.longitude !== undefined &&
+    coordenadas.longitude !== ''
+
+  /*
+   * Envia a localização somente quando
+   * as duas coordenadas estão disponíveis.
+   *
+   * O valor zero também é válido.
+   */
+  if (temLatitude && temLongitude) {
+    formData.append(
+      'latitude',
+      coordenadas.latitude
+    )
+
+    formData.append(
+      'longitude',
+      coordenadas.longitude
+    )
+
+    if (coordenadas.origem_coordenadas) {
+      formData.append(
+        'origem_coordenadas',
+        coordenadas.origem_coordenadas
+      )
+    }
+
+    /*
+     * Precisão e data de captura são
+     * enviadas somente quando a origem
+     * das coordenadas é GPS.
+     */
+    if (
+      coordenadas.origem_coordenadas === 'GPS'
+    ) {
+      if (
+        coordenadas.precisao_gps !== null &&
+        coordenadas.precisao_gps !== undefined &&
+        coordenadas.precisao_gps !== ''
+      ) {
+        formData.append(
+          'precisao_gps',
+          coordenadas.precisao_gps
+        )
+      }
+
+      if (coordenadas.data_captura_gps) {
+        formData.append(
+          'data_captura_gps',
+          coordenadas.data_captura_gps
+        )
+      }
+    }
   }
 
   return request('/evidencias/upload', {

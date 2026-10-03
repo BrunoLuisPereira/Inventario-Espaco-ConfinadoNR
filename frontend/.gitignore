@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Certificados HTTPS de desenvolvimento
+certs/

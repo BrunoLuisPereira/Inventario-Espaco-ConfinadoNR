@@ -1,5 +1,10 @@
+
 const pool = require("../config/database");
 
+/**
+ * Cria uma evidência, incluindo os dados
+ * opcionais de localização.
+ */
 async function criar(evidencia) {
   const {
     id_local,
@@ -8,6 +13,11 @@ async function criar(evidencia) {
     descricao,
     id_usuario,
     id_operacao_cliente,
+    latitude,
+    longitude,
+    precisao_gps,
+    origem_coordenadas,
+    data_captura_gps,
   } = evidencia;
 
   const query = `
@@ -17,9 +27,17 @@ async function criar(evidencia) {
       caminho_arquivo,
       descricao,
       id_usuario,
-      id_operacao_cliente
+      id_operacao_cliente,
+      latitude,
+      longitude,
+      precisao_gps,
+      origem_coordenadas,
+      data_captura_gps
     )
-    VALUES ($1, $2, $3, $4, $5, $6)
+    VALUES (
+      $1, $2, $3, $4, $5, $6,
+      $7, $8, $9, $10, $11
+    )
     RETURNING *;
   `;
 
@@ -30,13 +48,24 @@ async function criar(evidencia) {
     descricao || null,
     id_usuario,
     id_operacao_cliente || null,
+    latitude ?? null,
+    longitude ?? null,
+    precisao_gps ?? null,
+    origem_coordenadas ?? null,
+    data_captura_gps ?? null,
   ];
 
-  const resultado = await pool.query(query, valores);
+  const resultado = await pool.query(
+    query,
+    valores
+  );
 
   return resultado.rows[0];
 }
 
+/**
+ * Lista todas as evidências.
+ */
 async function listarTodos() {
   const query = `
     SELECT
@@ -87,6 +116,9 @@ async function listarPorUsuarioResponsavel(
   return resultado.rows;
 }
 
+/**
+ * Busca uma evidência pelo ID.
+ */
 async function buscarPorId(idEvidencia) {
   const query = `
     SELECT
@@ -109,6 +141,10 @@ async function buscarPorId(idEvidencia) {
   return resultado.rows[0];
 }
 
+/**
+ * Busca uma evidência pelo identificador
+ * de operação utilizado na sincronização.
+ */
 async function buscarPorIdOperacaoCliente(
   idOperacaoCliente
 ) {
@@ -133,6 +169,9 @@ async function buscarPorIdOperacaoCliente(
   return resultado.rows[0];
 }
 
+/**
+ * Lista as evidências de determinado local.
+ */
 async function listarPorLocal(idLocal) {
   const query = `
     SELECT
@@ -153,11 +192,23 @@ async function listarPorLocal(idLocal) {
   return resultado.rows;
 }
 
-async function atualizar(idEvidencia, dados) {
+/**
+ * Atualiza uma evidência existente,
+ * incluindo os dados de localização.
+ */
+async function atualizar(
+  idEvidencia,
+  dados
+) {
   const {
     tipo,
     caminho_arquivo,
     descricao,
+    latitude,
+    longitude,
+    precisao_gps,
+    origem_coordenadas,
+    data_captura_gps,
   } = dados;
 
   const query = `
@@ -166,8 +217,13 @@ async function atualizar(idEvidencia, dados) {
       tipo = $1,
       caminho_arquivo = $2,
       descricao = $3,
+      latitude = $4,
+      longitude = $5,
+      precisao_gps = $6,
+      origem_coordenadas = $7,
+      data_captura_gps = $8,
       data_atualizacao = CURRENT_TIMESTAMP
-    WHERE id_evidencia = $4
+    WHERE id_evidencia = $9
     RETURNING *;
   `;
 
@@ -175,6 +231,11 @@ async function atualizar(idEvidencia, dados) {
     tipo,
     caminho_arquivo || null,
     descricao || null,
+    latitude ?? null,
+    longitude ?? null,
+    precisao_gps ?? null,
+    origem_coordenadas ?? null,
+    data_captura_gps ?? null,
     idEvidencia,
   ];
 
@@ -186,6 +247,9 @@ async function atualizar(idEvidencia, dados) {
   return resultado.rows[0];
 }
 
+/**
+ * Exclui uma evidência.
+ */
 async function excluir(idEvidencia) {
   const query = `
     DELETE FROM evidencia

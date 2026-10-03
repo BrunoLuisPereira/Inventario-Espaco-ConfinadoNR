@@ -1083,7 +1083,67 @@ function adicionarEvidencia(
       12
     ) +
     13;
+// Localização da fotografia
+const possuiCoordenadas =
+  evidencia.latitude !== null &&
+  evidencia.latitude !== undefined &&
+  evidencia.latitude !== '' &&
+  evidencia.longitude !== null &&
+  evidencia.longitude !== undefined &&
+  evidencia.longitude !== '';
 
+if (possuiCoordenadas) {
+  garantirEspaco(doc, 145, dados);
+
+  doc.moveDown(0.5);
+
+  doc
+    .fillColor(CORES.primaria)
+    .font('Helvetica-Bold')
+    .fontSize(9)
+    .text('Localização da evidência');
+
+  doc.moveDown(0.4);
+
+  adicionarCampo(
+    doc,
+    'Latitude',
+    formatarNumero(evidencia.latitude, 7),
+    dados
+  );
+
+  adicionarCampo(
+    doc,
+    'Longitude',
+    formatarNumero(evidencia.longitude, 7),
+    dados
+  );
+
+  adicionarCampo(
+    doc,
+    'Origem das coordenadas',
+    evidencia.origem_coordenadas,
+    dados
+  );
+
+  if (evidencia.origem_coordenadas === 'GPS') {
+    adicionarCampo(
+      doc,
+      'Precisão estimada',
+      evidencia.precisao_gps != null
+        ? `${formatarNumero(evidencia.precisao_gps, 2)} m`
+        : 'Não informado',
+      dados
+    );
+  }
+} else {
+  adicionarCampo(
+    doc,
+    'Localização da evidência',
+    'Não informada',
+    dados
+  );
+}
   doc
     .strokeColor(CORES.borda)
     .lineWidth(0.5)
