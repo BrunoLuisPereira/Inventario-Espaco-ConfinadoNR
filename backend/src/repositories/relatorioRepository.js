@@ -1,3 +1,4 @@
+
 const pool = require("../config/database");
 
 async function criar(dados) {
@@ -146,6 +147,20 @@ async function buscarPorLocal(idLocal) {
   return resultado.rows[0];
 }
 
+/**
+ * Busca todas as informações necessárias
+ * para gerar o relatório PDF.
+ *
+ * Inclui:
+ * - Relatório;
+ * - Responsável;
+ * - Local;
+ * - Campanha;
+ * - Checklist NR-33;
+ * - Dados técnicos;
+ * - Evidências;
+ * - Coordenadas GPS de cada evidência.
+ */
 async function buscarDadosCompletos(idRelatorio) {
   const query = `
     SELECT
@@ -212,7 +227,14 @@ async function buscarDadosCompletos(idRelatorio) {
               'caminho_arquivo', e.caminho_arquivo,
               'descricao', e.descricao,
               'id_usuario', e.id_usuario,
-              'data_criacao', e.data_criacao
+              'data_criacao', e.data_criacao,
+
+              -- Geolocalização da evidência
+              'latitude', e.latitude,
+              'longitude', e.longitude,
+              'origem_coordenadas', e.origem_coordenadas,
+              'precisao_gps', e.precisao_gps,
+              'data_captura_gps', e.data_captura_gps
             )
             ORDER BY e.id_evidencia
           )
