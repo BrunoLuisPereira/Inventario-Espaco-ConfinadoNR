@@ -80,6 +80,40 @@ async function listarTodos() {
   return result.rows;
 }
 
+async function listarParaExportacao() {
+  const query = `
+    SELECT
+      c.nome_campanha,
+      l.id_local,
+      l.nome_local,
+      l.setor,
+      l.endereco,
+      l.latitude AS latitude_local,
+      l.longitude AS longitude_local,
+      l.status,
+      e.id_evidencia,
+      e.tipo AS tipo_evidencia,
+      e.descricao AS descricao_evidencia,
+      e.latitude AS latitude_foto,
+      e.longitude AS longitude_foto,
+      e.origem_coordenadas,
+      e.precisao_gps
+    FROM local l
+    INNER JOIN campanha c
+      ON c.id_campanha = l.id_campanha
+    LEFT JOIN evidencia e
+      ON e.id_local = l.id_local
+    ORDER BY
+      c.nome_campanha ASC,
+      l.nome_local ASC,
+      e.id_evidencia ASC
+  `;
+
+  const result = await pool.query(query);
+
+  return result.rows;
+}
+
 async function buscarPorId(idLocal) {
   const query = `
     SELECT
@@ -106,6 +140,7 @@ async function buscarPorId(idLocal) {
 
   return result.rows[0] || null;
 }
+
 async function atualizar(idLocal, dados) {
   const {
     nomeLocal,
@@ -184,9 +219,11 @@ async function atualizarStatus(idLocal, status) {
 
   return result.rows[0] || null;
 }
+
 module.exports = {
   criar,
   listarTodos,
+  listarParaExportacao,
   buscarPorId,
   atualizar,
   atualizarStatus,

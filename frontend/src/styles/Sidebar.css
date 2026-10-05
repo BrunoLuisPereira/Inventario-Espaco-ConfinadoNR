@@ -62,6 +62,8 @@
   background-color: rgba(255, 255, 255, 0.08);
 }
 
+/* Navegação principal */
+
 .sidebar-nav {
   display: flex;
   flex: 1;
@@ -90,6 +92,39 @@
   color: #172033;
   font-weight: 600;
 }
+
+/* Exportação de locais */
+
+.sidebar-export-area {
+  padding: 0 16px 16px;
+}
+
+.sidebar-nav-action {
+  width: 100%;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #d8dee8;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.sidebar-nav-action:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.sidebar-nav-action:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+/* Rodapé / usuário */
 
 .sidebar-footer {
   padding: 20px;
@@ -129,11 +164,14 @@
   background-color: rgba(255, 255, 255, 0.08);
 }
 
+/* Overlay mobile */
+
 .sidebar-overlay {
   display: none;
 }
 
 /* Tablet e celular */
+
 @media (max-width: 1024px) {
   .sidebar {
     position: fixed;
@@ -184,6 +222,7 @@
 }
 
 /* Celulares pequenos */
+
 @media (max-width: 480px) {
   .sidebar {
     width: 270px;
@@ -201,6 +240,10 @@
 
   .sidebar-nav {
     padding: 20px 14px;
+  }
+
+  .sidebar-export-area {
+    padding: 0 14px 14px;
   }
 
   .sidebar-footer {

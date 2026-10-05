@@ -44,7 +44,7 @@ async function request(endpoint, options = {}) {
  *
  * Diferente de request(), esta função não tenta
  * converter a resposta para JSON. O conteúdo é
- * retornado como Blob para JPG, PNG, PDF etc.
+ * retornado como Blob para JPG, PNG, PDF, XLSX etc.
  */
 async function requestArquivo(endpoint) {
   const token = localStorage.getItem('token')
@@ -62,7 +62,7 @@ async function requestArquivo(endpoint) {
 
   if (!response.ok) {
     let mensagem =
-      'Erro ao carregar o arquivo da evidência'
+      'Erro ao carregar o arquivo'
 
     try {
       const data = await response.json()
@@ -135,6 +135,17 @@ export async function alterarStatusCampanha(
 
 export async function listarLocais() {
   return request('/locais')
+}
+
+/**
+ * Exporta os locais cadastrados para uma
+ * planilha Excel (.xlsx).
+ *
+ * O arquivo é retornado como Blob para que
+ * o navegador possa realizar o download.
+ */
+export async function exportarLocaisExcel() {
+  return requestArquivo('/locais/exportar')
 }
 
 export async function buscarLocalPorId(idLocal) {
