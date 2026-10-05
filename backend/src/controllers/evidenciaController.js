@@ -59,17 +59,26 @@ async function criarComUpload(req, res, next) {
       `uploads/evidencias/${req.file.filename}`;
 
     const evidencia =
-      await evidenciaService.criarEvidencia(
-        {
-          id_local: req.body.id_local,
-          tipo,
-          descricao: req.body.descricao,
-          caminho_arquivo: caminhoArquivo,
-          id_operacao_cliente:
-            req.body.id_operacao_cliente,
-        },
-        req.usuario
-      );
+  await evidenciaService.criarEvidencia(
+    {
+      id_local: req.body.id_local,
+      tipo,
+      descricao: req.body.descricao,
+      caminho_arquivo: caminhoArquivo,
+      id_operacao_cliente:
+        req.body.id_operacao_cliente,
+
+      // Localização da evidência
+      latitude: req.body.latitude,
+      longitude: req.body.longitude,
+      precisao_gps: req.body.precisao_gps,
+      origem_coordenadas:
+        req.body.origem_coordenadas,
+      data_captura_gps:
+        req.body.data_captura_gps,
+    },
+    req.usuario
+  );
 
     const operacaoJaProcessada =
       req.body.id_operacao_cliente &&
