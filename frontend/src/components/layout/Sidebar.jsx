@@ -1,14 +1,17 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import logoInventario from '../../assets/logo-inventario.png'
 import { useAuth } from '../../hooks/useAuth'
 import { useLayout } from '../../contexts/useLayout'
+import { exportarLocaisExcel } from '../../services/api'
 import '../../styles/Sidebar.css'
 
 function Sidebar() {
   const { usuario, logout } = useAuth()
   const { menuAberto, fecharMenu } = useLayout()
   const location = useLocation()
+
+  const [exportando, setExportando] = useState(false)
 
   useEffect(() => {
     fecharMenu()
@@ -28,7 +31,10 @@ function Sidebar() {
     document.addEventListener('keydown', fecharComEscape)
 
     return () => {
-      document.removeEventListener('keydown', fecharComEscape)
+      document.removeEventListener(
+        'keydown',
+        fecharComEscape
+      )
     }
   }, [menuAberto, fecharMenu])
 
@@ -37,14 +43,20 @@ function Sidebar() {
       return undefined
     }
 
-    const larguraMobile = window.matchMedia('(max-width: 1024px)')
+    const larguraMobile = window.matchMedia(
+      '(max-width: 1024px)'
+    )
 
     if (larguraMobile.matches) {
-      document.body.classList.add('menu-mobile-aberto')
+      document.body.classList.add(
+        'menu-mobile-aberto'
+      )
     }
 
     return () => {
-      document.body.classList.remove('menu-mobile-aberto')
+      document.body.classList.remove(
+        'menu-mobile-aberto'
+      )
     }
   }, [menuAberto])
 
@@ -53,12 +65,54 @@ function Sidebar() {
     logout()
   }
 
+  const handleExportarLocais = async () => {
+    if (exportando) {
+      return
+    }
+
+    try {
+      setExportando(true)
+
+      const arquivo = await exportarLocaisExcel()
+
+      const url = window.URL.createObjectURL(arquivo)
+
+      const link = document.createElement('a')
+
+      link.href = url
+      link.download = 'inventario-locais.xlsx'
+
+      document.body.appendChild(link)
+
+      link.click()
+      link.remove()
+
+      window.URL.revokeObjectURL(url)
+
+      fecharMenu()
+    } catch (error) {
+      console.error(
+        'Erro ao exportar locais:',
+        error
+      )
+
+      window.alert(
+        error.message ||
+          'Não foi possível exportar os locais.'
+      )
+    } finally {
+      setExportando(false)
+    }
+  }
+
   return (
     <>
       <button
         type="button"
         className={`sidebar-overlay ${
-          menuAberto ? 'sidebar-overlay-visible' : ''
+          menuAberto
+            ? 'sidebar-overlay-visible'
+            : ''
         }`}
         onClick={fecharMenu}
         aria-label="Fechar menu"
@@ -109,6 +163,19 @@ function Sidebar() {
             Locais
           </NavLink>
         </nav>
+
+        <div className="sidebar-export-area">
+          <button
+            type="button"
+            className="sidebar-nav-action"
+            onClick={handleExportarLocais}
+            disabled={exportando}
+          >
+            {exportando
+              ? 'Exportando...'
+              : 'Exportar Locais'}
+          </button>
+        </div>
 
         <div className="sidebar-footer">
           <div className="sidebar-user">

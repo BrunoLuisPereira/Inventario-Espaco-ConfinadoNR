@@ -1,4 +1,5 @@
 const localService = require("../services/localService");
+const excelService = require("../services/excelService");
 
 async function criar(req, res) {
   try {
@@ -115,10 +116,46 @@ async function alterarStatus(req, res) {
     });
   }
 }
+async function exportar(req, res) {
+  try {
+    const buffer = await excelService.gerarExcelLocais();
+
+    const nomeArquivo = "inventario-locais.xlsx";
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${nomeArquivo}"`
+    );
+
+    res.setHeader(
+      "Content-Length",
+      buffer.length
+    );
+
+    return res.status(200).send(buffer);
+  } catch (error) {
+    console.error(
+      "Erro ao exportar locais para Excel:",
+      error
+    );
+
+    return res.status(500).json({
+      status: "error",
+      message:
+        "Erro interno ao exportar locais para Excel.",
+    });
+  }
+}
 module.exports = {
   criar,
   listar,
   buscarPorId,
   atualizar,
   alterarStatus,
+  exportar,
 };
