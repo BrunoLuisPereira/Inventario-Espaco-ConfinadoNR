@@ -1,7 +1,12 @@
+
+/* ========================================
+   LAYOUT
+======================================== */
+
 .inventario-layout {
   display: flex;
   min-height: 100vh;
-  background-color: #f5f6f8;
+  background-color: var(--color-background);
 }
 
 .inventario-content {
@@ -14,18 +19,26 @@
   padding-top: 32px;
 }
 
+/* ========================================
+   NAVEGAÇÃO
+======================================== */
+
 .inventario-back {
   display: inline-block;
   margin-bottom: 24px;
-  color: #475467;
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   font-weight: 600;
   text-decoration: none;
 }
 
 .inventario-back:hover {
-  color: #101828;
+  color: var(--color-text-heading);
 }
+
+/* ========================================
+   TÍTULO DO LOCAL
+======================================== */
 
 .inventario-title {
   display: flex;
@@ -37,21 +50,25 @@
 
 .inventario-title h2 {
   margin: 4px 0 6px;
-  color: #101828;
+  color: var(--color-text-heading);
   font-size: 1.6rem;
 }
 
 .inventario-title p {
   margin: 0;
-  color: #667085;
+  color: var(--color-text-secondary);
 }
 
 .inventario-label {
-  color: #667085;
+  color: var(--color-text-secondary);
   font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
 }
+
+/* ========================================
+   STATUS DO LOCAL
+======================================== */
 
 .inventario-status {
   padding: 7px 12px;
@@ -75,6 +92,10 @@
   color: #175cd3;
 }
 
+/* ========================================
+   INFORMAÇÕES DO LOCAL
+======================================== */
+
 .inventario-info-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -83,38 +104,46 @@
 
 .inventario-info-card {
   padding: 20px;
-  border: 1px solid #eaecf0;
+  border: 1px solid var(--color-border);
   border-radius: 10px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
 }
 
 .inventario-info-card span,
 .inventario-description span {
   display: block;
   margin-bottom: 8px;
-  color: #667085;
+  color: var(--color-text-secondary);
   font-size: 0.8rem;
   font-weight: 600;
 }
 
 .inventario-info-card strong {
-  color: #101828;
+  color: var(--color-text-heading);
   font-size: 0.95rem;
 }
+
+/* ========================================
+   DESCRIÇÃO DO LOCAL
+======================================== */
 
 .inventario-description {
   margin-top: 16px;
   padding: 20px;
-  border: 1px solid #eaecf0;
+  border: 1px solid var(--color-border);
   border-radius: 10px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
 }
 
 .inventario-description p {
   margin: 0;
-  color: #344054;
+  color: var(--color-text);
   line-height: 1.5;
 }
+
+/* ========================================
+   TÍTULO DAS ETAPAS
+======================================== */
 
 .inventario-section-title {
   margin: 32px 0 16px;
@@ -122,13 +151,17 @@
 
 .inventario-section-title h3 {
   margin: 0 0 4px;
-  color: #101828;
+  color: var(--color-text-heading);
 }
 
 .inventario-section-title p {
   margin: 0;
-  color: #667085;
+  color: var(--color-text-secondary);
 }
+
+/* ========================================
+   MÓDULOS DO INVENTÁRIO
+======================================== */
 
 .inventario-modules {
   display: grid;
@@ -143,20 +176,29 @@
   align-items: flex-start;
   justify-content: center;
   padding: 20px;
-  border: 1px solid #eaecf0;
+  border: 1px solid var(--color-border);
   border-radius: 10px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
+  color: var(--color-text);
   text-align: left;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.inventario-module:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background-color: var(--color-surface-secondary);
 }
 
 .inventario-module strong {
   margin-bottom: 6px;
-  color: #101828;
+  color: var(--color-text-heading);
   font-size: 1rem;
 }
 
 .inventario-module span {
-  color: #667085;
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
 }
 
@@ -165,6 +207,10 @@
   opacity: 0.65;
 }
 
+/* ========================================
+   MENSAGENS
+======================================== */
+
 .inventario-message,
 .inventario-error {
   padding: 16px;
@@ -172,14 +218,95 @@
 }
 
 .inventario-message {
-  background-color: #ffffff;
-  color: #475467;
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
 }
 
 .inventario-error {
   background-color: #fef3f2;
   color: #b42318;
 }
+
+/* ========================================
+   STATUS DAS ETAPAS
+======================================== */
+
+.inventario-module-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.inventario-module-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+/* Etapa ainda não concluída */
+
+.inventario-module-status-pendente {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+/* Etapa concluída */
+
+.inventario-module-status-concluido {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+/* ========================================
+   AJUSTES DO TEMA ESCURO
+======================================== */
+
+html[data-theme='dark'] .inventario-status-ativo {
+  background-color: #123b2b;
+  color: #6ee7b7;
+}
+
+html[data-theme='dark'] .inventario-status-inativo {
+  background-color: #334155;
+  color: #cbd5e1;
+}
+
+html[data-theme='dark'] .inventario-status-concluido {
+  background-color: #172f50;
+  color: #93c5fd;
+}
+
+html[data-theme='dark'] .inventario-module-status-pendente {
+  background-color: #493812;
+  color: #fcd34d;
+  border-color: #a16207;
+}
+
+html[data-theme='dark'] .inventario-module-status-concluido {
+  background-color: #123b2b;
+  color: #6ee7b7;
+  border-color: #15803d;
+}
+
+html[data-theme='dark'] .inventario-error {
+  background-color: #4c1d24;
+  color: #fda4af;
+}
+
+/* ========================================
+   RESPONSIVIDADE
+======================================== */
 
 @media (max-width: 1100px) {
   .inventario-info-grid {
@@ -200,44 +327,6 @@
   .inventario-modules {
     grid-template-columns: 1fr;
   }
-}
-/* Status das etapas do inventário */
-
-.inventario-module-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  width: 100%;
-}
-
-.inventario-module-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-
-  padding: 6px 12px;
-  border-radius: 999px;
-
-  font-size: 0.72rem;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.04em;
-}
-
-/* Etapa ainda não concluída */
-.inventario-module-status-pendente {
-  background-color: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fcd34d;
-}
-
-/* Etapa concluída */
-.inventario-module-status-concluido {
-  background-color: #dcfce7;
-  color: #166534;
-  border: 1px solid #86efac;
 }
 
 @media (max-width: 600px) {

@@ -14,6 +14,7 @@ import DadosTecnicosLocal from './pages/DadosTecnicosLocal'
 import EvidenciasLocal from './pages/EvidenciasLocal'
 import RelatorioLocal from './pages/RelatorioLocal'
 import ResponsaveisRelatorio from './pages/ResponsaveisRelatorio'
+import Configuracoes from './pages/Configuracoes'
 
 import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './hooks/useAuth'
@@ -127,7 +128,15 @@ function App() {
           </ProtectedRoute>
         }
       />
-
+    {/* Configurações */}
+    <Route
+      path="/configuracoes"
+        element={
+        <ProtectedRoute>
+          <Configuracoes />
+        </ProtectedRoute>
+  }
+/>
       {/* Rota inexistente */}
       <Route
         path="*"

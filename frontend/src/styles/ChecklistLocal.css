@@ -1,8 +1,13 @@
+
+/* ==========================================================
+   FORMULÁRIO DO CHECKLIST
+   ========================================================== */
+
 .checklist-form {
   margin-top: 28px;
   padding: 28px;
-  background: #ffffff;
-  border: 1px solid #e1e5eb;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
 }
 
@@ -16,13 +21,13 @@
 
 .checklist-form-header h3 {
   margin: 0 0 6px;
-  color: #0f1c35;
+  color: var(--color-text-heading);
   font-size: 20px;
 }
 
 .checklist-form-header p {
   margin: 0;
-  color: #667085;
+  color: var(--color-text-secondary);
 }
 
 .checklist-badge {
@@ -36,7 +41,7 @@
 }
 
 /* ==========================================================
-   Identificação do espaço - Critérios A, B e C
+   IDENTIFICAÇÃO DO ESPAÇO - CRITÉRIOS A, B E C
    ========================================================== */
 
 .checklist-identificacao {
@@ -49,14 +54,14 @@
 
 .checklist-identificacao-header h4 {
   margin: 0 0 5px;
-  color: #0f1c35;
+  color: var(--color-text-heading);
   font-size: 16px;
   font-weight: 700;
 }
 
 .checklist-identificacao-header p {
   margin: 0;
-  color: #667085;
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
 
@@ -72,8 +77,8 @@
   justify-content: space-between;
   min-height: 150px;
   padding: 18px;
-  background: #ffffff;
-  border: 1px solid #d0d5dd;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   box-sizing: border-box;
   transition:
@@ -82,7 +87,7 @@
 }
 
 .checklist-criterio-card:focus-within {
-  border-color: #f4b400;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(244, 180, 0, 0.12);
 }
 
@@ -93,13 +98,13 @@
 }
 
 .checklist-criterio-texto strong {
-  color: #0f1c35;
+  color: var(--color-text-heading);
   font-size: 15px;
   font-weight: 700;
 }
 
 .checklist-criterio-texto span {
-  color: #475467;
+  color: var(--color-text-secondary);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -110,7 +115,7 @@
   gap: 24px;
   margin-top: 20px;
   padding-top: 14px;
-  border-top: 1px solid #eaecf0;
+  border-top: 1px solid var(--color-border);
 }
 
 .checklist-criterio-respostas label {
@@ -118,7 +123,7 @@
   align-items: center;
   gap: 7px;
   margin: 0;
-  color: #344054;
+  color: var(--color-text);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -128,7 +133,7 @@
   width: 17px;
   height: 17px;
   margin: 0;
-  accent-color: #f4b400;
+  accent-color: var(--color-primary);
   cursor: pointer;
 }
 
@@ -143,7 +148,7 @@
 }
 
 /* ==========================================================
-   Demais perguntas do checklist
+   DEMAIS PERGUNTAS DO CHECKLIST
    ========================================================== */
 
 .checklist-questions {
@@ -160,7 +165,7 @@
 }
 
 .checklist-field label {
-  color: #344054;
+  color: var(--color-text);
   font-size: 14px;
   font-weight: 600;
 }
@@ -169,10 +174,10 @@
 .checklist-field textarea {
   width: 100%;
   padding: 11px 12px;
-  border: 1px solid #d0d5dd;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background: #ffffff;
-  color: #101828;
+  background: var(--color-surface);
+  color: var(--color-text);
   font: inherit;
   box-sizing: border-box;
 }
@@ -180,7 +185,7 @@
 .checklist-field select:focus,
 .checklist-field textarea:focus {
   outline: none;
-  border-color: #f4b400;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(244, 180, 0, 0.12);
 }
 
@@ -189,12 +194,16 @@
   min-height: 120px;
 }
 
+.checklist-field textarea::placeholder {
+  color: var(--color-text-secondary);
+}
+
 .checklist-status-field {
   max-width: 300px;
 }
 
 /* ==========================================================
-   Ações do formulário
+   AÇÕES DO FORMULÁRIO
    ========================================================== */
 
 .checklist-actions {
@@ -208,7 +217,7 @@
   border: none;
   border-radius: 8px;
   padding: 12px 22px;
-  background: #f4b400;
+  background: var(--color-primary);
   color: #111827;
   font-size: 14px;
   font-weight: 700;
@@ -216,7 +225,7 @@
 }
 
 .checklist-save-button:hover:not(:disabled) {
-  filter: brightness(0.96);
+  background: var(--color-primary-hover);
 }
 
 .checklist-save-button:disabled {
@@ -225,7 +234,7 @@
 }
 
 /* ==========================================================
-   Mensagens
+   MENSAGENS
    ========================================================== */
 
 .checklist-message {
@@ -247,7 +256,7 @@
 }
 
 /* ==========================================================
-   Status
+   STATUS
    ========================================================== */
 
 .checklist-status {
@@ -270,7 +279,7 @@
 }
 
 /* ==========================================================
-   Checklist já cadastrado
+   CHECKLIST JÁ CADASTRADO
    ========================================================== */
 
 .checklist-existing {
@@ -280,24 +289,24 @@
   gap: 30px;
   margin-top: 28px;
   padding: 28px;
-  background: #ffffff;
-  border: 1px solid #e1e5eb;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
 }
 
 .checklist-existing > div > span {
-  color: #667085;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
 .checklist-existing h3 {
   margin: 6px 0;
-  color: #101828;
+  color: var(--color-text-heading);
 }
 
 .checklist-existing p {
   margin: 0;
-  color: #667085;
+  color: var(--color-text-secondary);
 }
 
 .checklist-existing-main {
@@ -316,12 +325,12 @@
 }
 
 .checklist-existing-info span {
-  color: #667085;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
 .checklist-existing-info strong {
-  color: #101828;
+  color: var(--color-text-heading);
 }
 
 .checklist-details {
@@ -339,27 +348,27 @@
 
 .checklist-details span,
 .checklist-observacoes span {
-  color: #667085;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
 .checklist-details strong {
-  color: #101828;
+  color: var(--color-text-heading);
 }
 
 .checklist-observacoes {
   margin-top: 28px;
   padding-top: 20px;
-  border-top: 1px solid #eaecf0;
+  border-top: 1px solid var(--color-border);
 }
 
 .checklist-observacoes p {
   margin-top: 8px;
-  color: #344054;
+  color: var(--color-text);
 }
 
 /* ==========================================================
-   Botões do checklist existente
+   BOTÕES DO CHECKLIST EXISTENTE
    ========================================================== */
 
 .checklist-existing-actions {
@@ -382,15 +391,24 @@
 }
 
 .checklist-edit-button {
-  border: 1px solid #d0d5dd;
-  background: #ffffff;
-  color: #344054;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.checklist-edit-button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-surface-secondary);
 }
 
 .checklist-finish-button {
   border: none;
   background: #067647;
   color: #ffffff;
+}
+
+.checklist-finish-button:hover:not(:disabled) {
+  background: #055f39;
 }
 
 .checklist-reopen-button {
@@ -400,9 +418,13 @@
 }
 
 .checklist-cancel-button {
-  border: 1px solid #d0d5dd;
-  background: #ffffff;
-  color: #344054;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.checklist-cancel-button:hover:not(:disabled) {
+  background: var(--color-surface-secondary);
 }
 
 .checklist-edit-button:disabled,
@@ -414,7 +436,40 @@
 }
 
 /* ==========================================================
-   Responsividade
+   AJUSTES DO TEMA ESCURO
+   ========================================================== */
+
+html[data-theme='dark'] .checklist-badge,
+html[data-theme='dark'] .checklist-status-pendente {
+  background: #493812;
+  color: #fcd34d;
+}
+
+html[data-theme='dark'] .checklist-status-concluido {
+  background: #123b2b;
+  color: #6ee7b7;
+}
+
+html[data-theme='dark'] .checklist-error {
+  border-color: #9f2936;
+  background: #4c1d24;
+  color: #fda4af;
+}
+
+html[data-theme='dark'] .checklist-success {
+  border-color: #15803d;
+  background: #123b2b;
+  color: #6ee7b7;
+}
+
+html[data-theme='dark'] .checklist-reopen-button {
+  border-color: #a16207;
+  background: #493812;
+  color: #fcd34d;
+}
+
+/* ==========================================================
+   RESPONSIVIDADE
    ========================================================== */
 
 @media (max-width: 1100px) {

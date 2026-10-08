@@ -1,3 +1,47 @@
+:root {
+  /* Identidade visual */
+  --color-primary: #f5b700;
+  --color-primary-hover: #dca500;
+
+  /* Tema claro */
+  --color-background: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f9fafb;
+
+  --color-text: #1f2937;
+  --color-text-heading: #172033;
+  --color-text-secondary: #667085;
+
+  --color-border: #e5e7eb;
+
+  /* Sidebar */
+  --color-sidebar: #172033;
+  --color-sidebar-text: #d8dee8;
+  --color-sidebar-heading: #ffffff;
+  --color-sidebar-secondary: #b8c0cc;
+
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  --color-background: #0f172a;
+  --color-surface: #172033;
+  --color-surface-secondary: #1e293b;
+
+  --color-text: #e5e7eb;
+  --color-text-heading: #ffffff;
+  --color-text-secondary: #aab4c3;
+
+  --color-border: #334155;
+
+  --color-sidebar: #111827;
+  --color-sidebar-text: #d8dee8;
+  --color-sidebar-heading: #ffffff;
+  --color-sidebar-secondary: #b8c0cc;
+
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -13,8 +57,11 @@ html {
 body {
   min-width: 320px;
   min-height: 100vh;
-  background-color: #f5f6f8;
-  color: #1f2937;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 button,
