@@ -164,6 +164,15 @@ function Sidebar() {
           </NavLink>
         </nav>
 
+        <div className="sidebar-settings-area">
+          <NavLink
+            to="/configuracoes"
+            className="sidebar-settings-link"
+          >
+            ⚙ Configurações
+          </NavLink>
+        </div>
+
         <div className="sidebar-export-area">
           <button
             type="button"

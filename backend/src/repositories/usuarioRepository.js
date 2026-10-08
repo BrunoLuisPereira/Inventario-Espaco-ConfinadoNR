@@ -170,11 +170,64 @@ async function atualizarStatus(idUsuario, ativo) {
 
   return result.rows[0] || null;
 }
+
+/**
+ * Busca os dados necessários para autenticação
+ * e alteração da própria senha.
+ *
+ * O hash nunca deve ser enviado ao frontend.
+ */
+async function buscarPorIdComSenha(idUsuario) {
+  const query = `
+    SELECT
+      id_usuario,
+      nome,
+      email,
+      senha_hash,
+      perfil_acesso,
+      ativo
+    FROM usuario
+    WHERE id_usuario = $1
+    LIMIT 1
+  `;
+
+  const result = await pool.query(query, [idUsuario]);
+
+  return result.rows[0] || null;
+}
+
+/**
+ * Atualiza a senha do usuário autenticado.
+ *
+ * Recebe somente o hash gerado pelo backend.
+ * Nunca armazena a senha em texto simples.
+ */
+async function atualizarSenha(idUsuario, senhaHash) {
+  const query = `
+    UPDATE usuario
+    SET
+      senha_hash = $1,
+      data_atualizacao = CURRENT_TIMESTAMP
+    WHERE id_usuario = $2
+      AND ativo = TRUE
+    RETURNING id_usuario
+  `;
+
+  const result = await pool.query(query, [
+    senhaHash,
+    idUsuario,
+  ]);
+
+  return result.rows[0] || null;
+}
+
 module.exports = {
   buscarPorEmail,
   criar,
   listarTodos,
   buscarPorId,
+  buscarPorIdComSenha,
   atualizar,
   atualizarStatus,
+  atualizarSenha,
 };

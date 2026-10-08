@@ -1,30 +1,44 @@
+
+/* ========================================
+   LAYOUT
+======================================== */
+
 .relatorio-layout {
   display: flex;
   min-height: 100vh;
-  background: #f5f6f8;
+  background: var(--color-background);
 }
 
 .relatorio-content {
   flex: 1;
-  margin-left: 220px;
   min-width: 0;
+  margin-left: 0;
 }
 
 .relatorio-main {
   padding: 28px;
 }
 
+/* ========================================
+   NAVEGAÇÃO
+======================================== */
+
 .relatorio-back {
   display: inline-block;
   margin-bottom: 28px;
-  color: #334155;
+  color: var(--color-text-secondary);
   text-decoration: none;
   font-size: 14px;
+  font-weight: 600;
 }
 
 .relatorio-back:hover {
-  color: #0f172a;
+  color: var(--color-text-heading);
 }
+
+/* ========================================
+   TÍTULO
+======================================== */
 
 .relatorio-title {
   display: flex;
@@ -37,7 +51,7 @@
 .relatorio-label {
   display: block;
   margin-bottom: 6px;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -45,20 +59,27 @@
 
 .relatorio-title h2 {
   margin: 0;
-  color: #0f172a;
+  color: var(--color-text-heading);
   font-size: 22px;
 }
 
 .relatorio-title p {
   margin: 6px 0 0;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
+/* ========================================
+   STATUS DO RELATÓRIO
+======================================== */
+
 .relatorio-status {
+  display: inline-flex;
+  align-items: center;
   padding: 6px 12px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .relatorio-status-disponivel {
@@ -73,11 +94,16 @@
   border: 1px solid #fde68a;
 }
 
+/* ========================================
+   CARD PRINCIPAL
+======================================== */
+
 .relatorio-card {
   padding: 26px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
+  color: var(--color-text);
 }
 
 .relatorio-card-header {
@@ -86,20 +112,24 @@
   align-items: flex-start;
   gap: 20px;
   padding-bottom: 22px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .relatorio-card-header h3 {
   margin: 0 0 7px;
-  color: #0f172a;
+  color: var(--color-text-heading);
   font-size: 18px;
 }
 
 .relatorio-card-header p {
   margin: 0;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
+
+/* ========================================
+   ÍCONE PDF
+======================================== */
 
 .relatorio-document-icon {
   display: flex;
@@ -115,55 +145,70 @@
   font-weight: 800;
 }
 
+/* ========================================
+   INFORMAÇÕES DO RELATÓRIO
+======================================== */
+
 .relatorio-info {
   display: grid;
-  grid-template-columns:
-    repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   margin-top: 22px;
 }
 
 .relatorio-info > div {
   padding: 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
+  min-width: 0;
 }
 
 .relatorio-info span {
   display: block;
   margin-bottom: 7px;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 
 .relatorio-info strong {
-  color: #0f172a;
+  color: var(--color-text-heading);
   font-size: 14px;
+  overflow-wrap: anywhere;
 }
+
+/* ========================================
+   OBSERVAÇÕES
+======================================== */
 
 .relatorio-observacao {
   margin-top: 22px;
   padding: 16px;
-  background: #f8fafc;
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
 }
 
 .relatorio-observacao strong {
-  color: #0f172a;
+  color: var(--color-text-heading);
   font-size: 14px;
 }
 
 .relatorio-observacao p {
   margin: 7px 0 0;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 14px;
   line-height: 1.5;
 }
 
+/* ========================================
+   AÇÕES
+======================================== */
+
 .relatorio-actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 26px;
 }
@@ -172,9 +217,13 @@
   min-width: 150px;
   padding: 11px 18px;
   border-radius: 7px;
+  font: inherit;
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .relatorio-btn:disabled {
@@ -182,25 +231,35 @@
   cursor: not-allowed;
 }
 
+/* Botão principal */
+
 .relatorio-btn-primary {
-  border: 1px solid #f5b800;
-  background: #f5b800;
-  color: #111827;
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary);
+  color: #172033;
 }
 
 .relatorio-btn-primary:hover:not(:disabled) {
-  background: #e5ac00;
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
 
+/* Botão secundário */
+
 .relatorio-btn-secondary {
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  color: #334155;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .relatorio-btn-secondary:hover:not(:disabled) {
-  background: #f8fafc;
+  border-color: var(--color-primary);
+  background: var(--color-surface-secondary);
 }
+
+/* ========================================
+   MENSAGENS
+======================================== */
 
 .relatorio-message,
 .relatorio-error,
@@ -212,24 +271,63 @@
 }
 
 .relatorio-message {
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
 }
 
 .relatorio-error {
   background: #fee2e2;
   color: #b91c1c;
+  border: 1px solid #fecaca;
 }
 
 .relatorio-success {
   background: #dcfce7;
   color: #15803d;
+  border: 1px solid #86efac;
 }
+
+/* ========================================
+   TEMA ESCURO
+======================================== */
+
+html[data-theme='dark'] .relatorio-status-disponivel {
+  background: #123b2b;
+  color: #6ee7b7;
+  border-color: #15803d;
+}
+
+html[data-theme='dark'] .relatorio-status-pendente {
+  background: #493812;
+  color: #fcd34d;
+  border-color: #a16207;
+}
+
+html[data-theme='dark'] .relatorio-document-icon {
+  background: #4c1d24;
+  color: #fda4af;
+}
+
+html[data-theme='dark'] .relatorio-error {
+  background: #4c1d24;
+  color: #fda4af;
+  border-color: #9f2936;
+}
+
+html[data-theme='dark'] .relatorio-success {
+  background: #123b2b;
+  color: #6ee7b7;
+  border-color: #15803d;
+}
+
+/* ========================================
+   RESPONSIVIDADE
+======================================== */
 
 @media (max-width: 1000px) {
   .relatorio-info {
-    grid-template-columns:
-      repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
