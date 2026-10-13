@@ -1,16 +1,31 @@
+
+/* ========================================
+   FORMULÁRIO E DADOS EXISTENTES
+======================================== */
+
 .dados-tecnicos-form,
 .dados-tecnicos-existing {
   margin-top: 20px;
   padding: 24px;
-  background: #ffffff;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
+  color: var(--color-text);
 }
+
+/* ========================================
+   GRID
+======================================== */
 
 .dados-tecnicos-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
 }
+
+/* ========================================
+   CAMPOS
+======================================== */
 
 .dados-tecnicos-field {
   display: flex;
@@ -21,7 +36,7 @@
 
 .dados-tecnicos-field label {
   font-weight: 600;
-  color: #17233a;
+  color: var(--color-text-heading);
 }
 
 .dados-tecnicos-field input,
@@ -29,12 +44,17 @@
 .dados-tecnicos-field textarea {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid #d7dce5;
+  border: 1px solid var(--color-border);
   border-radius: 7px;
-  background: #ffffff;
+  background: var(--color-surface);
   font: inherit;
-  color: #17233a;
+  color: var(--color-text);
   box-sizing: border-box;
+}
+
+.dados-tecnicos-field input::placeholder,
+.dados-tecnicos-field textarea::placeholder {
+  color: var(--color-text-secondary);
 }
 
 .dados-tecnicos-field textarea {
@@ -44,23 +64,33 @@
 .dados-tecnicos-field input:focus,
 .dados-tecnicos-field select:focus,
 .dados-tecnicos-field textarea:focus {
-  outline: 2px solid #f5b800;
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
+
+/* ========================================
+   AÇÕES E BOTÕES
+======================================== */
 
 .dados-tecnicos-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 12px;
 }
 
 .dados-tecnicos-actions button {
   padding: 12px 20px;
   border: 0;
   border-radius: 7px;
-  background: #f5b800;
+  background: var(--color-primary);
   color: #111827;
+  font: inherit;
   font-weight: 700;
   cursor: pointer;
+}
+
+.dados-tecnicos-actions button:hover:not(:disabled) {
+  filter: brightness(0.96);
 }
 
 .dados-tecnicos-actions button:disabled {
@@ -68,31 +98,44 @@
   cursor: not-allowed;
 }
 
+/* ========================================
+   DADOS JÁ CADASTRADOS
+======================================== */
+
 .dados-tecnicos-existing h4 {
   margin-top: 0;
   margin-bottom: 22px;
   font-size: 18px;
-  color: #17233a;
+  color: var(--color-text-heading);
 }
 
 .dados-tecnicos-existing p {
   margin: 0;
-  color: #526079;
+  color: var(--color-text-secondary);
 }
 
 .dados-tecnicos-existing strong {
-  color: #17233a;
+  color: var(--color-text-heading);
 }
+
+/* ========================================
+   OBSERVAÇÕES
+======================================== */
 
 .dados-tecnicos-observacoes {
   margin-top: 24px;
   padding-top: 20px;
-  border-top: 1px solid #e3e7ee;
+  border-top: 1px solid var(--color-border);
 }
 
 .dados-tecnicos-observacoes p {
   margin-top: 8px;
+  color: var(--color-text);
 }
+
+/* ========================================
+   MENSAGEM DE SUCESSO
+======================================== */
 
 .dados-tecnicos-success {
   margin: 20px 0;
@@ -102,26 +145,65 @@
   color: #166534;
 }
 
+/* ========================================
+   BOTÃO CANCELAR
+======================================== */
+
+.dados-tecnicos-actions .dados-tecnicos-cancel-button {
+  background: var(--color-surface-secondary);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+/* ========================================
+   BOTÃO CONCLUIR
+======================================== */
+
+.dados-tecnicos-actions .dados-tecnicos-finish-button {
+  background: #17233a;
+  color: #ffffff;
+}
+
+/* ========================================
+   BOTÃO REABRIR
+======================================== */
+
+.dados-tecnicos-actions .dados-tecnicos-reopen-button {
+  background: var(--color-surface-secondary);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+/* ========================================
+   AJUSTES PARA TEMA ESCURO
+======================================== */
+
+html[data-theme='dark'] .dados-tecnicos-success {
+  background: #123b2b;
+  color: #6ee7b7;
+}
+
+html[data-theme='dark'] .dados-tecnicos-actions
+.dados-tecnicos-finish-button {
+  background: #f5b700;
+  color: #172033;
+}
+
+html[data-theme='dark'] .dados-tecnicos-actions
+.dados-tecnicos-cancel-button,
+html[data-theme='dark'] .dados-tecnicos-actions
+.dados-tecnicos-reopen-button {
+  background: var(--color-surface-secondary);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+/* ========================================
+   RESPONSIVIDADE
+======================================== */
+
 @media (max-width: 800px) {
   .dados-tecnicos-grid {
     grid-template-columns: 1fr;
   }
-}
-.dados-tecnicos-actions {
-  gap: 12px;
-}
-
-.dados-tecnicos-cancel-button {
-  background: #e5e7eb !important;
-  color: #17233a !important;
-}
-
-.dados-tecnicos-finish-button {
-  background: #17233a !important;
-  color: #ffffff !important;
-}
-
-.dados-tecnicos-reopen-button {
-  background: #e5e7eb !important;
-  color: #17233a !important;
 }

@@ -98,6 +98,104 @@ async function login(dados) {
   };
 }
 
+/**
+ * Altera a senha do próprio usuário autenticado.
+ *
+ * Valida a senha atual e armazena somente
+ * o hash da nova senha.
+ */
+async function alterarSenha(
+  idUsuario,
+  dados = {}
+) {
+  const {
+    senhaAtual,
+    novaSenha,
+    confirmarSenha,
+  } = dados;
+
+  if (
+    typeof senhaAtual !== "string" ||
+    !senhaAtual
+  ) {
+    throw criarErro(
+      "Informe a senha atual.",
+      400
+    );
+  }
+
+  if (
+    typeof novaSenha !== "string" ||
+    novaSenha.length < 8
+  ) {
+    throw criarErro(
+      "A nova senha deve possuir pelo menos 8 caracteres.",
+      400
+    );
+  }
+
+  if (novaSenha !== confirmarSenha) {
+    throw criarErro(
+      "A confirmação da nova senha não confere.",
+      400
+    );
+  }
+
+  if (novaSenha === senhaAtual) {
+    throw criarErro(
+      "A nova senha deve ser diferente da senha atual.",
+      400
+    );
+  }
+
+  const usuario =
+    await usuarioRepository.buscarPorIdComSenha(
+      idUsuario
+    );
+
+  if (!usuario || !usuario.ativo) {
+    throw criarErro(
+      "Usuário não encontrado ou desativado.",
+      403
+    );
+  }
+
+  const senhaCorreta = await bcrypt.compare(
+    senhaAtual,
+    usuario.senha_hash
+  );
+
+  if (!senhaCorreta) {
+    throw criarErro(
+      "A senha atual está incorreta.",
+      400
+    );
+  }
+
+  const senhaHash = await bcrypt.hash(
+    novaSenha,
+    12
+  );
+
+  const resultado =
+    await usuarioRepository.atualizarSenha(
+      idUsuario,
+      senhaHash
+    );
+
+  if (!resultado) {
+    throw criarErro(
+      "Não foi possível atualizar a senha.",
+      403
+    );
+  }
+
+  return {
+    mensagem: "Senha alterada com sucesso.",
+  };
+}
+
 module.exports = {
   login,
+  alterarSenha,
 };

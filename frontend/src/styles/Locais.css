@@ -1,7 +1,12 @@
+
+/* ========================================
+   LAYOUT
+======================================== */
+
 .locais-layout {
   display: flex;
   min-height: 100vh;
-  background-color: #f5f6f8;
+  background-color: var(--color-background);
 }
 
 .locais-content {
@@ -17,13 +22,13 @@
 .locais-back {
   display: inline-block;
   margin-bottom: 24px;
-  color: #475467;
+  color: var(--color-text-secondary);
   font-weight: 600;
   text-decoration: none;
 }
 
 .locais-back:hover {
-  color: #101828;
+  color: var(--color-text-heading);
 }
 
 .locais-title {
@@ -36,23 +41,31 @@
 
 .locais-title h2 {
   margin: 0 0 6px;
-  color: #101828;
+  color: var(--color-text-heading);
 }
 
 .locais-title p {
   margin: 0;
-  color: #667085;
+  color: var(--color-text-secondary);
 }
+
+/* ========================================
+   BOTÃO PRINCIPAL
+======================================== */
 
 .local-button-primary {
   padding: 10px 16px;
   border: 0;
   border-radius: 8px;
-  background-color: #f5b700;
-  color: #101828;
+  background-color: var(--color-primary);
+  color: #172033;
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+}
+
+.local-button-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
 }
 
 .local-button-primary:disabled {
@@ -60,11 +73,15 @@
   opacity: 0.55;
 }
 
+/* ========================================
+   TABELA
+======================================== */
+
 .locais-table-container {
   overflow-x: auto;
-  border: 1px solid #eaecf0;
+  border: 1px solid var(--color-border);
   border-radius: 10px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
 }
 
 .locais-table {
@@ -75,23 +92,27 @@
 .locais-table th,
 .locais-table td {
   padding: 14px 16px;
-  border-bottom: 1px solid #eaecf0;
+  border-bottom: 1px solid var(--color-border);
   text-align: left;
 }
 
 .locais-table th {
-  background-color: #f9fafb;
-  color: #475467;
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
 }
 
 .locais-table td {
-  color: #344054;
+  color: var(--color-text);
 }
 
 .locais-table tbody tr:last-child td {
   border-bottom: 0;
 }
+
+/* ========================================
+   STATUS
+======================================== */
 
 .locais-status {
   display: inline-block;
@@ -116,15 +137,25 @@
   color: #175cd3;
 }
 
+/* ========================================
+   BOTÃO ABRIR
+======================================== */
+
 .local-button-open {
   padding: 7px 10px;
-  border: 1px solid #d0d5dd;
+  border: 1px solid var(--color-border);
   border-radius: 7px;
-  background-color: #ffffff;
-  color: #344054;
+  background-color: var(--color-surface);
+  color: var(--color-text);
   font: inherit;
   font-size: 0.8rem;
   font-weight: 600;
+  cursor: pointer;
+}
+
+.local-button-open:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background-color: var(--color-surface-secondary);
 }
 
 .local-button-open:disabled {
@@ -132,12 +163,17 @@
   opacity: 0.5;
 }
 
+/* ========================================
+   MENSAGENS
+======================================== */
+
 .locais-message,
 .locais-error,
 .locais-empty {
   padding: 20px;
   border-radius: 10px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
+  color: var(--color-text);
 }
 
 .locais-error {
@@ -145,42 +181,36 @@
 }
 
 .locais-empty {
-  border: 1px solid #eaecf0;
+  border: 1px solid var(--color-border);
   text-align: center;
 }
 
 .locais-empty h3 {
   margin-top: 0;
-  color: #101828;
+  color: var(--color-text-heading);
 }
 
 .locais-empty p {
   margin-bottom: 0;
-  color: #667085;
+  color: var(--color-text-secondary);
 }
 
-@media (max-width: 900px) {
-  .locais-content {
-    padding: 20px;
-  }
+/* ========================================
+   FORMULÁRIO
+======================================== */
 
-  .locais-title {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
 .local-form-container {
   margin-bottom: 28px;
   padding: 24px;
-  border: 1px solid #e4e7ec;
+  border: 1px solid var(--color-border);
   border-radius: 12px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
 }
 
 .local-form-container h3 {
   margin-top: 0;
   margin-bottom: 20px;
-  color: #172033;
+  color: var(--color-text-heading);
 }
 
 .local-form-grid {
@@ -200,7 +230,7 @@
 }
 
 .local-form-field label {
-  color: #344054;
+  color: var(--color-text);
   font-size: 0.875rem;
   font-weight: 500;
 }
@@ -209,12 +239,17 @@
 .local-form-field textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #d0d5dd;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background-color: #ffffff;
-  color: #172033;
+  background-color: var(--color-surface);
+  color: var(--color-text);
   font: inherit;
   box-sizing: border-box;
+}
+
+.local-form-field input::placeholder,
+.local-form-field textarea::placeholder {
+  color: var(--color-text-secondary);
 }
 
 .local-form-field textarea {
@@ -223,7 +258,7 @@
 
 .local-form-field input:focus,
 .local-form-field textarea:focus {
-  border-color: #f5b700;
+  border-color: var(--color-primary);
   outline: 2px solid rgba(245, 183, 0, 0.15);
 }
 
@@ -234,25 +269,34 @@
   margin-top: 24px;
 }
 
+/* ========================================
+   BOTÃO SECUNDÁRIO
+======================================== */
+
 .local-button-secondary {
   padding: 10px 16px;
-  border: 1px solid #d0d5dd;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background-color: #ffffff;
-  color: #344054;
+  background-color: var(--color-surface);
+  color: var(--color-text);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
 .local-button-secondary:hover:not(:disabled) {
-  background-color: #f9fafb;
+  background-color: var(--color-surface-secondary);
+  border-color: var(--color-primary);
 }
 
 .local-button-secondary:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
+
+/* ========================================
+   ERROS DO FORMULÁRIO
+======================================== */
 
 .local-form-error {
   margin-top: 20px;
@@ -261,6 +305,88 @@
   border-radius: 8px;
   background-color: #fef3f2;
   color: #b42318;
+}
+
+/* ========================================
+   AÇÕES
+======================================== */
+
+.local-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ========================================
+   BOTÃO EDITAR
+======================================== */
+
+.local-button-edit {
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.local-button-edit:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text-heading);
+}
+
+.local-button-edit:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ========================================
+   AJUSTES DO TEMA ESCURO
+======================================== */
+
+html[data-theme='dark'] .locais-status-ativo {
+  background-color: #123b2b;
+  color: #6ee7b7;
+}
+
+html[data-theme='dark'] .locais-status-inativo {
+  background-color: #334155;
+  color: #cbd5e1;
+}
+
+html[data-theme='dark'] .locais-status-concluido {
+  background-color: #172f50;
+  color: #93c5fd;
+}
+
+html[data-theme='dark'] .local-form-error {
+  background-color: #4c1d24;
+  border-color: #9f2936;
+  color: #fda4af;
+}
+
+html[data-theme='dark'] .locais-error {
+  background-color: #4c1d24;
+  color: #fda4af;
+}
+
+/* ========================================
+   RESPONSIVIDADE
+======================================== */
+
+@media (max-width: 900px) {
+  .locais-content {
+    padding: 20px;
+  }
+
+  .locais-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 768px) {
@@ -275,32 +401,4 @@
   .local-form-actions {
     flex-direction: column-reverse;
   }
-}
-.local-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.local-button-edit {
-  padding: 7px 10px;
-  border: 1px solid #d0d5dd;
-  border-radius: 7px;
-  background-color: #ffffff;
-  color: #344054;
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.local-button-edit:hover:not(:disabled) {
-  border-color: #98a2b3;
-  background-color: #f9fafb;
-  color: #101828;
-}
-
-.local-button-edit:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
 }

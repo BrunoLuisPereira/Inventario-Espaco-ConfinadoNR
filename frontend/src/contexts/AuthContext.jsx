@@ -1,3 +1,4 @@
+
 import { useState } from 'react'
 import { AuthContext } from './AuthContext.js'
 
@@ -28,6 +29,34 @@ export function AuthProvider({ children }) {
     setUsuario(novoUsuario)
   }
 
+  /**
+   * Atualiza os dados do usuário autenticado
+   * sem modificar o token JWT.
+   *
+   * Deve receber os dados retornados pela API,
+   * nunca valores não confirmados pelo servidor.
+   */
+  function atualizarUsuario(dadosAtualizados) {
+    setUsuario((usuarioAnterior) => {
+      if (!usuarioAnterior) {
+        return usuarioAnterior
+      }
+
+      const usuarioAtualizado = {
+        ...usuarioAnterior,
+        nome: dadosAtualizados.nome,
+        email: dadosAtualizados.email,
+      }
+
+      localStorage.setItem(
+        'usuario',
+        JSON.stringify(usuarioAtualizado)
+      )
+
+      return usuarioAtualizado
+    })
+  }
+
   function logout() {
     localStorage.removeItem('token')
     localStorage.removeItem('usuario')
@@ -43,6 +72,7 @@ export function AuthProvider({ children }) {
         token,
         autenticado: Boolean(token),
         autenticar,
+        atualizarUsuario,
         logout,
       }}
     >

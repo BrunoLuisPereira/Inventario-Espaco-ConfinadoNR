@@ -1,710 +1,1750 @@
 .evidencias-layout {
+
   min-height: 100vh;
+
   display: flex;
-  background: #f5f7fa;
+
+  background: var(--color-background);
+
 }
+
+
 
 .evidencias-content {
+
   flex: 1;
+
   min-width: 0;
+
 }
+
+
 
 .evidencias-main {
+
   padding: 32px;
+
 }
+
+
 
 .evidencias-back {
+
   display: inline-block;
+
   margin-bottom: 24px;
-  color: #334155;
+
+  color: var(--color-text, #334155);
+
   font-weight: 600;
+
   text-decoration: none;
+
 }
+
+
 
 .evidencias-back:hover {
+
   text-decoration: underline;
+
 }
+
+
 
 .evidencias-title {
+
   margin-bottom: 24px;
+
 }
+
+
 
 .evidencias-title > span {
+
   display: block;
+
   margin-bottom: 6px;
-  color: #64748b;
+
+  color: var(--color-text-secondary, #64748b);
+
   font-size: 0.8rem;
+
   font-weight: 700;
+
   text-transform: uppercase;
+
   letter-spacing: 0.05em;
+
 }
+
+
 
 .evidencias-title h2 {
+
   margin: 0 0 8px;
-  color: #0f172a;
+
+  color: var(--color-text-heading, #0f172a);
+
 }
+
+
 
 .evidencias-title p {
+
   margin: 0;
-  color: #64748b;
+
+  color: var(--color-text-secondary, #64748b);
+
 }
 
+
+
 /* =====================================================
+
    FORMULÁRIO E LISTAGEM
+
    ===================================================== */
+
+
 
 .evidencias-form,
+
 .evidencias-list-section {
+
   margin-bottom: 24px;
+
   padding: 28px;
-  border: 1px solid #e2e8f0;
+
+  border: 1px solid var(--color-border, #e2e8f0);
+
   border-radius: 12px;
-  background: #ffffff;
+
+  background: var(--color-surface, #ffffff);
+
 }
+
+
 
 .evidencias-form-header,
+
 .evidencias-list-header {
+
   margin-bottom: 24px;
+
 }
+
+
 
 .evidencias-form-header h3,
+
 .evidencias-list-header h3 {
+
   margin: 0 0 6px;
-  color: #0f172a;
+
+  color: var(--color-text-heading, #0f172a);
+
 }
+
+
 
 .evidencias-form-header p,
+
 .evidencias-list-header p {
+
   margin: 0;
-  color: #64748b;
+
+  color: var(--color-text-secondary, #64748b);
+
 }
 
+
+
 /* =====================================================
+
    CAMPOS DO FORMULÁRIO
+
    ===================================================== */
+
+
 
 .evidencias-field {
+
   margin-bottom: 20px;
+
 }
+
+
 
 .evidencias-field label {
+
   display: block;
+
   margin-bottom: 8px;
-  color: #334155;
+
+  color: var(--color-text, #334155);
+
   font-weight: 600;
+
 }
+
+
 
 .evidencias-field input[type='file'] {
+
   display: block;
+
   box-sizing: border-box;
+
   width: 100%;
+
   padding: 12px;
-  border: 1px solid #cbd5e1;
+
+  border: 1px solid var(--color-border, #cbd5e1);
+
   border-radius: 8px;
-  background: #f8fafc;
-  color: #334155;
+
+  background: var(--color-surface-secondary, #f8fafc);
+
+  color: var(--color-text, #334155);
+
 }
+
+
 
 .evidencias-field textarea {
+
   box-sizing: border-box;
+
   width: 100%;
+
   padding: 12px;
-  border: 1px solid #cbd5e1;
+
+  border: 1px solid var(--color-border, #cbd5e1);
+
   border-radius: 8px;
-  background: #ffffff;
-  color: #0f172a;
+
+  background: var(--color-surface, #ffffff);
+
+  color: var(--color-text-heading, #0f172a);
+
   font: inherit;
+
   resize: vertical;
+
 }
+
+
 
 .evidencias-field input:focus,
+
 .evidencias-field textarea:focus {
-  outline: 2px solid #fbbf24;
+
+  outline: 2px solid var(--color-primary, #fbbf24);
+
   outline-offset: 1px;
-  border-color: #f59e0b;
+
+  border-color: var(--color-primary-hover, #f59e0b);
+
 }
+
+
 
 .evidencias-field small {
+
   display: block;
+
   margin-top: 8px;
-  color: #64748b;
+
+  color: var(--color-text-secondary, #64748b);
+
 }
 
+
+
 /* =====================================================
+
    ESCOLHA DE ARQUIVO / CÂMERA
+
    ===================================================== */
+
+
 
 .evidencias-file-options {
+
   display: flex;
+
   align-items: stretch;
+
   gap: 10px;
+
 }
+
+
 
 .evidencias-file-options input[type='file'] {
+
   flex: 1;
+
   min-width: 0;
+
 }
+
+
 
 .evidencias-camera-button {
+
   flex-shrink: 0;
+
   min-width: 140px;
+
   padding: 0 18px;
-  border: 1px solid #cbd5e1;
+
+  border: 1px solid var(--color-border, #cbd5e1);
+
   border-radius: 8px;
-  background: #ffffff;
-  color: #334155;
+
+  background: var(--color-surface, #ffffff);
+
+  color: var(--color-text, #334155);
+
   font: inherit;
+
   font-weight: 700;
+
   cursor: pointer;
+
+
 
   transition:
+
     background 0.2s ease,
+
     border-color 0.2s ease;
+
 }
+
+
 
 .evidencias-camera-button:hover:not(:disabled) {
-  border-color: #f59e0b;
-  background: #fffbeb;
+
+  border-color: var(--color-primary-hover, #f59e0b);
+
+  background: var(--color-surface-secondary, #fffbeb);
+
 }
+
+
 
 .evidencias-camera-button:focus-visible {
-  outline: 2px solid #fbbf24;
+
+  outline: 2px solid var(--color-primary, #fbbf24);
+
   outline-offset: 2px;
+
 }
+
+
 
 .evidencias-camera-button:disabled {
+
   opacity: 0.55;
+
   cursor: not-allowed;
+
 }
+
+
 
 /*
- * Input utilizado somente para solicitar
- * a câmera do celular/tablet.
- */
+
+ \* Input utilizado somente para solicitar
+
+ \* a câmera do celular/tablet.
+
+ \*/
+
 .evidencias-camera-input {
+
   display: none !important;
+
 }
 
+
+
 /* =====================================================
+
    ARQUIVO SELECIONADO
+
    ===================================================== */
+
+
 
 .evidencias-selected-file {
+
   display: flex;
+
   align-items: center;
+
   justify-content: space-between;
+
   gap: 16px;
 
+
+
   margin: -4px 0 20px;
+
   padding: 12px 14px;
 
+
+
   border-radius: 8px;
-  background: #f1f5f9;
+
+  background: var(--color-surface-secondary, #f1f5f9);
+
 }
+
+
 
 .evidencias-selected-file strong {
+
   overflow-wrap: anywhere;
-  color: #334155;
+
+  color: var(--color-text, #334155);
+
 }
+
+
 
 .evidencias-selected-file span {
+
   flex-shrink: 0;
-  color: #64748b;
+
+  color: var(--color-text-secondary, #64748b);
+
   font-size: 0.85rem;
+
 }
 
+
+
 /* =====================================================
+
    PREVIEW DO ARQUIVO
+
    ===================================================== */
+
+
 
 .evidencias-file-preview {
+
   margin: -4px 0 20px;
+
 }
+
+
 
 .evidencias-file-preview
+
   .evidencias-selected-file {
+
   margin: 0 0 10px;
+
 }
+
+
 
 .evidencias-preview {
+
   padding: 14px;
-  border: 1px solid #e2e8f0;
+
+  border: 1px solid var(--color-border, #e2e8f0);
+
   border-radius: 10px;
-  background: #f8fafc;
+
+  background: var(--color-surface-secondary, #f8fafc);
+
 }
+
+
 
 .evidencias-preview > span {
+
   display: block;
+
   margin-bottom: 10px;
-  color: #64748b;
+
+  color: var(--color-text-secondary, #64748b);
+
   font-size: 0.8rem;
+
   font-weight: 700;
+
 }
+
+
 
 .evidencias-preview img {
+
   display: block;
+
   width: auto;
+
   max-width: 100%;
+
   max-height: 320px;
+
   border-radius: 8px;
+
   object-fit: contain;
+
 }
 
+
+
 /* =====================================================
+
    PDF SELECIONADO
+
    ===================================================== */
 
+
+
 .evidencias-pdf-selected {
+
   display: flex;
+
   align-items: center;
+
   gap: 10px;
+
+
 
   padding: 14px;
 
-  border: 1px solid #e2e8f0;
+
+
+  border: 1px solid var(--color-border, #e2e8f0);
+
   border-radius: 10px;
-  background: #f8fafc;
+
+  background: var(--color-surface-secondary, #f8fafc);
+
 }
+
+
 
 .evidencias-pdf-selected span {
+
   display: inline-flex;
+
   padding: 5px 9px;
+
   border-radius: 6px;
+
   background: #dbeafe;
+
   color: #1e40af;
+
   font-size: 0.72rem;
+
   font-weight: 800;
+
 }
+
+
 
 .evidencias-pdf-selected strong {
-  color: #334155;
+
+  color: var(--color-text, #334155);
+
   font-size: 0.9rem;
+
 }
 
+
+
 /* =====================================================
+
    BOTÃO ENVIAR
+
    ===================================================== */
+
+
 
 .evidencias-form-actions {
+
   display: flex;
+
   justify-content: flex-end;
+
 }
+
+
 
 .evidencias-submit {
+
   padding: 11px 20px;
+
   border: 0;
+
   border-radius: 8px;
-  background: #fbbf24;
+
+  background: var(--color-primary, #fbbf24);
+
   color: #172033;
+
   font-weight: 700;
+
   cursor: pointer;
+
 }
+
+
 
 .evidencias-submit:hover:not(:disabled) {
-  background: #f59e0b;
+
+  background: var(--color-primary-hover, #f59e0b);
+
 }
+
+
 
 .evidencias-submit:disabled {
+
   opacity: 0.55;
+
   cursor: not-allowed;
+
 }
 
+
+
 /* =====================================================
+
    LISTA DE EVIDÊNCIAS
+
    Uma evidência por linha
+
    ===================================================== */
+
+
 
 .evidencias-list {
+
   display: flex;
+
   flex-direction: column;
+
   gap: 12px;
+
 }
+
+
 
 .evidencia-card {
+
   position: relative;
+
   box-sizing: border-box;
+
   width: 100%;
+
   min-height: 145px;
+
   padding: 16px;
-  border: 1px solid #e2e8f0;
+
+  border: 1px solid var(--color-border, #e2e8f0);
+
   border-radius: 10px;
-  background: #f8fafc;
+
+  background: var(--color-surface-secondary, #f8fafc);
+
 }
+
+
 
 .evidencia-card-top {
+
   display: flex;
+
   align-items: center;
+
   justify-content: space-between;
+
   gap: 12px;
+
   margin-bottom: 12px;
+
 }
+
+
 
 .evidencia-type {
+
   display: inline-flex;
+
   padding: 5px 10px;
+
   border-radius: 999px;
+
   font-size: 0.72rem;
+
   font-weight: 700;
+
   text-transform: uppercase;
+
 }
+
+
 
 .evidencia-type-foto {
+
   background: #dcfce7;
+
   color: #166534;
+
 }
+
+
 
 .evidencia-type-documento {
+
   background: #dbeafe;
+
   color: #1e40af;
+
 }
+
+
 
 .evidencia-type-texto {
-  background: #f1f5f9;
-  color: #475569;
+
+  background: var(--color-surface-secondary, #f1f5f9);
+
+  color: var(--color-text-secondary, #475569);
+
 }
+
+
 
 .evidencia-id {
-  color: #94a3b8;
+
+  color: var(--color-text-secondary, #94a3b8);
+
   font-size: 0.8rem;
+
   font-weight: 600;
+
 }
+
+
 
 .evidencia-card h4 {
+
   margin: 0 0 14px;
+
   padding-right: 360px;
-  color: #0f172a;
+
+  color: var(--color-text-heading, #0f172a);
+
   line-height: 1.4;
+
 }
+
+
 
 .evidencia-details {
+
   display: flex;
+
   flex-direction: column;
+
   gap: 4px;
+
   padding-right: 360px;
+
 }
+
+
 
 .evidencia-details span {
-  color: #64748b;
+
+  color: var(--color-text-secondary, #64748b);
+
   font-size: 0.75rem;
+
 }
+
+
 
 .evidencia-details strong {
-  color: #334155;
+
+  color: var(--color-text, #334155);
+
   font-size: 0.9rem;
+
 }
+
+
 
 /* =====================================================
+
    AÇÕES DA EVIDÊNCIA
+
    Desktop: alinhadas à direita
+
    ===================================================== */
 
+
+
 .evidencia-actions {
+
   position: absolute;
+
   right: 16px;
+
   bottom: 16px;
 
+
+
   display: flex;
+
   align-items: center;
+
   justify-content: flex-end;
+
   flex-wrap: wrap;
+
   gap: 8px;
+
 }
+
+
 
 /* Visualizar */
 
+
+
 .evidencia-view-button {
+
   padding: 9px 16px;
-  border: 1px solid #cbd5e1;
+
+  border: 1px solid var(--color-border, #cbd5e1);
+
   border-radius: 8px;
-  background: #ffffff;
-  color: #334155;
+
+  background: var(--color-surface, #ffffff);
+
+  color: var(--color-text, #334155);
+
   font: inherit;
+
   font-size: 0.85rem;
+
   font-weight: 700;
+
   cursor: pointer;
 
+
+
   transition:
+
     background 0.2s ease,
+
     border-color 0.2s ease;
+
 }
+
+
 
 .evidencia-view-button:hover:not(:disabled) {
-  border-color: #f59e0b;
-  background: #fffbeb;
+
+  border-color: var(--color-primary-hover, #f59e0b);
+
+  background: var(--color-surface-secondary, #fffbeb);
+
 }
+
+
 
 .evidencia-view-button:focus-visible {
-  outline: 2px solid #fbbf24;
+
+  outline: 2px solid var(--color-primary, #fbbf24);
+
   outline-offset: 2px;
+
 }
 
+
+
 .evidencia-view-button:disabled {
+
   opacity: 0.55;
+
   cursor: not-allowed;
+
 }
+
+
 
 /* Baixar */
 
+
+
 .evidencia-download-button {
+
   padding: 9px 16px;
-  border: 1px solid #cbd5e1;
+
+  border: 1px solid var(--color-border, #cbd5e1);
+
   border-radius: 8px;
-  background: #ffffff;
-  color: #334155;
+
+  background: var(--color-surface, #ffffff);
+
+  color: var(--color-text, #334155);
+
   font: inherit;
+
   font-size: 0.85rem;
+
   font-weight: 700;
+
   cursor: pointer;
 
+
+
   transition:
+
     background 0.2s ease,
+
     border-color 0.2s ease;
+
 }
+
+
 
 .evidencia-download-button:hover:not(:disabled) {
-  border-color: #f59e0b;
-  background: #fffbeb;
+
+  border-color: var(--color-primary-hover, #f59e0b);
+
+  background: var(--color-surface-secondary, #fffbeb);
+
 }
+
+
 
 .evidencia-download-button:focus-visible {
-  outline: 2px solid #fbbf24;
+
+  outline: 2px solid var(--color-primary, #fbbf24);
+
   outline-offset: 2px;
+
 }
 
+
+
 .evidencia-download-button:disabled {
+
   opacity: 0.55;
+
   cursor: not-allowed;
+
 }
+
+
 
 /* Editar */
 
+
+
 .evidencia-edit-button {
+
   padding: 9px 16px;
-  border: 1px solid #cbd5e1;
+
+  border: 1px solid var(--color-border, #cbd5e1);
+
   border-radius: 8px;
-  background: #ffffff;
-  color: #334155;
+
+  background: var(--color-surface, #ffffff);
+
+  color: var(--color-text, #334155);
+
   font: inherit;
+
   font-size: 0.85rem;
+
   font-weight: 700;
+
   cursor: pointer;
+
 }
+
+
 
 .evidencia-edit-button:hover:not(:disabled) {
-  border-color: #f59e0b;
-  background: #fffbeb;
+
+  border-color: var(--color-primary-hover, #f59e0b);
+
+  background: var(--color-surface-secondary, #fffbeb);
+
 }
+
+
 
 .evidencia-edit-button:focus-visible {
-  outline: 2px solid #fbbf24;
+
+  outline: 2px solid var(--color-primary, #fbbf24);
+
   outline-offset: 2px;
+
 }
 
+
+
 .evidencia-edit-button:disabled {
+
   opacity: 0.55;
+
   cursor: not-allowed;
+
 }
+
+
 
 /* Excluir */
 
+
+
 .evidencia-delete-button {
+
   padding: 9px 16px;
+
   border: 1px solid #dc2626;
+
   border-radius: 8px;
-  background: #ffffff;
+
+  background: var(--color-surface, #ffffff);
+
   color: #dc2626;
+
   font: inherit;
+
   font-size: 0.85rem;
+
   font-weight: 700;
+
   cursor: pointer;
+
+
 
   transition:
+
     background 0.2s ease,
+
     border-color 0.2s ease,
+
     color 0.2s ease;
+
 }
 
+
+
 .evidencia-delete-button:hover:not(:disabled) {
+
   background: #dc2626;
+
   border-color: #dc2626;
+
+  color: var(--color-surface, #ffffff);
+
+}
+
+
+
+.evidencia-delete-button:focus-visible {
+
+  outline: 2px solid #dc2626;
+
+  outline-offset: 2px;
+
+}
+
+
+
+.evidencia-delete-button:disabled {
+
+  opacity: 0.55;
+
+  cursor: not-allowed;
+
+}
+
+
+
+/* =====================================================
+
+   EDIÇÃO DA DESCRIÇÃO
+
+   ===================================================== */
+
+
+
+.evidencia-edit {
+
+  margin-top: 16px;
+
+  padding-right: 360px;
+
+}
+
+
+
+.evidencia-edit label {
+
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: var(--color-text-secondary, #475569);
+
+  font-size: 0.82rem;
+
+  font-weight: 700;
+
+}
+
+
+
+.evidencia-edit textarea {
+
+  box-sizing: border-box;
+
+  width: 100%;
+
+  min-height: 85px;
+
+  padding: 10px 12px;
+
+  border: 1px solid var(--color-border, #cbd5e1);
+
+  border-radius: 8px;
+
+  background: var(--color-surface, #ffffff);
+
+  color: var(--color-text-heading, #0f172a);
+
+  font: inherit;
+
+  resize: vertical;
+
+}
+
+
+
+.evidencia-edit textarea:focus {
+
+  outline: none;
+
+  border-color: var(--color-primary-hover, #f59e0b);
+
+  box-shadow:
+
+    0 0 0 3px rgba(245, 158, 11, 0.12);
+
+}
+
+
+
+.evidencia-edit textarea:disabled {
+
+  background: var(--color-surface-secondary, #f8fafc);
+
+  cursor: not-allowed;
+
+}
+
+
+
+.evidencia-edit-actions {
+
+  display: flex;
+
+  justify-content: flex-end;
+
+  gap: 8px;
+
+  margin-top: 10px;
+
+}
+
+
+
+.evidencia-save-button,
+
+.evidencia-cancel-button {
+
+  padding: 9px 16px;
+
+  border-radius: 8px;
+
+  font: inherit;
+
+  font-size: 0.85rem;
+
+  font-weight: 700;
+
+  cursor: pointer;
+
+}
+
+
+
+.evidencia-save-button {
+
+  border: 1px solid var(--color-primary-hover, #f59e0b);
+
+  background: var(--color-primary-hover, #f59e0b);
+
+  color: var(--color-surface, #ffffff);
+
+}
+
+
+
+.evidencia-save-button:hover:not(:disabled) {
+
+  background: #d97706;
+
+  border-color: #d97706;
+
+}
+
+
+
+.evidencia-cancel-button {
+
+  border: 1px solid var(--color-border, #cbd5e1);
+
+  background: var(--color-surface, #ffffff);
+
+  color: var(--color-text, #334155);
+
+}
+
+
+
+.evidencia-cancel-button:hover:not(:disabled) {
+
+  border-color: var(--color-primary-hover, #f59e0b);
+
+  background: var(--color-surface-secondary, #fffbeb);
+
+}
+
+
+
+.evidencia-save-button:focus-visible,
+
+.evidencia-cancel-button:focus-visible {
+
+  outline: 2px solid var(--color-primary, #fbbf24);
+
+  outline-offset: 2px;
+
+}
+
+
+
+.evidencia-save-button:disabled,
+
+.evidencia-cancel-button:disabled {
+
+  opacity: 0.55;
+
+  cursor: not-allowed;
+
+}
+
+
+
+/* =====================================================
+
+   ESTADO VAZIO E MENSAGENS
+
+   ===================================================== */
+
+
+
+.evidencias-empty {
+
+  padding: 30px;
+
+  border: 1px dashed var(--color-border, #cbd5e1);
+
+  border-radius: 10px;
+
+  text-align: center;
+
+}
+
+
+
+.evidencias-empty strong {
+
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: var(--color-text, #334155);
+
+}
+
+
+
+.evidencias-empty p {
+
+  margin: 0;
+
+  color: var(--color-text-secondary, #64748b);
+
+}
+
+
+
+.evidencias-message {
+
+  color: var(--color-text-secondary, #475569);
+
+}
+
+
+
+.evidencias-error,
+
+.evidencias-success {
+
+  margin-bottom: 20px;
+
+  padding: 12px 16px;
+
+  border-radius: 8px;
+
+}
+
+
+
+.evidencias-error {
+
+  background: #fee2e2;
+
+  color: #991b1b;
+
+}
+
+
+
+.evidencias-success {
+
+  background: #dcfce7;
+
+  color: #166534;
+
+}
+
+
+
+/* =====================================================
+
+   RESPONSIVIDADE - TABLET
+
+   ===================================================== */
+
+
+
+@media (max-width: 900px) {
+
+  .evidencia-card {
+
+    min-height: auto;
+
+  }
+
+
+
+  .evidencia-card h4,
+
+  .evidencia-details,
+
+  .evidencia-edit {
+
+    padding-right: 0;
+
+  }
+
+
+
+  .evidencia-actions {
+
+    position: static;
+
+    justify-content: flex-end;
+
+
+
+    margin-top: 16px;
+
+    padding-top: 12px;
+
+
+
+    border-top: 1px solid var(--color-border, #e2e8f0);
+
+  }
+
+}
+
+
+
+/* =====================================================
+
+   RESPONSIVIDADE - CELULAR
+
+   ===================================================== */
+
+
+
+@media (max-width: 768px) {
+
+  .evidencias-main {
+
+    padding: 20px;
+
+  }
+
+
+
+  .evidencias-form,
+
+  .evidencias-list-section {
+
+    padding: 20px;
+
+  }
+
+
+
+  /*/
+
+   \* Escolher arquivo e tirar foto ficam
+
+   \* um abaixo do outro no celular.
+
+   /*/
+
+  .evidencias-file-options {
+
+    flex-direction: column;
+
+  }
+
+
+
+  .evidencias-camera-button {
+
+    width: 100%;
+
+    min-height: 44px;
+
+    padding: 11px 16px;
+
+  }
+
+
+
+  .evidencias-selected-file {
+
+    align-items: flex-start;
+
+    flex-direction: column;
+
+    gap: 4px;
+
+  }
+
+
+
+  /*
+
+   \* No celular o preview utiliza toda
+
+   \* a largura disponível.
+
+   */
+
+  .evidencias-preview img {
+
+    width: 100%;
+
+    max-height: 360px;
+
+  }
+
+
+
+  .evidencias-form-actions {
+
+    justify-content: stretch;
+
+  }
+
+
+
+  .evidencias-submit {
+
+    width: 100%;
+
+  }
+
+
+
+  .evidencia-actions {
+
+    justify-content: stretch;
+
+  }
+
+
+
+  .evidencia-view-button,
+
+  .evidencia-download-button,
+
+  .evidencia-edit-button,
+
+  .evidencia-delete-button {
+
+    flex: 1 1 calc(50% - 4px);
+
+  }
+
+
+
+  .evidencia-edit-actions {
+
+    flex-direction: column;
+
+  }
+
+
+
+  .evidencia-save-button,
+
+  .evidencia-cancel-button {
+
+    width: 100%;
+
+  }
+
+}
+
+/* Ajustes de contraste dos indicadores no tema escuro */
+html[data-theme='dark'] .evidencia-type-foto,
+html[data-theme='dark'] .evidencias-success {
+  background: #123b2b;
+  color: #6ee7b7;
+}
+
+html[data-theme='dark'] .evidencia-type-documento,
+html[data-theme='dark'] .evidencias-pdf-selected span {
+  background: #172e52;
+  color: #93c5fd;
+}
+
+html[data-theme='dark'] .evidencia-type-texto {
+  background: var(--color-surface-secondary, #202b3e);
+  color: var(--color-text, #e5e7eb);
+}
+
+html[data-theme='dark'] .evidencias-error {
+  background: #4c1d24;
+  color: #fda4af;
+}
+
+html[data-theme='dark'] .evidencia-delete-button {
+  color: #fda4af;
+  border-color: #f87171;
+}
+
+html[data-theme='dark'] .evidencia-delete-button:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #b91c1c;
   color: #ffffff;
 }
 
-.evidencia-delete-button:focus-visible {
-  outline: 2px solid #dc2626;
-  outline-offset: 2px;
-}
-
-.evidencia-delete-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
 
 /* =====================================================
-   EDIÇÃO DA DESCRIÇÃO
+   REFINAMENTO VISUAL — CLARO / ESCURO
+   Variáveis compatíveis com src/index.css
    ===================================================== */
 
-.evidencia-edit {
-  margin-top: 16px;
-  padding-right: 360px;
+.evidencias-layout {
+  background-color: var(--color-background);
+  color: var(--color-text);
 }
 
-.evidencia-edit label {
-  display: block;
-  margin-bottom: 7px;
-  color: #475569;
-  font-size: 0.82rem;
-  font-weight: 700;
+.evidencias-content {
+  background-color: var(--color-background);
 }
 
+.evidencias-main {
+  max-width: 1500px;
+  margin-inline: auto;
+}
+
+.evidencias-form,
+.evidencias-list-section {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04);
+}
+
+.evidencias-title h2,
+.evidencias-form-header h3,
+.evidencias-list-header h3,
+.evidencia-card h4 {
+  color: var(--color-text-heading);
+}
+
+.evidencias-field input[type='file'],
+.evidencias-file-options input[type='file'],
+.evidencias-field textarea,
 .evidencia-edit textarea {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 85px;
-  padding: 10px 12px;
-  border: 1px solid #cbd5e1;
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background: #ffffff;
-  color: #0f172a;
+}
+
+.evidencias-field input[type='file']::file-selector-button,
+.evidencias-file-options input[type='file']::file-selector-button {
+  margin-right: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
   font: inherit;
-  resize: vertical;
-}
-
-.evidencia-edit textarea:focus {
-  outline: none;
-  border-color: #f59e0b;
-  box-shadow:
-    0 0 0 3px rgba(245, 158, 11, 0.12);
-}
-
-.evidencia-edit textarea:disabled {
-  background: #f8fafc;
-  cursor: not-allowed;
-}
-
-.evidencia-edit-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.evidencia-save-button,
-.evidencia-cancel-button {
-  padding: 9px 16px;
-  border-radius: 8px;
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 
-.evidencia-save-button {
-  border: 1px solid #f59e0b;
-  background: #f59e0b;
-  color: #ffffff;
+.evidencias-field textarea::placeholder,
+.evidencia-edit textarea::placeholder {
+  color: var(--color-text-secondary);
 }
 
-.evidencia-save-button:hover:not(:disabled) {
-  background: #d97706;
-  border-color: #d97706;
+.evidencias-file-options {
+  align-items: center;
+  gap: 12px;
 }
 
-.evidencia-cancel-button {
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  color: #334155;
-}
-
-.evidencia-cancel-button:hover:not(:disabled) {
-  border-color: #f59e0b;
-  background: #fffbeb;
-}
-
-.evidencia-save-button:focus-visible,
-.evidencia-cancel-button:focus-visible {
-  outline: 2px solid #fbbf24;
-  outline-offset: 2px;
-}
-
-.evidencia-save-button:disabled,
-.evidencia-cancel-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-/* =====================================================
-   ESTADO VAZIO E MENSAGENS
-   ===================================================== */
-
-.evidencias-empty {
-  padding: 30px;
-  border: 1px dashed #cbd5e1;
-  border-radius: 10px;
-  text-align: center;
-}
-
-.evidencias-empty strong {
-  display: block;
-  margin-bottom: 6px;
-  color: #334155;
-}
-
-.evidencias-empty p {
-  margin: 0;
-  color: #64748b;
-}
-
-.evidencias-message {
-  color: #475569;
-}
-
-.evidencias-error,
-.evidencias-success {
-  margin-bottom: 20px;
-  padding: 12px 16px;
+.evidencias-camera-button {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
+  background: var(--color-surface-secondary);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 600;
 }
 
-.evidencias-error {
-  background: #fee2e2;
-  color: #991b1b;
+.evidencias-camera-button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
 }
 
-.evidencias-success {
-  background: #dcfce7;
-  color: #166534;
+.evidencia-card {
+  min-height: 0;
+  padding: 20px;
+  background-color: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
 }
 
-/* =====================================================
-   RESPONSIVIDADE - TABLET
-   ===================================================== */
-
-@media (max-width: 900px) {
-  .evidencia-card {
-    min-height: auto;
-  }
-
-  .evidencia-card h4,
-  .evidencia-details,
-  .evidencia-edit {
-    padding-right: 0;
-  }
-
-  .evidencia-actions {
-    position: static;
-    justify-content: flex-end;
-
-    margin-top: 16px;
-    padding-top: 12px;
-
-    border-top: 1px solid #e2e8f0;
-  }
+.evidencia-card + .evidencia-card {
+  margin-top: 4px;
 }
 
-/* =====================================================
-   RESPONSIVIDADE - CELULAR
-   ===================================================== */
+.evidencia-card h4 {
+  overflow-wrap: anywhere;
+}
+
+.evidencia-details {
+  color: var(--color-text);
+}
+
+.evidencia-actions {
+  position: static;
+  justify-content: flex-start;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+  gap: 10px;
+}
+
+.evidencia-view-button,
+.evidencia-download-button,
+.evidencia-edit-button,
+.evidencia-delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.evidencia-view-button,
+.evidencia-download-button,
+.evidencia-edit-button {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+.evidencia-view-button:hover:not(:disabled),
+.evidencia-download-button:hover:not(:disabled),
+.evidencia-edit-button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background-color: var(--color-surface-secondary);
+}
+
+.evidencia-delete-button {
+  border: 1px solid #dc2626;
+  background-color: var(--color-surface);
+  color: #b42318;
+}
+
+html[data-theme='dark'] .evidencia-delete-button {
+  color: #fda4af;
+  border-color: #f87171;
+}
+
+.evidencias-submit,
+.evidencia-save-button {
+  min-height: 40px;
+  background-color: var(--color-primary);
+  color: #172033;
+  border-radius: 8px;
+  font-weight: 700;
+}
 
 @media (max-width: 768px) {
   .evidencias-main {
@@ -716,43 +1756,6 @@
     padding: 20px;
   }
 
-  /*
-   * Escolher arquivo e tirar foto ficam
-   * um abaixo do outro no celular.
-   */
-  .evidencias-file-options {
-    flex-direction: column;
-  }
-
-  .evidencias-camera-button {
-    width: 100%;
-    min-height: 44px;
-    padding: 11px 16px;
-  }
-
-  .evidencias-selected-file {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  /*
-   * No celular o preview utiliza toda
-   * a largura disponível.
-   */
-  .evidencias-preview img {
-    width: 100%;
-    max-height: 360px;
-  }
-
-  .evidencias-form-actions {
-    justify-content: stretch;
-  }
-
-  .evidencias-submit {
-    width: 100%;
-  }
-
   .evidencia-actions {
     justify-content: stretch;
   }
@@ -761,15 +1764,6 @@
   .evidencia-download-button,
   .evidencia-edit-button,
   .evidencia-delete-button {
-    flex: 1 1 calc(50% - 4px);
-  }
-
-  .evidencia-edit-actions {
-    flex-direction: column;
-  }
-
-  .evidencia-save-button,
-  .evidencia-cancel-button {
-    width: 100%;
+    flex: 1 1 calc(50% - 5px);
   }
 }

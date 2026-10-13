@@ -1,7 +1,12 @@
+
+/* ==========================================================
+   DASHBOARD - LAYOUT
+   ========================================================== */
+
 .dashboard-layout {
   display: flex;
   min-height: 100vh;
-  background-color: #f5f6f8;
+  background-color: var(--color-background);
 }
 
 .dashboard-content {
@@ -16,12 +21,16 @@
 
 .dashboard-main h2 {
   margin-bottom: 8px;
-  color: #172033;
+  color: var(--color-text-heading);
 }
 
 .dashboard-main > p {
-  color: #667085;
+  color: var(--color-text-secondary);
 }
+
+/* ==========================================================
+   CARDS
+   ========================================================== */
 
 .dashboard-cards {
   display: grid;
@@ -37,28 +46,28 @@
   display: flex;
   flex-direction: column;
   padding: 24px;
-  border: 1px solid #e4e7ec;
+  border: 1px solid var(--color-border);
   border-radius: 12px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04);
 }
 
 .dashboard-card-label {
-  color: #667085;
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   font-weight: 500;
 }
 
 .dashboard-card-value {
   margin-top: 12px;
-  color: #172033;
+  color: var(--color-text-heading);
   font-size: 2rem;
   line-height: 1;
 }
 
 .dashboard-card-description {
   margin-top: 10px;
-  color: #98a2b3;
+  color: var(--color-text-secondary);
   font-size: 0.8rem;
 }
 
@@ -67,24 +76,25 @@
   gap: 32px;
   margin-top: 24px;
   padding-top: 18px;
-  border-top: 1px solid #eaecf0;
+  border-top: 1px solid var(--color-border);
 }
 
 .dashboard-card-status span {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  color: #667085;
+  color: var(--color-text-secondary);
   font-size: 0.8rem;
 }
 
 .dashboard-card-status strong {
-  color: #172033;
+  color: var(--color-text-heading);
   font-size: 1rem;
 }
 
 .dashboard-message {
   margin-top: 28px;
+  color: var(--color-text);
 }
 
 .dashboard-error {
@@ -103,9 +113,9 @@
 .dashboard-calendar {
   margin-top: 24px;
   overflow: hidden;
-  border: 1px solid #e4e7ec;
+  border: 1px solid var(--color-border);
   border-radius: 12px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04);
 }
 
@@ -115,18 +125,18 @@
   justify-content: space-between;
   gap: 20px;
   padding: 16px 20px;
-  border-bottom: 1px solid #eaecf0;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .dashboard-calendar-label {
-  color: #667085;
+  color: var(--color-text-secondary);
   font-size: 0.8rem;
   font-weight: 500;
 }
 
 .dashboard-calendar-header h3 {
   margin: 5px 0 0;
-  color: #172033;
+  color: var(--color-text-heading);
   font-size: 1.2rem;
   font-weight: 700;
 }
@@ -145,10 +155,10 @@
 .dashboard-calendar-today {
   min-height: 38px;
   padding: 0 16px;
-  border: 1px solid #d0d5dd;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background-color: #ffffff;
-  color: #344054;
+  background-color: var(--color-surface);
+  color: var(--color-text);
   font-size: 0.85rem;
   font-weight: 600;
   transition:
@@ -157,8 +167,8 @@
 }
 
 .dashboard-calendar-today:hover {
-  border-color: #98a2b3;
-  background-color: #f9fafb;
+  border-color: var(--color-primary);
+  background-color: var(--color-surface-secondary);
 }
 
 .dashboard-calendar-navigation {
@@ -167,10 +177,10 @@
   height: 38px;
   align-items: center;
   justify-content: center;
-  border: 1px solid #d0d5dd;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background-color: #ffffff;
-  color: #344054;
+  background-color: var(--color-surface);
+  color: var(--color-text);
   font-size: 1.5rem;
   line-height: 1;
   transition:
@@ -179,20 +189,20 @@
 }
 
 .dashboard-calendar-navigation:hover {
-  border-color: #f4b400;
-  background-color: #fff9e6;
+  border-color: var(--color-primary);
+  background-color: var(--color-surface-secondary);
 }
 
 .dashboard-calendar-weekdays {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  border-bottom: 1px solid #eaecf0;
-  background-color: #f9fafb;
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-surface-secondary);
 }
 
 .dashboard-calendar-weekdays span {
   padding: 8px;
-  color: #667085;
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
   font-weight: 700;
   text-align: center;
@@ -208,10 +218,10 @@
   position: relative;
   min-height: 58px;
   padding: 8px 12px;
-  border-right: 1px solid #eaecf0;
-  border-bottom: 1px solid #eaecf0;
-  background-color: #ffffff;
-  color: #344054;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text);
   box-sizing: border-box;
 }
 
@@ -239,18 +249,37 @@
 }
 
 .dashboard-calendar-day-outside {
-  background-color: #fcfcfd;
-  color: #c4c9d1;
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text-secondary);
 }
 
 .dashboard-calendar-day-today {
-  background-color: #fffdf5;
+  background-color: #fff9e6;
+  color: #172033;
 }
 
 .dashboard-calendar-day-today span {
-  background-color: #f4b400;
+  background-color: var(--color-primary);
   color: #172033;
   font-weight: 700;
+}
+
+/* ==========================================================
+   AJUSTES DO TEMA ESCURO
+   ========================================================== */
+
+html[data-theme='dark'] .dashboard-calendar-day-today {
+  background-color: #3d3419;
+  color: #ffffff;
+}
+
+html[data-theme='dark'] .dashboard-calendar-day small {
+  color: #f5b700;
+}
+
+html[data-theme='dark'] .dashboard-card,
+html[data-theme='dark'] .dashboard-calendar {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
 }
 
 /* ==========================================================

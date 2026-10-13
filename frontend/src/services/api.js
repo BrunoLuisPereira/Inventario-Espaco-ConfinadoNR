@@ -96,6 +96,43 @@ export async function login(email, senha) {
   })
 }
 
+ // Meu Perfil
+
+/**
+ * Consulta os dados do usuário autenticado.
+ */
+export async function buscarMeuPerfil() {
+  return request('/auth/perfil')
+}
+
+/**
+ * Atualiza o nome e o e-mail do usuário autenticado.
+ * O perfil de acesso não pode ser modificado.
+ */
+export async function atualizarMeuPerfil(dados) {
+  return request('/auth/perfil', {
+    method: 'PUT',
+    body: JSON.stringify({
+      nome: dados.nome,
+      email: dados.email,
+    }),
+  })
+}
+
+/**
+ * Altera a senha do usuário autenticado.
+ */
+export async function alterarMinhaSenha(dados) {
+  return request('/auth/senha', {
+    method: 'PUT',
+    body: JSON.stringify({
+      senhaAtual: dados.senhaAtual,
+      novaSenha: dados.novaSenha,
+      confirmarSenha: dados.confirmarSenha,
+    }),
+  })
+}
+
 // Campanhas
 
 export async function listarCampanhas() {
