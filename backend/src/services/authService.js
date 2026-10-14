@@ -195,7 +195,114 @@ async function alterarSenha(
   };
 }
 
+/**
+ * Autentica um usuário considerando seu ambiente.
+ *
+ * IMPORTANTE:
+ * Depende da migração 020.
+ * Não utilizar nas rotas antes da homologação.
+ */
+async function loginMultiTenant(dados = {}) {
+  const { email, senha } = dados;
+
+  if (
+    typeof email !== "string" ||
+    !email.trim()
+  ) {
+    throw criarErro("O e-mail é obrigatório.", 400);
+  }
+
+  if (
+    typeof senha !== "string" ||
+    !senha
+  ) {
+    throw criarErro("A senha é obrigatória.", 400);
+  }
+
+  verificarConfiguracaoJwt();
+
+  const emailNormalizado = email.trim().toLowerCase();
+
+  const autenticacaoMultiTenantRepository = require(
+    "../repositories/autenticacaoMultiTenantRepository"
+  );
+
+  const usuario =
+    await autenticacaoMultiTenantRepository
+      .buscarPorEmailComAmbiente(emailNormalizado);
+
+  if (!usuario) {
+    throw criarErro("E-mail ou senha inválidos.", 401);
+  }
+
+  const senhaCorreta = await bcrypt.compare(
+    senha,
+    usuario.senha_hash
+  );
+
+  if (!senhaCorreta) {
+    throw criarErro("E-mail ou senha inválidos.", 401);
+  }
+
+  if (
+    usuario.ativo !== true ||
+    usuario.ambiente_ativo !== true ||
+    !usuario.id_ambiente
+  ) {
+    throw criarErro(
+      "Usuário ou ambiente desativado.",
+      403
+    );
+  }
+
+  const perfisPermitidos = [
+    "ADMINISTRADOR",
+    "ENGENHEIRO_SEGURANCA",
+  ];
+
+  if (
+    !perfisPermitidos.includes(usuario.perfil_acesso)
+  ) {
+    throw criarErro(
+      "Perfil de acesso inválido.",
+      403
+    );
+  }
+
+  const token = jwt.sign(
+    { perfil: usuario.perfil_acesso },
+    process.env.JWT_SECRET,
+    {
+      subject: String(usuario.id_usuario),
+      expiresIn:
+        process.env.JWT_EXPIRES_IN || "8h",
+      issuer:
+        process.env.JWT_ISSUER ||
+        "inventario-espacos-confinados-api",
+      audience:
+        process.env.JWT_AUDIENCE ||
+        "inventario-espacos-confinados-pwa",
+      algorithm: "HS256",
+    }
+  );
+
+  return {
+    token,
+    tipo: "Bearer",
+    expiraEm:
+      process.env.JWT_EXPIRES_IN || "8h",
+    usuario: {
+      id_usuario: usuario.id_usuario,
+      id_ambiente: usuario.id_ambiente,
+      nome: usuario.nome,
+      email: usuario.email,
+      perfil_acesso: usuario.perfil_acesso,
+    },
+  };
+}
+
 module.exports = {
   login,
+  loginMultiTenant,
   alterarSenha,
 };
