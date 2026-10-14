@@ -14,7 +14,7 @@ BEGIN;
 
 DO $$
 BEGIN
-    -- A migracao 020 deve ter criado a coluna id_ambiente.
+    -- A migracao 020 deve ter criado id_ambiente.
     IF NOT EXISTS (
         SELECT 1
         FROM information_schema.columns
@@ -26,43 +26,51 @@ BEGIN
             'A migracao 020 deve ser aplicada antes da 021.';
     END IF;
 
-    -- Nenhuma versao pode estar sem ambiente.
+    -- Nenhuma versao pode ficar sem ambiente.
     IF EXISTS (
         SELECT 1
-        FROM versao_entidade
+        FROM public.versao_entidade
         WHERE id_ambiente IS NULL
     ) THEN
         RAISE EXCEPTION
             'Existem registros de versionamento sem ambiente.';
     END IF;
+
+    -- Antes de substituir a unicidade global, garantir
+    -- que nao existem registros duplicados.
+    IF EXISTS (
+        SELECT 1
+        FROM public.versao_entidade
+        GROUP BY entidade, id_entidade
+        HAVING COUNT(*) > 1
+    ) THEN
+        RAISE EXCEPTION
+            'Existem identificadores duplicados no versionamento.';
+    END IF;
 END;
 $$;
-
 
 -- ============================================================
 -- 2. UNICIDADE DO VERSIONAMENTO POR AMBIENTE
 -- ============================================================
 
--- Esta alteracao deve ser coordenada com a atualizacao
--- da funcao atualizar_versao_entidade().
-
-ALTER TABLE versao_entidade
+ALTER TABLE public.versao_entidade
 DROP CONSTRAINT uq_versao_entidade;
 
-ALTER TABLE versao_entidade
+ALTER TABLE public.versao_entidade
 ADD CONSTRAINT uq_versao_entidade
 UNIQUE (id_ambiente, entidade, id_entidade);
-
 
 -- ============================================================
 -- 3. REGULARIZACAO DA EVIDENCIA LEGADA
 -- ============================================================
 
--- A evidencia ID 2 existe, mas nao possui versionamento.
--- Sua versao inicial sera registrada como 1.
--- O ambiente sera obtido pela campanha vinculada.
+-- A evidencia ID 2 existe na base legada e nao possui
+-- registro de versionamento.
+--
+-- O ambiente sera obtido pela campanha do local.
 
-INSERT INTO versao_entidade (
+INSERT INTO public.versao_entidade (
     id_ambiente,
     entidade,
     id_entidade,
@@ -79,38 +87,41 @@ SELECT
     FALSE,
     NULL,
     CURRENT_TIMESTAMP
-FROM evidencia e
-JOIN local l
+FROM public.evidencia e
+JOIN public.local l
     ON l.id_local = e.id_local
-JOIN campanha c
+JOIN public.campanha c
     ON c.id_campanha = l.id_campanha
 WHERE e.id_evidencia = 2
   AND NOT EXISTS (
       SELECT 1
-      FROM versao_entidade v
-      WHERE v.id_ambiente = c.id_ambiente
-        AND v.entidade = 'EVIDENCIA'
+      FROM public.versao_entidade v
+      WHERE v.entidade = 'EVIDENCIA'
         AND v.id_entidade = e.id_evidencia
   );
-
-
--- ============================================================
 
 -- ============================================================
 -- 4. FUNCAO DE VERSIONAMENTO MULTI-TENANT
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.atualizar_versao_entidade()
-RETURNS trigger
+RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $function$
 DECLARE
     v_entidade VARCHAR(50);
     v_id_entidade BIGINT;
     v_id_ambiente UUID;
+    v_ambiente_registro UUID;
     v_id_local BIGINT;
 BEGIN
+
+    -- --------------------------------------------------------
+    -- 4.1 IDENTIFICAR A ENTIDADE E O ID
+    -- --------------------------------------------------------
+
     CASE TG_TABLE_NAME
+
         WHEN 'campanha' THEN
             v_entidade := 'CAMPANHA';
 
@@ -162,54 +173,80 @@ BEGIN
                 TG_TABLE_NAME;
     END CASE;
 
-    -- DELETE: utilizar a versao existente.
-    -- Isso evita depender de registros excluidos em cascata.
+    -- --------------------------------------------------------
+    -- 4.2 DELETE - REGISTRAR TOMBSTONE
+    -- --------------------------------------------------------
 
     IF TG_OP = 'DELETE' THEN
-        SELECT id_ambiente
-        INTO v_id_ambiente
-        FROM versao_entidade
-        WHERE entidade = v_entidade
-          AND id_entidade = v_id_entidade;
 
-        IF v_id_ambiente IS NULL THEN
-            RAISE EXCEPTION
-                'Ambiente nao encontrado para exclusao de % ID %.',
-                v_entidade, v_id_entidade;
+        -- Identificar o ambiente pela versao existente.
+        -- STRICT exige exatamente um registro ativo.
+
+        SELECT v.id_ambiente
+        INTO STRICT v_id_ambiente
+        FROM public.versao_entidade v
+        WHERE v.entidade = v_entidade
+          AND v.id_entidade = v_id_entidade
+          AND v.excluido = FALSE;
+
+        -- Para campanhas, podemos validar diretamente
+        -- o ambiente do registro excluido.
+
+        IF TG_TABLE_NAME = 'campanha' THEN
+            v_ambiente_registro := OLD.id_ambiente;
+
+            IF v_ambiente_registro IS DISTINCT FROM v_id_ambiente THEN
+                RAISE EXCEPTION
+                    'Ambiente inconsistente na exclusao de % ID %.',
+                    v_entidade, v_id_entidade;
+            END IF;
         END IF;
 
-        UPDATE versao_entidade
+        -- Em exclusoes em cascata, os registros pais
+        -- podem nao estar mais disponiveis para consulta.
+        -- Para as demais entidades, utilizamos a versao
+        -- existente. A integridade deve ser validada
+        -- tambem pelos relacionamentos e pelo backend.
+
+        UPDATE public.versao_entidade
         SET versao = versao + 1,
             excluido = TRUE,
             data_exclusao = CURRENT_TIMESTAMP,
             data_atualizacao = CURRENT_TIMESTAMP
         WHERE id_ambiente = v_id_ambiente
           AND entidade = v_entidade
-          AND id_entidade = v_id_entidade;
+          AND id_entidade = v_id_entidade
+          AND excluido = FALSE;
 
         RETURN OLD;
     END IF;
 
-    -- INSERT / UPDATE: identificar ambiente pela campanha.
+    -- --------------------------------------------------------
+    -- 4.3 INSERT / UPDATE - IDENTIFICAR AMBIENTE
+    -- --------------------------------------------------------
 
     IF TG_TABLE_NAME = 'campanha' THEN
+
         v_id_ambiente := NEW.id_ambiente;
 
     ELSIF TG_TABLE_NAME = 'local' THEN
+
         SELECT c.id_ambiente
         INTO v_id_ambiente
-        FROM campanha c
+        FROM public.campanha c
         WHERE c.id_campanha = NEW.id_campanha;
 
     ELSE
+
         v_id_local := NEW.id_local;
 
         SELECT c.id_ambiente
         INTO v_id_ambiente
-        FROM local l
-        JOIN campanha c
-          ON c.id_campanha = l.id_campanha
+        FROM public.local l
+        JOIN public.campanha c
+            ON c.id_campanha = l.id_campanha
         WHERE l.id_local = v_id_local;
+
     END IF;
 
     IF v_id_ambiente IS NULL THEN
@@ -218,22 +255,35 @@ BEGIN
             v_entidade, v_id_entidade;
     END IF;
 
-    -- Impedir mudanca de ambiente de uma entidade existente.
+    -- --------------------------------------------------------
+    -- 4.4 IMPEDIR MUDANCA DE AMBIENTE
+    -- --------------------------------------------------------
+
+    -- Mesmo com a chave unica composta, os IDs das
+    -- entidades continuam sendo BIGINT globais.
+    --
+    -- Nao permitir que o mesmo ID seja associado
+    -- a ambientes diferentes no versionamento.
 
     IF EXISTS (
         SELECT 1
-        FROM versao_entidade
-        WHERE entidade = v_entidade
-          AND id_entidade = v_id_entidade
-          AND id_ambiente <> v_id_ambiente
+        FROM public.versao_entidade v
+        WHERE v.entidade = v_entidade
+          AND v.id_entidade = v_id_entidade
+          AND v.id_ambiente <> v_id_ambiente
     ) THEN
         RAISE EXCEPTION
             'Mudanca de ambiente nao permitida para % ID %.',
             v_entidade, v_id_entidade;
     END IF;
 
+    -- --------------------------------------------------------
+    -- 4.5 INSERT - CRIAR VERSIONAMENTO
+    -- --------------------------------------------------------
+
     IF TG_OP = 'INSERT' THEN
-        INSERT INTO versao_entidade (
+
+        INSERT INTO public.versao_entidade (
             id_ambiente,
             entidade,
             id_entidade,
@@ -253,15 +303,21 @@ BEGIN
         )
         ON CONFLICT (id_ambiente, entidade, id_entidade)
         DO UPDATE
-        SET excluido = FALSE,
+        SET versao = versao_entidade.versao + 1,
+            excluido = FALSE,
             data_exclusao = NULL,
             data_atualizacao = CURRENT_TIMESTAMP;
 
         RETURN NEW;
     END IF;
 
+    -- --------------------------------------------------------
+    -- 4.6 UPDATE - INCREMENTAR VERSIONAMENTO
+    -- --------------------------------------------------------
+
     IF TG_OP = 'UPDATE' THEN
-        INSERT INTO versao_entidade (
+
+        INSERT INTO public.versao_entidade (
             id_ambiente,
             entidade,
             id_entidade,
@@ -290,9 +346,9 @@ BEGIN
     END IF;
 
     RETURN NULL;
+
 END;
 $function$;
-
 
 -- ============================================================
 -- 5. VALIDACOES FINAIS
@@ -300,27 +356,39 @@ $function$;
 
 DO $$
 BEGIN
+
+    -- Nenhuma versao pode estar sem ambiente.
+
     IF EXISTS (
         SELECT 1
-        FROM versao_entidade
+        FROM public.versao_entidade
         WHERE id_ambiente IS NULL
     ) THEN
         RAISE EXCEPTION
             'Versionamento sem ambiente apos migracao.';
     END IF;
 
+    -- A evidencia legada ID 2 deve possuir versao ativa.
+
     IF NOT EXISTS (
         SELECT 1
-        FROM versao_entidade
-        WHERE entidade = 'EVIDENCIA'
-          AND id_entidade = 2
-          AND excluido = FALSE
+        FROM public.versao_entidade v
+        JOIN public.evidencia e
+            ON e.id_evidencia = v.id_entidade
+        JOIN public.local l
+            ON l.id_local = e.id_local
+        JOIN public.campanha c
+            ON c.id_campanha = l.id_campanha
+        WHERE v.entidade = 'EVIDENCIA'
+          AND v.id_entidade = 2
+          AND v.id_ambiente = c.id_ambiente
+          AND v.excluido = FALSE
     ) THEN
         RAISE EXCEPTION
-            'Versionamento da evidencia ID 2 nao encontrado.';
+            'Versionamento valido da evidencia ID 2 nao encontrado.';
     END IF;
+
 END;
 $$;
 
-COMMIT;
-
+    COMMIT;

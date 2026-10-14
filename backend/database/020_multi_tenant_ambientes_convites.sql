@@ -569,4 +569,8 @@ BEFORE UPDATE OF id_campanha
 ON local
 FOR EACH ROW
 EXECUTE FUNCTION public.bloquear_alteracao_campanha_local();
+-- ============================================================
+-- FIM DA MIGRACAO 020
+-- ============================================================
 
+COMMIT;
