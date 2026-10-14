@@ -1,3 +1,4 @@
+
 const pool = require("../config/database");
 
 /**
@@ -70,6 +71,7 @@ async function criar(usuario) {
 
   return result.rows[0];
 }
+
 async function listarTodos() {
   const query = `
     SELECT
@@ -221,6 +223,50 @@ async function atualizarSenha(idUsuario, senhaHash) {
   return result.rows[0] || null;
 }
 
+/**
+ * Busca a identidade atual de um usuário autenticado.
+ *
+ * O id_ambiente e o perfil_acesso são obtidos
+ * diretamente do PostgreSQL, nunca do JWT.
+ *
+ * Retorna null quando:
+ * - o usuário não existe;
+ * - o usuário está desativado;
+ * - o ambiente não existe;
+ * - o ambiente está desativado.
+ *
+ * IMPORTANTE:
+ * Esta consulta depende da migração 020.
+ * Não utilizar antes da homologação das migrações.
+ */
+async function buscarIdentidadeAutenticada(idUsuario) {
+  const id = Number(idUsuario);
+
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    return null;
+  }
+
+  const query = `
+    SELECT
+      u.id_usuario,
+      u.id_ambiente,
+      u.nome,
+      u.email,
+      u.perfil_acesso
+    FROM usuario AS u
+    INNER JOIN ambiente AS a
+      ON a.id_ambiente = u.id_ambiente
+    WHERE u.id_usuario = $1
+      AND u.ativo = TRUE
+      AND a.ativo = TRUE
+    LIMIT 1
+  `;
+
+  const result = await pool.query(query, [id]);
+
+  return result.rows[0] || null;
+}
+
 module.exports = {
   buscarPorEmail,
   criar,
@@ -230,4 +276,5 @@ module.exports = {
   atualizar,
   atualizarStatus,
   atualizarSenha,
+  buscarIdentidadeAutenticada,
 };
