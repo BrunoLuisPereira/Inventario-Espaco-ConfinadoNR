@@ -324,9 +324,114 @@ async function atualizarNoAmbiente(
   return resultado.rows[0] || null;
 }
 
+/**
+ * Altera o status somente no ambiente autenticado,
+ * para administrador ou responsável, ambos os vínculos ativos.
+ *
+ * Depende das migrações multi-tenant homologadas.
+ * Não utilizar nas rotas antes da homologação.
+ */
+async function atualizarStatusNoAmbiente(
+  idCampanha,
+  status,
+  usuarioAutenticado
+) {
+  const id = Number(idCampanha);
+
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    const erro = new Error("ID da campanha inválido.");
+    erro.statusCode = 400;
+    throw erro;
+  }
+
+  if (!usuarioAutenticado) {
+    const erro = new Error("Usuário não autenticado.");
+    erro.statusCode = 401;
+    throw erro;
+  }
+
+  const {
+    id_usuario: idUsuario,
+    id_ambiente: idAmbiente,
+  } = usuarioAutenticado;
+
+  validarIdAmbiente(idAmbiente);
+
+  const idUsuarioNumerico = Number(idUsuario);
+
+  if (
+    !Number.isSafeInteger(idUsuarioNumerico) ||
+    idUsuarioNumerico <= 0
+  ) {
+    const erro = new Error("Usuário inválido.");
+    erro.statusCode = 403;
+    throw erro;
+  }
+
+  const statusPermitidos = [
+    "EM ANDAMENTO",
+    "CONCLUIDO",
+    "CANCELADA",
+  ];
+
+  if (!statusPermitidos.includes(status)) {
+    const erro = new Error(
+      "O status deve ser EM ANDAMENTO, CONCLUIDO ou CANCELADA."
+    );
+    erro.statusCode = 400;
+    throw erro;
+  }
+
+  const query = `
+    UPDATE campanha AS c
+    SET
+      status = $1,
+      data_atualizacao = CURRENT_TIMESTAMP
+    WHERE c.id_campanha = $2
+      AND c.id_ambiente = $3
+      AND EXISTS (
+        SELECT 1
+        FROM usuario AS u
+        INNER JOIN ambiente AS a
+          ON a.id_ambiente = u.id_ambiente
+        WHERE u.id_usuario = $4
+          AND u.id_ambiente = c.id_ambiente
+          AND u.ativo = TRUE
+          AND a.ativo = TRUE
+          AND (
+            u.perfil_acesso = 'ADMINISTRADOR'
+            OR c.id_usuario = u.id_usuario
+          )
+      )
+    RETURNING
+      c.id_campanha,
+      c.id_ambiente,
+      c.nome_campanha,
+      c.empresa,
+      c.responsavel,
+      c.data_inicio,
+      c.status,
+      c.id_usuario,
+      c.data_criacao,
+      c.data_atualizacao
+  `;
+
+  const valores = [
+    status,
+    id,
+    idAmbiente,
+    idUsuarioNumerico,
+  ];
+
+  const resultado = await pool.query(query, valores);
+
+  return resultado.rows[0] || null;
+}
+
 module.exports = {
   listarPorAmbiente,
   buscarPorIdEAmbiente,
   criarNoAmbiente,
   atualizarNoAmbiente,
+  atualizarStatusNoAmbiente,
 };

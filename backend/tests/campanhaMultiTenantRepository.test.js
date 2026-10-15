@@ -542,3 +542,236 @@ test(
     );
   }
 );
+
+// ========================================
+// TESTES DA ALTERAÇÃO DE STATUS MULTI-TENANT
+// Todas as consultas são interceptadas por mocks.
+// ========================================
+
+test(
+  "Recusa alteração de status com ID de campanha inválido sem consultar o banco",
+  async (t) => {
+    const consulta = t.mock.method(pool, "query", async () => {
+      throw new Error("Consulta inesperada");
+    });
+
+    const idsInvalidos = [
+      undefined, null, 0, -1, 1.5, "campanha-invalida",
+      Number.MAX_SAFE_INTEGER + 1,
+    ];
+
+    for (const id of idsInvalidos) {
+      await assert.rejects(
+        campanhaRepository.atualizarStatusNoAmbiente(
+          id,
+          "EM ANDAMENTO",
+          { id_usuario: 10, id_ambiente: AMBIENTE_A }
+        ),
+        { statusCode: 400, message: "ID da campanha inválido." }
+      );
+    }
+
+    assert.equal(consulta.mock.callCount(), 0);
+  }
+);
+
+test(
+  "Recusa alteração de status sem usuário autenticado sem consultar o banco",
+  async (t) => {
+    const consulta = t.mock.method(pool, "query", async () => {
+      throw new Error("Consulta inesperada");
+    });
+
+    for (const usuario of [undefined, null]) {
+      await assert.rejects(
+        campanhaRepository.atualizarStatusNoAmbiente(
+          30,
+          "EM ANDAMENTO",
+          usuario
+        ),
+        { statusCode: 401, message: "Usuário não autenticado." }
+      );
+    }
+
+    assert.equal(consulta.mock.callCount(), 0);
+  }
+);
+
+test(
+  "Recusa alteração de status com UUID de ambiente inválido sem consultar o banco",
+  async (t) => {
+    const consulta = t.mock.method(pool, "query", async () => {
+      throw new Error("Consulta inesperada");
+    });
+
+    const ambientesInvalidos = [
+      undefined, null, "", "ambiente-invalido",
+      "11111111-1111-4111-8111-11111111111Z",
+    ];
+
+    for (const ambiente of ambientesInvalidos) {
+      await assert.rejects(
+        campanhaRepository.atualizarStatusNoAmbiente(
+          30,
+          "EM ANDAMENTO",
+          { id_usuario: 10, id_ambiente: ambiente }
+        ),
+        { statusCode: 403, message: "Identificação do ambiente inválida." }
+      );
+    }
+
+    assert.equal(consulta.mock.callCount(), 0);
+  }
+);
+
+test(
+  "Recusa alteração de status com identificador de usuário inválido sem consultar o banco",
+  async (t) => {
+    const consulta = t.mock.method(pool, "query", async () => {
+      throw new Error("Consulta inesperada");
+    });
+
+    const idsInvalidos = [
+      undefined, null, 0, -1, 1.5, "usuario-invalido",
+      Number.MAX_SAFE_INTEGER + 1,
+    ];
+
+    for (const id of idsInvalidos) {
+      await assert.rejects(
+        campanhaRepository.atualizarStatusNoAmbiente(
+          30,
+          "EM ANDAMENTO",
+          { id_usuario: id, id_ambiente: AMBIENTE_A }
+        ),
+        { statusCode: 403, message: "Usuário inválido." }
+      );
+    }
+
+    assert.equal(consulta.mock.callCount(), 0);
+  }
+);
+
+test(
+  "Recusa status não permitidos sem consultar o banco",
+  async (t) => {
+    const consulta = t.mock.method(pool, "query", async () => {
+      throw new Error("Consulta inesperada");
+    });
+
+    const statusInvalidos = [
+      undefined, null, "", "ATIVA", "CONCLUIDA", "CANCELADO",
+      "em andamento", "EM ANDAMENTO ", 1,
+      "CONCLUIDO'; DROP TABLE campanha; --",
+    ];
+
+    for (const status of statusInvalidos) {
+      await assert.rejects(
+        campanhaRepository.atualizarStatusNoAmbiente(
+          30,
+          status,
+          { id_usuario: 10, id_ambiente: AMBIENTE_A }
+        ),
+        {
+          statusCode: 400,
+          message: "O status deve ser EM ANDAMENTO, CONCLUIDO ou CANCELADA.",
+        }
+      );
+    }
+
+    assert.equal(consulta.mock.callCount(), 0);
+  }
+);
+
+test(
+  "Atualiza os status permitidos com SQL parametrizado e filtros por campanha e ambiente",
+  async (t) => {
+    const consulta = t.mock.method(pool, "query", async (_sql, parametros) => ({
+      rows: [{
+        id_campanha: 30,
+        id_ambiente: AMBIENTE_A,
+        id_usuario: 10,
+        status: parametros[0],
+        data_atualizacao: "2026-10-14T12:00:00.000Z",
+      }],
+    }));
+
+    const statusPermitidos = ["EM ANDAMENTO", "CONCLUIDO", "CANCELADA"];
+
+    for (const [indice, status] of statusPermitidos.entries()) {
+      const resultado = await campanhaRepository.atualizarStatusNoAmbiente(
+        "30",
+        status,
+        { id_usuario: "10", id_ambiente: AMBIENTE_A }
+      );
+
+      assert.deepEqual(resultado, {
+        id_campanha: 30,
+        id_ambiente: AMBIENTE_A,
+        id_usuario: 10,
+        status,
+        data_atualizacao: "2026-10-14T12:00:00.000Z",
+      });
+      assert.equal(consulta.mock.callCount(), indice + 1);
+
+      const [sql, parametros] = consulta.mock.calls[indice].arguments;
+
+      assert.match(sql, /UPDATE\s+campanha\s+AS\s+c/i);
+      assert.match(sql, /SET\s+status\s*=\s*\$1/i);
+      assert.match(sql, /data_atualizacao\s*=\s*CURRENT_TIMESTAMP/i);
+      assert.match(sql, /WHERE\s+c\.id_campanha\s*=\s*\$2\s+AND\s+c\.id_ambiente\s*=\s*\$3/i);
+      assert.match(sql, /RETURNING\s+c\.id_campanha/i);
+      assert.match(sql, /c\.status/i);
+      assert.match(sql, /c\.data_atualizacao/i);
+      assert.equal(sql.includes(status), false);
+      assert.equal(sql.includes(AMBIENTE_A), false);
+      assert.deepEqual(parametros, [status, 30, AMBIENTE_A, 10]);
+    }
+  }
+);
+
+test(
+  "Exige usuário e ambiente ativos e administrador ou responsável na alteração de status",
+  async (t) => {
+    const consulta = t.mock.method(pool, "query", async () => ({
+      rows: [],
+    }));
+
+    await campanhaRepository.atualizarStatusNoAmbiente(
+      30,
+      "CONCLUIDO",
+      { id_usuario: 10, id_ambiente: AMBIENTE_A }
+    );
+
+    assert.equal(consulta.mock.callCount(), 1);
+
+    const sql = consulta.mock.calls[0].arguments[0];
+
+    assert.match(sql, /AND\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+usuario\s+AS\s+u/i);
+    assert.match(sql, /INNER\s+JOIN\s+ambiente\s+AS\s+a\s+ON\s+a\.id_ambiente\s*=\s*u\.id_ambiente/i);
+    assert.match(sql, /WHERE\s+u\.id_usuario\s*=\s*\$4\s+AND\s+u\.id_ambiente\s*=\s*c\.id_ambiente/i);
+    assert.match(sql, /AND\s+u\.ativo\s*=\s*TRUE\s+AND\s+a\.ativo\s*=\s*TRUE/i);
+    assert.match(sql, /AND\s*\(\s*u\.perfil_acesso\s*=\s*'ADMINISTRADOR'\s+OR\s+c\.id_usuario\s*=\s*u\.id_usuario\s*\)/i);
+  }
+);
+
+test(
+  "Retorna null quando nenhuma campanha satisfaz a autorização para alterar status",
+  async (t) => {
+    const consulta = t.mock.method(pool, "query", async () => ({
+      rows: [],
+    }));
+
+    const resultado = await campanhaRepository.atualizarStatusNoAmbiente(
+      30,
+      "CANCELADA",
+      { id_usuario: 20, id_ambiente: AMBIENTE_B }
+    );
+
+    assert.equal(resultado, null);
+    assert.equal(consulta.mock.callCount(), 1);
+    assert.deepEqual(
+      consulta.mock.calls[0].arguments[1],
+      ["CANCELADA", 30, AMBIENTE_B, 20]
+    );
+  }
+);
