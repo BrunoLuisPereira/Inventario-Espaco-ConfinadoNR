@@ -295,6 +295,23 @@ async function excluirNoAmbiente(idEvidencia, usuarioAutenticado) {
   return resultado.rows[0] || null;
 }
 
+async function buscarLocalAutorizadoNoAmbiente(idLocal, usuarioAutenticado) {
+  const usuario = validarIdentidade(usuarioAutenticado);
+  const id = validarIdentificador(idLocal, "ID do local inválido.");
+  const query = `
+    SELECT l.id_local
+    FROM local AS l
+    INNER JOIN campanha AS c
+      ON c.id_campanha = l.id_campanha
+    WHERE c.id_ambiente = $1
+      AND l.id_local = $3
+      ${AUTORIZACAO}
+    LIMIT 1
+  `;
+  const resultado = await pool.query(query, [usuario.id_ambiente, usuario.id_usuario, id]);
+  return resultado.rows[0] || null;
+}
+
 module.exports = {
   criarNoAmbiente,
   listarPermitidasNoAmbiente,
@@ -303,4 +320,5 @@ module.exports = {
   buscarPorOperacaoClienteNoAmbiente,
   atualizarNoAmbiente,
   excluirNoAmbiente,
+  buscarLocalAutorizadoNoAmbiente,
 };

@@ -518,3 +518,216 @@ test("Retorna listas vazias ou null quando os filtros não encontram registro au
   }
   assert.equal(consulta.mock.callCount(), 7);
 });
+
+// ========================================
+// VERIFICAÇÃO DE LOCAL AUTORIZADO
+// ========================================
+
+test("Local autorizado: rejeita IDs inválidos antes de consultar", async (t) => {
+  const { consulta } = simularBanco(t);
+  for (const id of [...IDS_INVALIDOS, "40; DROP TABLE local; --"]) {
+    await assert.rejects(repository.buscarLocalAutorizadoNoAmbiente(id, USUARIO_A), {
+      statusCode: 400, message: "ID do local inválido.",
+    });
+  }
+  assert.equal(consulta.mock.callCount(), 0);
+});
+
+test("Local autorizado: rejeita ausência de identidade autenticada", async (t) => {
+  const { consulta } = simularBanco(t);
+  for (const usuario of [undefined, null]) {
+    await assert.rejects(repository.buscarLocalAutorizadoNoAmbiente(40, usuario), {
+      statusCode: 401, message: "Usuário não autenticado.",
+    });
+  }
+  assert.equal(consulta.mock.callCount(), 0);
+});
+
+test("Local autorizado: rejeita identificador de usuário inválido", async (t) => {
+  const { consulta } = simularBanco(t);
+  for (const id_usuario of IDS_INVALIDOS) {
+    await assert.rejects(repository.buscarLocalAutorizadoNoAmbiente(40, {
+      ...USUARIO_A, id_usuario,
+    }), { statusCode: 401, message: "Identidade autenticada inválida." });
+  }
+  assert.equal(consulta.mock.callCount(), 0);
+});
+
+test("Local autorizado: rejeita UUID de ambiente inválido", async (t) => {
+  const { consulta } = simularBanco(t);
+  for (const id_ambiente of UUIDS_INVALIDOS) {
+    await assert.rejects(repository.buscarLocalAutorizadoNoAmbiente(40, {
+      ...USUARIO_A, id_ambiente,
+    }), { statusCode: 401, message: "Identidade autenticada inválida." });
+  }
+  assert.equal(consulta.mock.callCount(), 0);
+});
+
+test("Local autorizado: ambiente vem somente da identidade autenticada", async (t) => {
+  const { consulta } = simularBanco(t, [{ id_local: 40 }]);
+  const dadosForjados = { id_usuario: 999, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR" };
+  await repository.buscarLocalAutorizadoNoAmbiente("40", {
+    ...USUARIO_A, idAmbiente: AMBIENTE_B, idUsuario: 999,
+    body: dadosForjados, query: dadosForjados, params: dadosForjados,
+  });
+  const [sql, parametros] = unica(consulta);
+  assert.deepEqual(parametros, [AMBIENTE_A, 10, 40]);
+  assert.equal(parametros.includes(AMBIENTE_B), false);
+  assert.equal(parametros.includes(999), false);
+  verificarAutorizacao(sql);
+});
+
+test("Local autorizado: SQL é parametrizado sem interpolação de valores", async (t) => {
+  const { consulta } = simularBanco(t);
+  await repository.buscarLocalAutorizadoNoAmbiente("78902", {
+    id_usuario: "78901", id_ambiente: AMBIENTE_B,
+  });
+  const [sql, parametros] = unica(consulta);
+  assert.deepEqual(parametros, [AMBIENTE_B, 78901, 78902]);
+  assert.match(sql, /\bc\.id_ambiente\s*=\s*\$1\b/i);
+  assert.match(sql, /\bsolicitante\.id_usuario\s*=\s*\$2\b/i);
+  assert.match(sql, /\bl\.id_local\s*=\s*\$3\b/i);
+  for (const valor of [AMBIENTE_B, "78901", "78902"]) {
+    assert.equal(sql.includes(valor), false);
+  }
+  const indices = [...sql.matchAll(/\$(\d+)/g)].map((match) => Number(match[1]));
+  assert.deepEqual([...new Set(indices)].sort((a, b) => a - b), [1, 2, 3]);
+});
+
+test("Local autorizado: consulta a relação local, campanha e ambiente", async (t) => {
+  const { consulta } = simularBanco(t);
+  await repository.buscarLocalAutorizadoNoAmbiente(40, USUARIO_A);
+  const [sql] = unica(consulta);
+  assert.match(sql, /\bFROM\s+local\s+AS\s+l\s+INNER\s+JOIN\s+campanha\s+AS\s+c\s+ON\s+c\.id_campanha\s*=\s*l\.id_campanha/i);
+  assert.match(sql, /\bWHERE\s+c\.id_ambiente\s*=\s*\$1\s+AND\s+l\.id_local\s*=\s*\$3/i);
+  assert.match(sql, /\bINNER\s+JOIN\s+ambiente\s+AS\s+a\s+ON\s+a\.id_ambiente\s*=\s*solicitante\.id_ambiente/i);
+  assert.match(sql, /\bsolicitante\.id_ambiente\s*=\s*c\.id_ambiente/i);
+});
+
+test("Local autorizado: exige usuário e ambiente ativos no SQL", async (t) => {
+  const { consulta } = simularBanco(t);
+  await repository.buscarLocalAutorizadoNoAmbiente(40, USUARIO_A);
+  const [sql] = unica(consulta);
+  assert.match(sql, /\bsolicitante\.id_usuario\s*=\s*\$2/i);
+  assert.match(sql, /AND\s+solicitante\.ativo\s*=\s*TRUE\s+AND\s+a\.ativo\s*=\s*TRUE/i);
+});
+
+test("Local autorizado: permite administrador somente pelo perfil do banco e no mesmo ambiente", async (t) => {
+  const { consulta } = simularBanco(t, [{ id_local: 40 }]);
+  const resultado = await repository.buscarLocalAutorizadoNoAmbiente(40, USUARIO_A);
+  const [sql, parametros] = unica(consulta);
+  verificarAutorizacao(sql);
+  assert.match(sql, /AND\s*\(\s*solicitante\.perfil_acesso\s*=\s*'ADMINISTRADOR'\s+OR/i);
+  assert.match(sql, /\bsolicitante\.ativo\s*=\s*TRUE/i);
+  assert.match(sql, /\ba\.ativo\s*=\s*TRUE/i);
+  assert.deepEqual(parametros, [AMBIENTE_A, 10, 40]);
+  assert.equal(parametros.includes("ADMINISTRADOR"), false);
+  assert.deepEqual(resultado, { id_local: 40 });
+});
+
+test("Local autorizado: permite responsável ativo pela campanha", async (t) => {
+  const { consulta } = simularBanco(t, [{ id_local: 40 }]);
+  assert.deepEqual(await repository.buscarLocalAutorizadoNoAmbiente(40, USUARIO_B), { id_local: 40 });
+  const [sql, parametros] = unica(consulta);
+  verificarAutorizacao(sql);
+  assert.match(sql, /\bOR\s+c\.id_usuario\s*=\s*solicitante\.id_usuario\s*\)/i);
+  assert.match(sql, /\bsolicitante\.ativo\s*=\s*TRUE/i);
+  assert.deepEqual(parametros, [AMBIENTE_B, 20, 40]);
+});
+
+test("Local autorizado: ser criador de evidência não aparece como condição de autorização", async (t) => {
+  const { consulta } = simularBanco(t);
+  await repository.buscarLocalAutorizadoNoAmbiente(40, USUARIO_A);
+  const [sql] = unica(consulta);
+  verificarAutorizacao(sql);
+  assert.doesNotMatch(sql, /\b(?:e\.id_usuario|criador\.)/i);
+  assert.match(sql, /\bc\.id_usuario\s*=\s*solicitante\.id_usuario/i);
+  assert.doesNotMatch(sql, /\b(?:FROM|JOIN)\s+evidencia\b/i);
+});
+
+test("Local autorizado: separa parâmetros dos ambientes A e B", async (t) => {
+  const { consulta } = simularBanco(t);
+  for (const [indice, usuario] of [USUARIO_A, USUARIO_B].entries()) {
+    await repository.buscarLocalAutorizadoNoAmbiente(40, usuario);
+    const [sql, parametros] = consulta.mock.calls[indice].arguments;
+    assert.deepEqual(parametros, [usuario.id_ambiente, usuario.id_usuario, 40]);
+    verificarAutorizacao(sql);
+  }
+  assert.equal(consulta.mock.callCount(), 2);
+});
+
+test("Local autorizado: retorna somente a identificação do local", async (t) => {
+  const { consulta } = simularBanco(t, [{ id_local: 40 }]);
+  assert.deepEqual(await repository.buscarLocalAutorizadoNoAmbiente(40, USUARIO_A), { id_local: 40 });
+  const [sql] = unica(consulta);
+  assert.match(sql, /^\s*SELECT\s+l\.id_local\s+FROM\s+local\s+AS\s+l\b/i);
+  assert.doesNotMatch(sql, /SELECT\s+(?:l\.)?\*/i);
+  assert.match(sql, /\bLIMIT\s+1\b/i);
+});
+
+test("Local autorizado: retorna null sem resultado para local ausente, externo ou sem permissão", async (t) => {
+  const { consulta } = simularBanco(t);
+  // O mock simula ausência de linhas após os filtros; não executa a política SQL.
+  const casos = [[999, USUARIO_A], [40, USUARIO_B], [40, USUARIO_A]];
+  for (const [indice, [id, usuario]] of casos.entries()) {
+    assert.equal(await repository.buscarLocalAutorizadoNoAmbiente(id, usuario), null);
+    const [sql, parametros] = consulta.mock.calls[indice].arguments;
+    assert.deepEqual(parametros, [usuario.id_ambiente, usuario.id_usuario, id]);
+    verificarAutorizacao(sql);
+  }
+  assert.equal(consulta.mock.callCount(), 3);
+});
+
+test("Local autorizado: funciona sem depender de evidências existentes", async (t) => {
+  const { consulta } = simularBanco(t, [{ id_local: 40 }]);
+  assert.deepEqual(await repository.buscarLocalAutorizadoNoAmbiente(40, USUARIO_A), { id_local: 40 });
+  const [sql] = unica(consulta);
+  assert.match(sql, /\bFROM\s+local\s+AS\s+l\b/i);
+  assert.doesNotMatch(sql, /\bevidencia\b/i);
+  assert.doesNotMatch(sql, /\bid_evidencia\b|\bid_operacao_cliente\b/i);
+});
+
+test("Local autorizado: não acessa nem retorna dados da tabela evidencia", async (t) => {
+  const { consulta } = simularBanco(t, [{ id_local: 40 }]);
+  const resultado = await repository.buscarLocalAutorizadoNoAmbiente(40, USUARIO_A);
+  const [sql] = unica(consulta);
+  assert.doesNotMatch(sql, /\bevidencia\b|\bcriador\b|\bcaminho_arquivo\b/i);
+  assert.deepEqual(Object.keys(resultado), ["id_local"]);
+});
+
+test("Local autorizado: executa somente SELECT sem escritas ou DDL", async (t) => {
+  const { consulta } = simularBanco(t);
+  await repository.buscarLocalAutorizadoNoAmbiente(40, USUARIO_A);
+  const [sql] = unica(consulta);
+  assert.match(sql, /^\s*SELECT\b/i);
+  assert.doesNotMatch(sql, /\b(?:INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE)\b/i);
+});
+
+test("Local autorizado: não utiliza repositórios legados", async (t) => {
+  const { consulta } = simularBanco(t);
+  await repository.buscarLocalAutorizadoNoAmbiente(40, USUARIO_A);
+  unica(consulta);
+  const modulo = require.cache[require.resolve("../src/repositories/evidenciaMultiTenantRepository")];
+  assert.deepEqual(modulo.children.map((child) => child.id), [
+    require.resolve("../src/config/database"),
+  ]);
+});
+
+test("Local autorizado: usa query simulado e não abre conexão real", async (t) => {
+  const { consulta, conectar } = simularBanco(t, [{ id_local: 40 }]);
+  assert.deepEqual(await repository.buscarLocalAutorizadoNoAmbiente(40, USUARIO_A), { id_local: 40 });
+  assert.equal(consulta.mock.callCount(), 1);
+  assert.equal(conectar.mock.callCount(), 0);
+});
+
+test("Local autorizado: nova função e as sete funções anteriores continuam exportadas", () => {
+  const anteriores = [
+    "criarNoAmbiente", "listarPermitidasNoAmbiente", "buscarPorIdEAmbiente",
+    "listarPorLocalEAmbiente", "buscarPorOperacaoClienteNoAmbiente",
+    "atualizarNoAmbiente", "excluirNoAmbiente",
+  ];
+  for (const nome of [...anteriores, "buscarLocalAutorizadoNoAmbiente"]) {
+    assert.equal(typeof repository[nome], "function");
+  }
+  assert.deepEqual(Object.keys(repository).sort(), [...anteriores, "buscarLocalAutorizadoNoAmbiente"].sort());
+});
