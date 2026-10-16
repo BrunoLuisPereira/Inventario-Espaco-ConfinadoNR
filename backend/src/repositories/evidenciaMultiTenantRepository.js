@@ -37,6 +37,43 @@ const LEITURA = `
   ${AUTORIZACAO}
 `;
 
+// Valores de controle são textos, não Number/Date JavaScript. O timestamp
+// é emitido em UTC com seis casas decimais, independentemente de DateStyle.
+const ESTADO_GPS_SQL = `
+  json_build_object(
+    'latitude', e.latitude::text,
+    'longitude', e.longitude::text,
+    'precisao_gps', e.precisao_gps::text,
+    'origem_coordenadas', e.origem_coordenadas::text,
+    'data_captura_gps',
+      to_char(e.data_captura_gps AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || 'Z'
+  ) AS estado_gps
+`;
+
+// Joins internos explícitos permitem bloquear apenas uma relação por SELECT.
+// Nenhum SELECT de bloqueio omite ambiente, atividade ou permissão por campanha.
+const RELACOES_BLOQUEIO_GPS = `
+  FROM ambiente AS a
+  INNER JOIN usuario AS solicitante
+    ON solicitante.id_ambiente = a.id_ambiente
+  INNER JOIN campanha AS c
+    ON c.id_ambiente = a.id_ambiente
+  INNER JOIN local AS l
+    ON l.id_campanha = c.id_campanha
+  INNER JOIN evidencia AS e
+    ON e.id_local = l.id_local
+  WHERE c.id_ambiente = $1
+    AND solicitante.id_usuario = $2
+    AND solicitante.id_ambiente = c.id_ambiente
+    AND e.id_evidencia = $3
+    AND solicitante.ativo = TRUE
+    AND a.ativo = TRUE
+    AND (
+      solicitante.perfil_acesso = 'ADMINISTRADOR'
+      OR c.id_usuario = solicitante.id_usuario
+    )
+`;
+
 function criarErro(message, statusCode = 400) {
   const erro = new Error(message);
   erro.statusCode = statusCode;
@@ -141,6 +178,181 @@ const NORMALIZADORES = {
   data_captura_gps: dataOpcional,
 };
 
+function validarOpcoes(opcoes) {
+  if (opcoes == null) return {};
+  if (typeof opcoes !== "object" || Array.isArray(opcoes)) {
+    throw criarErro("Opções da operação inválidas.");
+  }
+  return opcoes;
+}
+
+function validarNumeroGpsEsperado(valor, campo, minimo, maximo, casas) {
+  if (valor === null) return null;
+  // A validação de faixa pode usar Number; o parâmetro mantém o texto original.
+  const formato = new RegExp(`^-?\\d+(?:\\.\\d{1,${casas}})?$`);
+  if (
+    typeof valor !== "string" || !formato.test(valor) ||
+    !Number.isFinite(Number(valor)) || Number(valor) < minimo || Number(valor) > maximo
+  ) {
+    throw criarErro(`Estado GPS esperado inválido: ${campo}.`);
+  }
+  return valor;
+}
+
+function validarTimestampGpsEsperado(valor) {
+  if (valor === null) return null;
+  // Somente o formato UTC emitido por ESTADO_GPS_SQL. Não passa por Date,
+  // toISOString ou qualquer normalização que descarte microssegundos.
+  const partes = typeof valor === "string"
+    ? valor.match(/^(\d{4,6})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{6})Z$/)
+    : null;
+  if (!partes) throw criarErro("Estado GPS esperado inválido: data_captura_gps.");
+  const [, anoTexto, mesTexto, diaTexto, horaTexto, minutoTexto, segundoTexto] = partes;
+  const ano = Number(anoTexto);
+  const mes = Number(mesTexto);
+  const dia = Number(diaTexto);
+  const bissexto = ano % 4 === 0 && (ano % 100 !== 0 || ano % 400 === 0);
+  const dias = [31, bissexto ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (
+    ano < 1 || ano > 294276 || mes < 1 || mes > 12 || dia < 1 || dia > dias[mes - 1] ||
+    Number(horaTexto) > 23 || Number(minutoTexto) > 59 || Number(segundoTexto) > 59
+  ) {
+    throw criarErro("Estado GPS esperado inválido: data_captura_gps.");
+  }
+  return valor;
+}
+
+function validarGpsEsperado(estado) {
+  const campos = ["latitude", "longitude", "precisao_gps", "origem_coordenadas", "data_captura_gps"];
+  if (
+    !estado || typeof estado !== "object" || Array.isArray(estado) ||
+    campos.some((campo) => !Object.hasOwn(estado, campo) || estado[campo] === undefined)
+  ) {
+    throw criarErro("O estado GPS esperado deve conter explicitamente os cinco campos.");
+  }
+  const latitude = validarNumeroGpsEsperado(estado.latitude, "latitude", -90, 90, 7);
+  const longitude = validarNumeroGpsEsperado(estado.longitude, "longitude", -180, 180, 7);
+  const precisao = validarNumeroGpsEsperado(estado.precisao_gps, "precisao_gps", 0, 99999999.99, 2);
+  if ((latitude === null) !== (longitude === null)) {
+    throw criarErro("Estado GPS esperado inválido: coordenadas devem estar em par.");
+  }
+  if (estado.origem_coordenadas !== null && !["GPS", "MANUAL"].includes(estado.origem_coordenadas)) {
+    throw criarErro("Estado GPS esperado inválido: origem_coordenadas.");
+  }
+  return [latitude, longitude, precisao, estado.origem_coordenadas,
+    validarTimestampGpsEsperado(estado.data_captura_gps)];
+}
+
+function comparacaoGpsSql(inicio) {
+  // inicio é uma constante interna, nunca um dado recebido do cliente.
+  return `
+    e.latitude IS NOT DISTINCT FROM $${inicio}::numeric
+    AND e.longitude IS NOT DISTINCT FROM $${inicio + 1}::numeric
+    AND e.precisao_gps IS NOT DISTINCT FROM $${inicio + 2}::numeric
+    AND e.origem_coordenadas IS NOT DISTINCT FROM $${inicio + 3}::varchar
+    AND e.data_captura_gps IS NOT DISTINCT FROM $${inicio + 4}::timestamptz
+  `;
+}
+
+function falhaAtualizacaoGps() {
+  const erro = criarErro("Não foi possível concluir a atualização da evidência.", 500);
+  erro.code = "FALHA_ATUALIZACAO_GPS";
+  return erro;
+}
+
+async function atualizarComGpsEsperado(query, valores, gpsEsperado) {
+  const client = await pool.connect();
+  let transacaoAberta = false;
+  let descartarCliente;
+  const identidade = valores.slice(0, 3);
+
+  async function rollback() {
+    await client.query("ROLLBACK");
+    transacaoAberta = false;
+  }
+
+  try {
+    // READ COMMITTED permite reavaliar linhas alteradas enquanto aguardamos locks.
+    await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+    transacaoAberta = true;
+
+    // Ordem única deste modo: ambiente -> solicitante -> campanha -> local ->
+    // evidência. Os pais usam FOR SHARE; a evidência usa FOR UPDATE. Cada SELECT
+    // bloqueia apenas seu alias em um INNER JOIN sem agregação/DISTINCT/outer join.
+    // Permissões permanecem estáveis até COMMIT/ROLLBACK. Fluxos externos ainda
+    // podem causar deadlocks: não há repetição automática de transações.
+    const raiz = await client.query(`
+      SELECT l.id_local, c.id_campanha
+      ${RELACOES_BLOQUEIO_GPS}
+      FOR SHARE OF a
+    `, identidade);
+    if (!raiz.rows[0]) {
+      await rollback();
+      return null;
+    }
+
+    // Fixa a relação descoberta, sem aceitar mudança de local/campanha enquanto
+    // os locks são adquiridos. Todas as fases revalidam a autorização.
+    const vinculo = [...identidade, raiz.rows[0].id_local, raiz.rows[0].id_campanha];
+    for (const alias of ["solicitante", "c", "l"]) {
+      const bloqueio = await client.query(`
+        SELECT l.id_local, c.id_campanha
+        ${RELACOES_BLOQUEIO_GPS}
+          AND l.id_local = $4
+          AND c.id_campanha = $5
+        FOR SHARE OF ${alias}
+      `, vinculo);
+      if (!bloqueio.rows[0]) {
+        await rollback();
+        return null;
+      }
+    }
+
+    const bloqueada = await client.query(`
+      SELECT e.id_evidencia, (${comparacaoGpsSql(6)}) AS gps_confere
+      ${RELACOES_BLOQUEIO_GPS}
+        AND l.id_local = $4
+        AND c.id_campanha = $5
+      FOR UPDATE OF e
+    `, [...vinculo, ...gpsEsperado]);
+    if (!bloqueada.rows[0]) {
+      await rollback();
+      return null;
+    }
+    if (bloqueada.rows[0].gps_confere === false) {
+      const conflito = criarErro("O estado GPS foi alterado. Recarregue a evidência antes de tentar novamente.", 409);
+      conflito.code = "CONFLITO_GPS";
+      throw conflito;
+    }
+    if (bloqueada.rows[0].gps_confere !== true) throw falhaAtualizacaoGps();
+
+    const resultado = await client.query(query, [...valores, ...gpsEsperado]);
+    if (!resultado.rows[0]) {
+      // Ausência inesperada após igualdade e locks não comprova conflito GPS.
+      throw falhaAtualizacaoGps();
+    }
+    await client.query("COMMIT");
+    transacaoAberta = false;
+    return resultado.rows[0];
+  } catch (erro) {
+    if (transacaoAberta) {
+      try {
+        await rollback();
+      } catch (erroRollback) {
+        // Não devolve ao pool uma conexão cujo estado transacional é incerto.
+        descartarCliente = erroRollback;
+      }
+    } else {
+      // BEGIN falhou ou a tentativa de ROLLBACK anterior não foi confirmada.
+      descartarCliente = erro;
+    }
+    throw erro;
+  } finally {
+    if (descartarCliente) client.release(descartarCliente);
+    else client.release();
+  }
+}
+
 async function criarNoAmbiente(dados, usuarioAutenticado) {
   const usuario = validarIdentidade(usuarioAutenticado);
   validarDados(dados);
@@ -207,9 +419,32 @@ async function listarPermitidasNoAmbiente(usuarioAutenticado) {
   return resultado.rows;
 }
 
-async function buscarPorIdEAmbiente(idEvidencia, usuarioAutenticado) {
+async function buscarPorIdEAmbiente(idEvidencia, usuarioAutenticado, opcoes) {
   const usuario = validarIdentidade(usuarioAutenticado);
   const id = validarIdentificador(idEvidencia, "ID da evidência inválido.");
+  const configuracao = validarOpcoes(opcoes);
+  if (Object.hasOwn(configuracao, "incluirEstadoGps") && typeof configuracao.incluirEstadoGps !== "boolean") {
+    throw criarErro("A opção incluirEstadoGps deve ser booleana.");
+  }
+  if (configuracao.incluirEstadoGps === true) {
+    const resultado = await pool.query(`
+      SELECT e.*, l.nome_local, criador.nome AS usuario_responsavel,
+        ${ESTADO_GPS_SQL}
+      FROM evidencia AS e
+      INNER JOIN local AS l
+        ON l.id_local = e.id_local
+      INNER JOIN campanha AS c
+        ON c.id_campanha = l.id_campanha
+      INNER JOIN usuario AS criador
+        ON criador.id_usuario = e.id_usuario
+        AND criador.id_ambiente = c.id_ambiente
+      WHERE c.id_ambiente = $1
+        ${AUTORIZACAO}
+        AND e.id_evidencia = $3
+      LIMIT 1
+    `, [usuario.id_ambiente, usuario.id_usuario, id]);
+    return resultado.rows[0] || null;
+  }
   const resultado = await pool.query(
     `${LEITURA} AND e.id_evidencia = $3 LIMIT 1`,
     [usuario.id_ambiente, usuario.id_usuario, id]
@@ -238,10 +473,15 @@ async function buscarPorOperacaoClienteNoAmbiente(idOperacaoCliente, idLocal, us
   return resultado.rows[0] || null;
 }
 
-async function atualizarNoAmbiente(idEvidencia, dados, usuarioAutenticado) {
+async function atualizarNoAmbiente(idEvidencia, dados, usuarioAutenticado, opcoes) {
   const usuario = validarIdentidade(usuarioAutenticado);
   const id = validarIdentificador(idEvidencia, "ID da evidência inválido.");
   validarDados(dados);
+
+  const configuracao = validarOpcoes(opcoes);
+  const gpsEsperado = Object.hasOwn(configuracao, "gpsEsperado")
+    ? validarGpsEsperado(configuracao.gpsEsperado)
+    : null;
 
   // Apenas campos fixos e permitidos: nunca altera local, criador ou operação.
   // Cada campo tem flag de presença para distinguir omissão de limpeza por NULL.
@@ -270,10 +510,12 @@ async function atualizarNoAmbiente(idEvidencia, dados, usuarioAutenticado) {
       AND e.id_evidencia = $3
       AND l.id_local = e.id_local
       ${AUTORIZACAO}
+      ${gpsEsperado ? `AND (${comparacaoGpsSql(20)})` : ""}
     RETURNING e.*
   `;
   // A CHECK de par latitude/longitude também valida o estado final combinado
   // com os valores atuais, inclusive quando só uma coordenada é informada.
+  if (gpsEsperado) return atualizarComGpsEsperado(query, valores, gpsEsperado);
   const resultado = await pool.query(query, valores);
   return resultado.rows[0] || null;
 }

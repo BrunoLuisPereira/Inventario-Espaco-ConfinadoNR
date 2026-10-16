@@ -731,3 +731,391 @@ test("Local autorizado: nova função e as sete funções anteriores continuam e
   }
   assert.deepEqual(Object.keys(repository).sort(), [...anteriores, "buscarLocalAutorizadoNoAmbiente"].sort());
 });
+
+
+// Controle GPS: os mocks verificam o protocolo; não emulam locks ou tipos do PostgreSQL.
+const GPS_PRECISO = Object.freeze({
+  latitude: "-23.1234567",
+  longitude: "-46.7654321",
+  precisao_gps: "3.20",
+  origem_coordenadas: "GPS",
+  data_captura_gps: "2026-10-15T12:34:56.123456Z",
+});
+const GPS_NULO = Object.freeze(Object.fromEntries(Object.keys(GPS_PRECISO).map((campo) => [campo, null])));
+const GPS_ZERO = Object.freeze({
+  ...GPS_PRECISO, latitude: "0.0000000", longitude: "0.0000000", precisao_gps: "0.00",
+});
+const EVIDENCIA_GPS_ATUALIZADA = { ...EVIDENCIA, ...GPS_PRECISO, descricao: "Nova" };
+
+function verificarComparacaoGps(sql, inicio) {
+  const tipos = ["numeric", "numeric", "numeric", "varchar", "timestamptz"];
+  Object.keys(GPS_PRECISO).forEach((campo, indice) => {
+    assert.match(sql, new RegExp(
+      "\\be\\." + campo + "\\s+IS NOT DISTINCT FROM\\s+\\$" + (inicio + indice) + "::" + tipos[indice] + "\\b", "i"
+    ));
+  });
+  assert.equal((sql.match(/IS NOT DISTINCT FROM/gi) || []).length, 5);
+}
+
+function verificarBloqueioGps(sql, parametros, usuario) {
+  assert.deepEqual(parametros.slice(0, 3), [usuario.id_ambiente, usuario.id_usuario, 50]);
+  assert.match(sql, /\bc\.id_ambiente\s*=\s*\$1\b/i);
+  assert.match(sql, /\bsolicitante\.id_usuario\s*=\s*\$2\b/i);
+  assert.match(sql, /\be\.id_evidencia\s*=\s*\$3\b/i);
+  assert.match(sql, /\bsolicitante\.id_ambiente\s*=\s*c\.id_ambiente/i);
+  assert.match(sql, /\bsolicitante\.ativo\s*=\s*TRUE/i);
+  assert.match(sql, /\ba\.ativo\s*=\s*TRUE/i);
+  assert.match(sql, /\(\s*solicitante\.perfil_acesso\s*=\s*'ADMINISTRADOR'\s+OR\s+c\.id_usuario\s*=\s*solicitante\.id_usuario\s*\)/i);
+  assert.match(sql, /\bl\.id_campanha\s*=\s*c\.id_campanha/i);
+  assert.match(sql, /\be\.id_local\s*=\s*l\.id_local/i);
+  const permissao = sql.slice(sql.indexOf("WHERE"));
+  assert.doesNotMatch(permissao, /\b(?:e\.id_usuario|criador\.)/i);
+  assert.equal(sql.includes(usuario.id_ambiente), false);
+}
+
+// Cada resposta corresponde a uma instrução efetivamente esperada, em ordem.
+// Falhas e ausência de linhas interrompem o roteiro antes do UPDATE/COMMIT.
+function simularTransacaoGps(t, configuracao = {}) {
+  const usuario = configuracao.usuario || USUARIO_A;
+  const esperado = configuracao.gpsEsperado || GPS_PRECISO;
+  const erro = configuracao.erro || new Error("Falha interna simulada");
+  const passos = ["BEGIN", "a", "solicitante", "c", "l", "e", "UPDATE", "COMMIT"];
+  const corte = configuracao.falha || configuracao.ausente ||
+    (configuracao.conflito ? "e" : configuracao.updateVazio ? "UPDATE" : null);
+  const roteiro = corte ? passos.slice(0, passos.indexOf(corte) + 1) : [...passos];
+  if (corte && corte !== "BEGIN") roteiro.push("ROLLBACK");
+  // No retorno antecipado, a primeira falha de rollback entra no catch,
+  // que tenta encerrar a transação novamente antes de descartar o cliente.
+  if (configuracao.ausente && configuracao.erroRollback) roteiro.push("ROLLBACK");
+  const eventos = [];
+  let indice = 0;
+  const client = {
+    query: t.mock.fn(async (sql, parametros) => {
+      const passo = roteiro[indice++];
+      assert.ok(passo, "Consulta transacional adicional inesperada");
+      eventos.push(passo);
+      if (["BEGIN", "COMMIT", "ROLLBACK"].includes(passo)) {
+        assert.equal(sql, passo === "BEGIN" ? "BEGIN ISOLATION LEVEL READ COMMITTED" : passo);
+        assert.equal(parametros, undefined);
+      } else if (passo === "UPDATE") {
+        assert.match(sql, /^\s*UPDATE\s+evidencia\s+AS\s+e\b/i);
+        verificarAutorizacao(sql);
+        assert.match(sql, /\be\.id_evidencia\s*=\s*\$3\b/i);
+        assert.match(sql, /\bl\.id_local\s*=\s*e\.id_local/i);
+        assert.deepEqual(parametros.slice(0, 3), [usuario.id_ambiente, usuario.id_usuario, 50]);
+        assert.deepEqual(parametros.slice(19), Object.values(esperado));
+        assert.equal(parametros.length, 24);
+        verificarComparacaoGps(sql, 20);
+      } else {
+        assert.match(sql, /^\s*SELECT\b/i);
+        verificarBloqueioGps(sql, parametros, usuario);
+        assert.match(sql, new RegExp("FOR " + (passo === "e" ? "UPDATE" : "SHARE") + " OF " + passo + "\\s*$", "i"));
+        if (passo !== "a") {
+          assert.match(sql, /\bl\.id_local\s*=\s*\$4\b/i);
+          assert.match(sql, /\bc\.id_campanha\s*=\s*\$5\b/i);
+          assert.deepEqual(parametros.slice(3, 5), [40, 30]);
+        }
+        if (passo === "e") {
+          verificarComparacaoGps(sql, 6);
+          assert.deepEqual(parametros.slice(5), Object.values(esperado));
+          assert.equal(parametros.length, 10);
+        } else assert.equal(parametros.length, passo === "a" ? 3 : 5);
+      }
+      if (configuracao.falha === passo) throw erro;
+      if (passo === "ROLLBACK" && configuracao.erroRollback) throw configuracao.erroRollback;
+      if (configuracao.ausente === passo || (passo === "UPDATE" && configuracao.updateVazio)) return { rows: [] };
+      if (passo === "e") return { rows: [{ id_evidencia: 50, gps_confere: !configuracao.conflito }] };
+      if (passo === "UPDATE") return { rows: [configuracao.registro || EVIDENCIA_GPS_ATUALIZADA] };
+      if (["a", "solicitante", "c", "l"].includes(passo)) return { rows: [{ id_local: 40, id_campanha: 30 }] };
+      return { rows: [] };
+    }),
+    release: t.mock.fn(() => { eventos.push("release"); }),
+  };
+  const consulta = t.mock.method(pool, "query", async () => {
+    throw new Error("Modo GPS não deve usar pool.query");
+  });
+  const conectar = t.mock.method(pool, "connect", async () => client);
+  t.after(() => {
+    assert.equal(indice, roteiro.length);
+    assert.equal(consulta.mock.callCount(), 0);
+    assert.equal(conectar.mock.callCount(), 1);
+    assert.equal(client.release.mock.callCount(), 1);
+    assert.deepEqual(eventos, [...roteiro, "release"]);
+  });
+  return { client, eventos, erro, roteiro };
+}
+
+test("GPS: leitura sem opção mantém SQL e resposta anteriores", async (t) => {
+  const { consulta } = simularBanco(t, [EVIDENCIA]);
+  for (const opcoes of [undefined, {}, { incluirEstadoGps: false }]) {
+    assert.strictEqual(await repository.buscarPorIdEAmbiente(50, USUARIO_A, opcoes), EVIDENCIA);
+  }
+  const chamadas = consulta.mock.calls.map((chamada) => chamada.arguments);
+  assert.deepEqual(chamadas[1], chamadas[0]);
+  assert.deepEqual(chamadas[2], chamadas[0]);
+  assert.doesNotMatch(chamadas[0][0], /\bestado_gps\b|json_build_object|to_char/i);
+  assert.deepEqual(chamadas[0][1], [AMBIENTE_A, 10, 50]);
+  assert.equal(Object.hasOwn(EVIDENCIA, "estado_gps"), false);
+  verificarAutorizacao(chamadas[0][0]);
+});
+
+test("GPS: leitura precisa constrói os cinco campos textuais no SQL autorizado", async (t) => {
+  const registro = { ...EVIDENCIA, estado_gps: GPS_PRECISO };
+  const { consulta } = simularBanco(t, [registro]);
+  assert.strictEqual(await repository.buscarPorIdEAmbiente(50, USUARIO_A, { incluirEstadoGps: true }), registro);
+  const [sql, parametros] = unica(consulta);
+  for (const campo of ["latitude", "longitude", "precisao_gps", "origem_coordenadas"]) {
+    assert.match(sql, new RegExp("'" + campo + "',\\s*e\\." + campo + "::text", "i"));
+  }
+  assert.match(sql, /json_build_object\s*\(/i);
+  assert.match(sql, /'data_captura_gps',\s*to_char\(e\.data_captura_gps AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'\)\s*\|\|\s*'Z'/i);
+  assert.match(sql, /\)\s+AS\s+estado_gps/i);
+  assert.doesNotMatch(sql, /json_strip_nulls|::float|::double/i);
+  verificarAutorizacao(sql);
+  assert.match(sql, /criador\.id_ambiente\s*=\s*c\.id_ambiente/i);
+  assert.deepEqual(parametros, [AMBIENTE_A, 10, 50]);
+});
+
+for (const [nome, estado] of [["null explícito", GPS_NULO], ["zero textual", GPS_ZERO], ["decimais e microssegundos", GPS_PRECISO]]) {
+  test("GPS: leitura preserva " + nome + " retornado pelo banco", async (t) => {
+    const registro = { ...EVIDENCIA, estado_gps: estado };
+    simularBanco(t, [registro]);
+    const resultado = await repository.buscarPorIdEAmbiente(50, USUARIO_B, { incluirEstadoGps: true });
+    assert.strictEqual(resultado, registro);
+    assert.strictEqual(resultado.estado_gps, estado);
+    assert.deepEqual(Object.keys(resultado.estado_gps), Object.keys(GPS_PRECISO));
+    assert.deepEqual(resultado.estado_gps, estado);
+  });
+}
+
+test("GPS: leitura autorizada sem linhas retorna null nos ambientes A e B", async (t) => {
+  const { consulta } = simularBanco(t);
+  for (const [indice, usuario] of [USUARIO_A, USUARIO_B].entries()) {
+    assert.equal(await repository.buscarPorIdEAmbiente(50, usuario, { incluirEstadoGps: true }), null);
+    const [sql, parametros] = consulta.mock.calls[indice].arguments;
+    verificarAutorizacao(sql);
+    assert.deepEqual(parametros, [usuario.id_ambiente, usuario.id_usuario, 50]);
+  }
+});
+
+test("GPS: opções de leitura inválidas são recusadas sem consulta", async (t) => {
+  const { consulta } = simularBanco(t);
+  for (const opcoes of [[], true, "opções", { incluirEstadoGps: null }, { incluirEstadoGps: 1 }]) {
+    await assert.rejects(repository.buscarPorIdEAmbiente(50, USUARIO_A, opcoes), { statusCode: 400 });
+  }
+  assert.equal(consulta.mock.callCount(), 0);
+});
+
+test("GPS: UPDATE com três argumentos continua usando somente pool.query", async (t) => {
+  const { consulta } = simularBanco(t, [EVIDENCIA_GPS_ATUALIZADA]);
+  assert.strictEqual(await repository.atualizarNoAmbiente(50, { descricao: "Nova" }, USUARIO_A), EVIDENCIA_GPS_ATUALIZADA);
+  const [sql, parametros] = unica(consulta);
+  assert.equal(parametros.length, 19);
+  assert.deepEqual(parametros.slice(0, 3), [AMBIENTE_A, 10, 50]);
+  assert.deepEqual(parametros.slice(7, 9), [true, "Nova"]);
+  assert.doesNotMatch(sql, /IS NOT DISTINCT FROM|FOR SHARE|BEGIN/i);
+  verificarAutorizacao(sql);
+});
+
+test("GPS: estado esperado incompleto ou inválido é rejeitado antes de connect", async (t) => {
+  const { consulta } = simularBanco(t);
+  const invalidos = [undefined, null, [], 1, "GPS", {}];
+  for (const campo of Object.keys(GPS_PRECISO)) {
+    const incompleto = { ...GPS_PRECISO };
+    delete incompleto[campo];
+    invalidos.push(incompleto, { ...GPS_PRECISO, [campo]: undefined });
+  }
+  for (const alteracao of [
+    { latitude: 0 }, { longitude: "181" }, { latitude: "-91" },
+    { latitude: "0.12345678" }, { latitude: null },
+    { precisao_gps: "-1" }, { precisao_gps: "1.123" }, { precisao_gps: Infinity },
+    { origem_coordenadas: "OUTRA" }, { data_captura_gps: new Date("2026-10-15") },
+    { data_captura_gps: "2026-10-15T12:34:56.123Z" },
+    { data_captura_gps: "2026-02-30T12:34:56.123456Z" },
+    { data_captura_gps: "2026-10-15T24:34:56.123456Z" },
+    { latitude: "0; SELECT 1" },
+  ]) invalidos.push({ ...GPS_PRECISO, ...alteracao });
+  for (const gpsEsperado of invalidos) {
+    await assert.rejects(repository.atualizarNoAmbiente(50, {}, USUARIO_A, { gpsEsperado }), { statusCode: 400 });
+  }
+  assert.equal(consulta.mock.callCount(), 0);
+});
+
+test("GPS: identidade, ID e dados inválidos são recusados antes da transação", async (t) => {
+  const { consulta } = simularBanco(t);
+  const opcoes = { gpsEsperado: GPS_PRECISO };
+  for (const usuario of [null, { ...USUARIO_A, id_usuario: 0 }, { ...USUARIO_A, id_ambiente: "inválido" }]) {
+    await assert.rejects(repository.atualizarNoAmbiente(50, {}, usuario, opcoes), { statusCode: 401 });
+  }
+  await assert.rejects(repository.atualizarNoAmbiente(0, {}, USUARIO_A, opcoes), { statusCode: 400 });
+  await assert.rejects(repository.atualizarNoAmbiente(50, [], USUARIO_A, opcoes), { statusCode: 400 });
+  await assert.rejects(repository.atualizarNoAmbiente(50, { latitude: 91 }, USUARIO_A, opcoes), { statusCode: 400 });
+  assert.equal(consulta.mock.callCount(), 0);
+});
+
+for (const [nome, gpsEsperado] of [["precisão completa", GPS_PRECISO], ["cinco nulls", GPS_NULO], ["coordenadas zero", GPS_ZERO]]) {
+  test("GPS: transação aceita " + nome + " e preserva parâmetros exatos", async (t) => {
+    const registro = { ...EVIDENCIA_GPS_ATUALIZADA, ...gpsEsperado };
+    const { client, eventos } = simularTransacaoGps(t, { gpsEsperado, registro });
+    assert.strictEqual(await repository.atualizarNoAmbiente(50, { descricao: "Nova" }, USUARIO_A, { gpsEsperado }), registro);
+    assert.deepEqual(eventos, ["BEGIN", "a", "solicitante", "c", "l", "e", "UPDATE", "COMMIT", "release"]);
+    assert.deepEqual(client.release.mock.calls[0].arguments, []);
+    const [sql, parametros] = client.query.mock.calls[6].arguments;
+    assert.deepEqual(parametros.slice(19), Object.values(gpsEsperado));
+    for (const valor of Object.values(gpsEsperado).filter((valor) => valor !== null)) {
+      // Valores esperados ficam nos parâmetros; zero também é enviado como texto.
+      if (valor.length > 3) assert.equal(sql.includes(valor), false);
+    }
+  });
+}
+
+test("GPS: UPDATE condicional preserva CASE, omissões e campos imutáveis", async (t) => {
+  const { client } = simularTransacaoGps(t);
+  await repository.atualizarNoAmbiente(50, {
+    descricao: "Nova", latitude: undefined, id_local: 999, id_usuario: 999,
+    id_operacao_cliente: OPERACAO, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR",
+  }, USUARIO_A, { gpsEsperado: GPS_PRECISO });
+  const [sql, parametros] = client.query.mock.calls[6].arguments;
+  const set = sql.match(/\bSET\b([\s\S]*?)\bFROM\b/i)[1];
+  CAMPOS_UPDATE.forEach((campo, indice) => {
+    const flag = 4 + indice * 2;
+    assert.match(set, new RegExp("\\b" + campo + "\\s*=\\s*CASE WHEN \\$" + flag +
+      "::boolean THEN \\$" + (flag + 1) + "(?:::[a-z]+)? ELSE e\\." + campo + " END", "i"));
+    assert.deepEqual(parametros.slice(flag - 1, flag + 1), campo === "descricao" ? [true, "Nova"] : [false, null]);
+  });
+  assert.doesNotMatch(set, /\bid_local\b|\bid_usuario\b|\bid_operacao_cliente\b|\bid_ambiente\b|\bperfil_acesso\b/);
+  assert.doesNotMatch(set, /\$(?:20|21|22|23|24)\b/);
+  assert.equal(parametros.includes(999), false);
+  assert.equal(parametros.includes(AMBIENTE_B), false);
+  assert.equal(parametros.includes(OPERACAO), false);
+});
+
+test("GPS: limpeza explícita envia null e preserva os demais campos", async (t) => {
+  const registro = { ...EVIDENCIA, ...GPS_NULO };
+  const { client } = simularTransacaoGps(t, { registro });
+  assert.strictEqual(await repository.atualizarNoAmbiente(50, GPS_NULO, USUARIO_A, { gpsEsperado: GPS_PRECISO }), registro);
+  const parametros = client.query.mock.calls[6].arguments[1];
+  assert.deepEqual(parametros.slice(3, 9), [false, null, false, null, false, null]);
+  assert.deepEqual(parametros.slice(9, 19), Object.keys(GPS_NULO).flatMap(() => [true, null]));
+  assert.deepEqual(parametros.slice(19), Object.values(GPS_PRECISO));
+});
+
+for (const [nome, usuario] of [["A", USUARIO_A], ["B", USUARIO_B]]) {
+  test("GPS: ambiente " + nome + " mantém identidade em todas as etapas", async (t) => {
+    const registro = { ...EVIDENCIA_GPS_ATUALIZADA, id_usuario: usuario.id_usuario };
+    simularTransacaoGps(t, { usuario, registro });
+    assert.strictEqual(
+      await repository.atualizarNoAmbiente(50, { descricao: "Nova" }, usuario, { gpsEsperado: GPS_PRECISO }),
+      registro
+    );
+  });
+}
+
+for (const fase of ["a", "solicitante", "c", "l", "e"]) {
+  test("GPS: ausência de autorização na fase " + fase + " retorna null com rollback", async (t) => {
+    const { client, eventos } = simularTransacaoGps(t, { ausente: fase });
+    assert.equal(await repository.atualizarNoAmbiente(50, {}, USUARIO_A, { gpsEsperado: GPS_PRECISO }), null);
+    assert.equal(eventos.includes("UPDATE"), false);
+    assert.equal(eventos.includes("COMMIT"), false);
+    assert.deepEqual(client.release.mock.calls[0].arguments, []);
+  });
+}
+
+test("GPS: divergência autorizada gera somente CONFLITO_GPS sem UPDATE", async (t) => {
+  const { eventos, client } = simularTransacaoGps(t, { conflito: true });
+  await assert.rejects(repository.atualizarNoAmbiente(50, {}, USUARIO_A, { gpsEsperado: GPS_PRECISO }), (erro) => {
+    assert.equal(erro.statusCode, 409);
+    assert.equal(erro.code, "CONFLITO_GPS");
+    assert.equal(erro.detail, undefined);
+    assert.equal(erro.cause, undefined);
+    assert.equal(erro.message.includes(AMBIENTE_B), false);
+    assert.equal(erro.message.includes(GPS_PRECISO.latitude), false);
+    return true;
+  });
+  assert.equal(eventos.includes("UPDATE"), false);
+  assert.equal(eventos.includes("COMMIT"), false);
+  assert.deepEqual(client.release.mock.calls[0].arguments, []);
+});
+
+test("GPS: UPDATE inesperadamente vazio gera falha 500, nunca conflito", async (t) => {
+  const { eventos } = simularTransacaoGps(t, { updateVazio: true });
+  await assert.rejects(repository.atualizarNoAmbiente(50, {}, USUARIO_A, { gpsEsperado: GPS_PRECISO }), {
+    statusCode: 500, code: "FALHA_ATUALIZACAO_GPS",
+    message: "Não foi possível concluir a atualização da evidência.",
+  });
+  assert.equal(eventos.includes("COMMIT"), false);
+});
+
+for (const fase of ["a", "solicitante", "c", "l", "e", "UPDATE", "COMMIT"]) {
+  test("GPS: falha interna em " + fase + " propaga o erro e executa rollback", async (t) => {
+    const erro = Object.assign(new Error("Falha de infraestrutura simulada"), { code: "XX000" });
+    const { client } = simularTransacaoGps(t, { falha: fase, erro });
+    await assert.rejects(repository.atualizarNoAmbiente(50, {}, USUARIO_A, { gpsEsperado: GPS_PRECISO }), (recebido) => {
+      assert.strictEqual(recebido, erro);
+      assert.equal(recebido.statusCode, undefined);
+      assert.notEqual(recebido.code, "CONFLITO_GPS");
+      return true;
+    });
+    assert.deepEqual(client.release.mock.calls[0].arguments, []);
+  });
+}
+
+test("GPS: falha no BEGIN descarta o cliente sem consultas posteriores", async (t) => {
+  const { client, erro } = simularTransacaoGps(t, { falha: "BEGIN" });
+  await assert.rejects(repository.atualizarNoAmbiente(50, {}, USUARIO_A, { gpsEsperado: GPS_PRECISO }), (recebido) => recebido === erro);
+  assert.deepEqual(client.release.mock.calls[0].arguments, [erro]);
+});
+
+test("GPS: falha no rollback descarta conexão e preserva erro original", async (t) => {
+  const erroRollback = new Error("Rollback indisponível");
+  const { client, erro } = simularTransacaoGps(t, { falha: "UPDATE", erroRollback });
+  await assert.rejects(repository.atualizarNoAmbiente(50, {}, USUARIO_A, { gpsEsperado: GPS_PRECISO }), (recebido) => recebido === erro);
+  assert.deepEqual(client.release.mock.calls[0].arguments, [erroRollback]);
+});
+
+test("GPS: conflito continua 409 quando rollback falha e cliente é descartado", async (t) => {
+  const erroRollback = new Error("Rollback indisponível");
+  const { client } = simularTransacaoGps(t, { conflito: true, erroRollback });
+  await assert.rejects(repository.atualizarNoAmbiente(50, {}, USUARIO_A, { gpsEsperado: GPS_PRECISO }), {
+    statusCode: 409, code: "CONFLITO_GPS",
+  });
+  assert.deepEqual(client.release.mock.calls[0].arguments, [erroRollback]);
+});
+
+test("GPS: ausência de autorização com rollback indisponível propaga falha e descarta cliente", async (t) => {
+  const erroRollback = new Error("Rollback indisponível");
+  const { client } = simularTransacaoGps(t, { ausente: "e", erroRollback });
+  await assert.rejects(repository.atualizarNoAmbiente(50, {}, USUARIO_A, { gpsEsperado: GPS_PRECISO }), (erro) => {
+    assert.strictEqual(erro, erroRollback);
+    assert.notEqual(erro.code, "CONFLITO_GPS");
+    return true;
+  });
+  assert.deepEqual(client.release.mock.calls[0].arguments, [erroRollback]);
+});
+
+test("GPS: falha ao obter cliente é propagada sem consulta ou conexão alternativa", async (t) => {
+  const erro = new Error("Pool indisponível");
+  const consulta = t.mock.method(pool, "query", async () => { throw new Error("Consulta inesperada"); });
+  const conectar = t.mock.method(pool, "connect", async () => { throw erro; });
+  await assert.rejects(repository.atualizarNoAmbiente(50, {}, USUARIO_A, { gpsEsperado: GPS_PRECISO }), (recebido) => recebido === erro);
+  assert.equal(conectar.mock.callCount(), 1);
+  assert.equal(consulta.mock.callCount(), 0);
+});
+
+test("GPS: extensão mantém oito exports e recuperação idempotente restrita", async (t) => {
+  const nomes = [
+    "criarNoAmbiente", "listarPermitidasNoAmbiente", "buscarPorIdEAmbiente",
+    "listarPorLocalEAmbiente", "buscarPorOperacaoClienteNoAmbiente",
+    "atualizarNoAmbiente", "excluirNoAmbiente", "buscarLocalAutorizadoNoAmbiente",
+  ];
+  assert.deepEqual(Object.keys(repository).sort(), nomes.sort());
+  for (const nome of nomes) assert.equal(typeof repository[nome], "function");
+  const { consulta } = simularBanco(t);
+  assert.equal(await repository.buscarPorOperacaoClienteNoAmbiente(OPERACAO, 40, USUARIO_B), null);
+  const [sql, parametros] = unica(consulta);
+  verificarAutorizacao(sql);
+  assert.match(sql, /\be\.id_local\s*=\s*\$3\s+AND\s+e\.id_operacao_cliente\s*=\s*\$4/i);
+  assert.doesNotMatch(sql, /\bestado_gps\b|IS NOT DISTINCT FROM|FOR SHARE/i);
+  assert.deepEqual(parametros, [AMBIENTE_B, 20, 40, OPERACAO]);
+});
+
