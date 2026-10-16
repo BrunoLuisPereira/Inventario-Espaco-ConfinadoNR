@@ -209,7 +209,7 @@ async function exigirLocalAutorizado(idLocal, usuario) {
   if (!local) throw criarErro("Local não encontrado.", 404);
 }
 
-async function criarEvidencia(dados, usuarioAutenticado) {
+async function criarEvidencia(dados, usuarioAutenticado, opcoes) {
   const usuario = validarIdentidade(usuarioAutenticado);
   validarDados(dados);
   const idLocal = validarIdentificador(dados.id_local, "ID do local inválido.");
@@ -219,10 +219,22 @@ async function criarEvidencia(dados, usuarioAutenticado) {
   const operacao = dados.id_operacao_cliente == null || dados.id_operacao_cliente === ""
     ? null : validarUuid(dados.id_operacao_cliente, "ID da operação do cliente inválido.");
 
+  if (opcoes !== undefined && (
+    opcoes === null || typeof opcoes !== "object" || Array.isArray(opcoes)
+  )) {
+    throw criarErro("Opções da criação inválidas.");
+  }
+  const temOpcaoResultado = opcoes !== undefined && Object.hasOwn(opcoes, "incluirResultadoCriacao");
+  if (temOpcaoResultado && typeof opcoes.incluirResultadoCriacao !== "boolean") {
+    throw criarErro("A opção incluirResultadoCriacao deve ser booleana.");
+  }
+  // A opção controla apenas o formato; criada é determinada pelo fluxo abaixo.
+  const incluirResultadoCriacao = temOpcaoResultado && opcoes.incluirResultadoCriacao === true;
+
   await exigirLocalAutorizado(idLocal, usuario);
   if (operacao) {
     const existente = await evidenciaRepository.buscarPorOperacaoClienteNoAmbiente(operacao, idLocal, usuario);
-    if (existente) return existente;
+    if (existente) return incluirResultadoCriacao ? { evidencia: existente, criada: false } : existente;
   }
 
   let evidencia;
@@ -237,13 +249,13 @@ async function criarEvidencia(dados, usuarioAutenticado) {
       (!erro.table || erro.table === "evidencia")
     ) {
       const existente = await evidenciaRepository.buscarPorOperacaoClienteNoAmbiente(operacao, idLocal, usuario);
-      if (existente) return existente;
+      if (existente) return incluirResultadoCriacao ? { evidencia: existente, criada: false } : existente;
     }
     // Inclui o conflito genérico quando não há repetição atualmente autorizada.
     throw erro;
   }
   if (!evidencia) throw criarErro("Local não encontrado.", 404);
-  return evidencia;
+  return incluirResultadoCriacao ? { evidencia, criada: true } : evidencia;
 }
 
 async function listarEvidencias(usuarioAutenticado) {

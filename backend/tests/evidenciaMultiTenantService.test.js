@@ -995,3 +995,405 @@ test("Erros inesperados sem statusCode permanecem intactos nas seis operações"
 });
 
 
+// Contrato opcional de criação: o mesmo conteúdo de registro é usado nos três
+// caminhos. Somente a sequência executada pode determinar o booleano criada.
+function simularResultadoCriacao(t, caminho, usuario = USUARIO_A) {
+  const registro = Object.freeze({
+    ...CRIACAO, id_operacao_cliente: OPERACAO,
+    id_evidencia: 50, id_usuario: usuario.id_usuario,
+    data_criacao: "2020-01-01T00:00:00.000Z",
+    data_atualizacao: "2020-01-01T00:00:00.000Z",
+  });
+  let buscas = 0;
+  const respostas = {
+    buscarLocalAutorizadoNoAmbiente: { id_local: 40 },
+    buscarPorOperacaoClienteNoAmbiente: () => {
+      buscas += 1;
+      if (caminho === "repeticao" || (caminho === "conflito" && buscas === 2)) return registro;
+      return null;
+    },
+  };
+  if (caminho === "criacao") respostas.criarNoAmbiente = registro;
+  if (caminho === "conflito") {
+    respostas.criarNoAmbiente = async () => { throw conflitoIdempotencia(); };
+  }
+  const simulado = simularRepositorio(t, respostas);
+  return { ...simulado, registro, usuario, caminho };
+}
+
+function verificarFluxoResultadoCriacao(simulado) {
+  const { mocks, eventos, usuario, caminho } = simulado;
+  const esperado = ["buscarLocalAutorizadoNoAmbiente", "buscarPorOperacaoClienteNoAmbiente"];
+  if (caminho !== "repeticao") esperado.push("criarNoAmbiente");
+  if (caminho === "conflito") esperado.push("buscarPorOperacaoClienteNoAmbiente");
+  assert.deepEqual(eventos, esperado);
+  assert.deepEqual(unica(mocks.buscarLocalAutorizadoNoAmbiente), [40, usuario]);
+  assert.equal(mocks.buscarPorOperacaoClienteNoAmbiente.mock.callCount(), caminho === "conflito" ? 2 : 1);
+  for (const chamada of mocks.buscarPorOperacaoClienteNoAmbiente.mock.calls) {
+    assert.deepEqual(chamada.arguments, [OPERACAO, 40, usuario]);
+  }
+  if (caminho === "repeticao") assert.equal(mocks.criarNoAmbiente.mock.callCount(), 0);
+  else assert.deepEqual(unica(mocks.criarNoAmbiente), [
+    { ...CRIACAO, id_operacao_cliente: OPERACAO }, usuario,
+  ]);
+  for (const metodo of METODOS.filter((nome) => ![
+    "buscarLocalAutorizadoNoAmbiente", "buscarPorOperacaoClienteNoAmbiente", "criarNoAmbiente",
+  ].includes(nome))) assert.equal(mocks[metodo].mock.callCount(), 0);
+}
+
+function verificarEnvelopeCriacao(resultado, registro, criada) {
+  assert.deepEqual(Object.keys(resultado).sort(), ["criada", "evidencia"]);
+  assert.strictEqual(resultado.evidencia, registro);
+  assert.equal(typeof resultado.criada, "boolean");
+  assert.strictEqual(resultado.criada, criada);
+}
+
+test("Resultado de criação: criação efetiva, opção true", async (t) => {
+  const simulado = simularResultadoCriacao(t, "criacao");
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A, { incluirResultadoCriacao: true }
+  );
+  verificarEnvelopeCriacao(resultado, simulado.registro, true);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: criação efetiva, dois argumentos", async (t) => {
+  const simulado = simularResultadoCriacao(t, "criacao");
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A
+  );
+  assert.strictEqual(resultado, simulado.registro);
+  assert.equal(Object.hasOwn(resultado, "criada"), false);
+  assert.equal(Object.hasOwn(resultado, "evidencia"), false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: criação efetiva, objeto vazio", async (t) => {
+  const simulado = simularResultadoCriacao(t, "criacao");
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A, {}
+  );
+  assert.strictEqual(resultado, simulado.registro);
+  assert.equal(Object.hasOwn(resultado, "criada"), false);
+  assert.equal(Object.hasOwn(resultado, "evidencia"), false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: criação efetiva, opção false", async (t) => {
+  const simulado = simularResultadoCriacao(t, "criacao");
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A, { incluirResultadoCriacao: false }
+  );
+  assert.strictEqual(resultado, simulado.registro);
+  assert.equal(Object.hasOwn(resultado, "criada"), false);
+  assert.equal(Object.hasOwn(resultado, "evidencia"), false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: opção herdada não ativa envelope em criação efetiva", async (t) => {
+  const simulado = simularResultadoCriacao(t, "criacao");
+  const opcoes = Object.create({ incluirResultadoCriacao: true });
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A, opcoes
+  );
+  assert.strictEqual(resultado, simulado.registro);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: corpo não determina criada em criação efetiva", async (t) => {
+  const simulado = simularResultadoCriacao(t, "criacao");
+  const resultado = await service.criarEvidencia({
+    ...DADOS, id_operacao_cliente: OPERACAO,
+    criada: false, evidencia: { id_evidencia: 999 },
+    incluirResultadoCriacao: false, opcoes: { incluirResultadoCriacao: false },
+    data_criacao: "2099-01-01T00:00:00.000Z", id_evidencia: 999,
+    id_usuario: 999, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR",
+  }, USUARIO_A, { incluirResultadoCriacao: true, criada: false });
+  verificarEnvelopeCriacao(resultado, simulado.registro, true);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: ambiente B permanece isolado em criação efetiva", async (t) => {
+  const simulado = simularResultadoCriacao(t, "criacao", USUARIO_B);
+  const resultado = await service.criarEvidencia({
+    ...DADOS, id_operacao_cliente: OPERACAO,
+    id_usuario: USUARIO_A.id_usuario, id_ambiente: AMBIENTE_A, perfil_acesso: "ADMINISTRADOR",
+  }, { ...USUARIO_B, id_usuario: "20" }, { incluirResultadoCriacao: true });
+  verificarEnvelopeCriacao(resultado, simulado.registro, true);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: repetição anterior ao INSERT, opção true", async (t) => {
+  const simulado = simularResultadoCriacao(t, "repeticao");
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A, { incluirResultadoCriacao: true }
+  );
+  verificarEnvelopeCriacao(resultado, simulado.registro, false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: repetição anterior ao INSERT, dois argumentos", async (t) => {
+  const simulado = simularResultadoCriacao(t, "repeticao");
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A
+  );
+  assert.strictEqual(resultado, simulado.registro);
+  assert.equal(Object.hasOwn(resultado, "criada"), false);
+  assert.equal(Object.hasOwn(resultado, "evidencia"), false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: repetição anterior ao INSERT, objeto vazio", async (t) => {
+  const simulado = simularResultadoCriacao(t, "repeticao");
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A, {}
+  );
+  assert.strictEqual(resultado, simulado.registro);
+  assert.equal(Object.hasOwn(resultado, "criada"), false);
+  assert.equal(Object.hasOwn(resultado, "evidencia"), false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: repetição anterior ao INSERT, opção false", async (t) => {
+  const simulado = simularResultadoCriacao(t, "repeticao");
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A, { incluirResultadoCriacao: false }
+  );
+  assert.strictEqual(resultado, simulado.registro);
+  assert.equal(Object.hasOwn(resultado, "criada"), false);
+  assert.equal(Object.hasOwn(resultado, "evidencia"), false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: opção herdada não ativa envelope em repetição anterior ao INSERT", async (t) => {
+  const simulado = simularResultadoCriacao(t, "repeticao");
+  const opcoes = Object.create({ incluirResultadoCriacao: true });
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A, opcoes
+  );
+  assert.strictEqual(resultado, simulado.registro);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: corpo não determina criada em repetição anterior ao INSERT", async (t) => {
+  const simulado = simularResultadoCriacao(t, "repeticao");
+  const resultado = await service.criarEvidencia({
+    ...DADOS, id_operacao_cliente: OPERACAO,
+    criada: true, evidencia: { id_evidencia: 999 },
+    incluirResultadoCriacao: false, opcoes: { incluirResultadoCriacao: false },
+    data_criacao: "2099-01-01T00:00:00.000Z", id_evidencia: 999,
+    id_usuario: 999, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR",
+  }, USUARIO_A, { incluirResultadoCriacao: true, criada: true });
+  verificarEnvelopeCriacao(resultado, simulado.registro, false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: ambiente B permanece isolado em repetição anterior ao INSERT", async (t) => {
+  const simulado = simularResultadoCriacao(t, "repeticao", USUARIO_B);
+  const resultado = await service.criarEvidencia({
+    ...DADOS, id_operacao_cliente: OPERACAO,
+    id_usuario: USUARIO_A.id_usuario, id_ambiente: AMBIENTE_A, perfil_acesso: "ADMINISTRADOR",
+  }, { ...USUARIO_B, id_usuario: "20" }, { incluirResultadoCriacao: true });
+  verificarEnvelopeCriacao(resultado, simulado.registro, false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: recuperação após conflito, opção true", async (t) => {
+  const simulado = simularResultadoCriacao(t, "conflito");
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A, { incluirResultadoCriacao: true }
+  );
+  verificarEnvelopeCriacao(resultado, simulado.registro, false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: recuperação após conflito, dois argumentos", async (t) => {
+  const simulado = simularResultadoCriacao(t, "conflito");
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A
+  );
+  assert.strictEqual(resultado, simulado.registro);
+  assert.equal(Object.hasOwn(resultado, "criada"), false);
+  assert.equal(Object.hasOwn(resultado, "evidencia"), false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: recuperação após conflito, objeto vazio", async (t) => {
+  const simulado = simularResultadoCriacao(t, "conflito");
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A, {}
+  );
+  assert.strictEqual(resultado, simulado.registro);
+  assert.equal(Object.hasOwn(resultado, "criada"), false);
+  assert.equal(Object.hasOwn(resultado, "evidencia"), false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: recuperação após conflito, opção false", async (t) => {
+  const simulado = simularResultadoCriacao(t, "conflito");
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A, { incluirResultadoCriacao: false }
+  );
+  assert.strictEqual(resultado, simulado.registro);
+  assert.equal(Object.hasOwn(resultado, "criada"), false);
+  assert.equal(Object.hasOwn(resultado, "evidencia"), false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: opção herdada não ativa envelope em recuperação após conflito", async (t) => {
+  const simulado = simularResultadoCriacao(t, "conflito");
+  const opcoes = Object.create({ incluirResultadoCriacao: true });
+  const resultado = await service.criarEvidencia(
+    { ...DADOS, id_operacao_cliente: OPERACAO }, USUARIO_A, opcoes
+  );
+  assert.strictEqual(resultado, simulado.registro);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: corpo não determina criada em recuperação após conflito", async (t) => {
+  const simulado = simularResultadoCriacao(t, "conflito");
+  const resultado = await service.criarEvidencia({
+    ...DADOS, id_operacao_cliente: OPERACAO,
+    criada: true, evidencia: { id_evidencia: 999 },
+    incluirResultadoCriacao: false, opcoes: { incluirResultadoCriacao: false },
+    data_criacao: "2099-01-01T00:00:00.000Z", id_evidencia: 999,
+    id_usuario: 999, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR",
+  }, USUARIO_A, { incluirResultadoCriacao: true, criada: true });
+  verificarEnvelopeCriacao(resultado, simulado.registro, false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: ambiente B permanece isolado em recuperação após conflito", async (t) => {
+  const simulado = simularResultadoCriacao(t, "conflito", USUARIO_B);
+  const resultado = await service.criarEvidencia({
+    ...DADOS, id_operacao_cliente: OPERACAO,
+    id_usuario: USUARIO_A.id_usuario, id_ambiente: AMBIENTE_A, perfil_acesso: "ADMINISTRADOR",
+  }, { ...USUARIO_B, id_usuario: "20" }, { incluirResultadoCriacao: true });
+  verificarEnvelopeCriacao(resultado, simulado.registro, false);
+  verificarFluxoResultadoCriacao(simulado);
+});
+
+test("Resultado de criação: rejeita contêineres de opções inválidos antes de consultar", async (t) => {
+  const { mocks } = simularRepositorio(t);
+  for (const opcoes of [null, [], [true], true, false, 0, 1, "", "true", () => true]) {
+    await assert.rejects(service.criarEvidencia(DADOS, USUARIO_A, opcoes), {
+      statusCode: 400, message: "Opções da criação inválidas.",
+    });
+  }
+  semChamadas(mocks);
+});
+
+test("Resultado de criação: exige booleano próprio sem coerção de valores", async (t) => {
+  const { mocks } = simularRepositorio(t);
+  for (const incluirResultadoCriacao of [undefined, null, 0, 1, "", "true", "false", [], {}, new Boolean(true)]) {
+    await assert.rejects(service.criarEvidencia(DADOS, USUARIO_A, { incluirResultadoCriacao }), {
+      statusCode: 400, message: "A opção incluirResultadoCriacao deve ser booleana.",
+    });
+  }
+  semChamadas(mocks);
+});
+
+test("Resultado de criação: local não autorizado mantém 404 antes de qualquer recuperação", async (t) => {
+  const { mocks, eventos } = simularRepositorio(t, { buscarLocalAutorizadoNoAmbiente: null });
+  await assert.rejects(service.criarEvidencia({
+    ...DADOS, id_operacao_cliente: OPERACAO,
+  }, USUARIO_B, { incluirResultadoCriacao: true }), {
+    statusCode: 404, message: "Local não encontrado.",
+  });
+  assert.deepEqual(eventos, ["buscarLocalAutorizadoNoAmbiente"]);
+  assert.deepEqual(unica(mocks.buscarLocalAutorizadoNoAmbiente), [40, USUARIO_B]);
+  assert.equal(mocks.buscarPorOperacaoClienteNoAmbiente.mock.callCount(), 0);
+  assert.equal(mocks.criarNoAmbiente.mock.callCount(), 0);
+});
+
+test("Resultado de criação: colisão sem repetição autorizada preserva conflito genérico", async (t) => {
+  const conflito = conflitoIdempotencia();
+  const { mocks, eventos } = simularRepositorio(t, respostasCriacao({
+    buscarPorOperacaoClienteNoAmbiente: null,
+    criarNoAmbiente: async () => { throw conflito; },
+  }));
+  await assert.rejects(service.criarEvidencia({
+    ...DADOS, id_operacao_cliente: OPERACAO,
+  }, USUARIO_B, { incluirResultadoCriacao: true }), (erro) => {
+    assert.strictEqual(erro, conflito);
+    assert.equal(erro.statusCode, 409);
+    assert.equal(erro.message, "Não foi possível processar esta chave de operação.");
+    assert.equal(erro.detail, undefined);
+    assert.equal(erro.evidencia, undefined);
+    assert.equal(erro.criada, undefined);
+    assert.equal(erro.message.includes(AMBIENTE_A), false);
+    return true;
+  });
+  assert.deepEqual(eventos, [
+    "buscarLocalAutorizadoNoAmbiente", "buscarPorOperacaoClienteNoAmbiente",
+    "criarNoAmbiente", "buscarPorOperacaoClienteNoAmbiente",
+  ]);
+  for (const chamada of mocks.buscarPorOperacaoClienteNoAmbiente.mock.calls) {
+    assert.deepEqual(chamada.arguments, [OPERACAO, 40, USUARIO_B]);
+  }
+  assert.deepEqual(unica(mocks.criarNoAmbiente), [
+    { ...CRIACAO, id_operacao_cliente: OPERACAO }, USUARIO_B,
+  ]);
+});
+
+test("Resultado de criação: outras violações e falhas internas não se tornam envelopes", async (t) => {
+  let erroAtual;
+  const erros = [
+    Object.assign(new Error("Outra unicidade"), { code: "23505", constraint: "outra_constraint" }),
+    Object.assign(new Error("Erro PostgreSQL bruto"), {
+      code: "23505", constraint: "uq_evidencia_id_operacao_cliente",
+    }),
+    Object.assign(new Error("Outra origem do conflito"), {
+      statusCode: 409, code: "23505", constraint: "outra_constraint",
+    }),
+    new Error("Falha interna"),
+    Object.assign(new Error("Falha controlada"), { statusCode: 500 }),
+  ];
+  const { mocks, eventos } = simularRepositorio(t, respostasCriacao({
+    buscarPorOperacaoClienteNoAmbiente: null,
+    criarNoAmbiente: async () => { throw erroAtual; },
+  }));
+  for (const erro of erros) {
+    erroAtual = erro;
+    await assert.rejects(service.criarEvidencia({
+      ...DADOS, id_operacao_cliente: OPERACAO,
+    }, USUARIO_A, { incluirResultadoCriacao: true }), (recebido) => recebido === erro);
+  }
+  assert.equal(mocks.buscarPorOperacaoClienteNoAmbiente.mock.callCount(), erros.length);
+  assert.equal(mocks.criarNoAmbiente.mock.callCount(), erros.length);
+  assert.deepEqual(eventos, erros.flatMap(() => [
+    "buscarLocalAutorizadoNoAmbiente", "buscarPorOperacaoClienteNoAmbiente", "criarNoAmbiente",
+  ]));
+});
+
+test("Resultado de criação: falha na recuperação após conflito é propagada intacta", async (t) => {
+  const erro = new Error("Recuperação indisponível");
+  let buscas = 0;
+  const { mocks, eventos } = simularRepositorio(t, respostasCriacao({
+    buscarPorOperacaoClienteNoAmbiente: async () => {
+      if (++buscas === 1) return null;
+      throw erro;
+    },
+    criarNoAmbiente: async () => { throw conflitoIdempotencia(); },
+  }));
+  await assert.rejects(service.criarEvidencia({
+    ...DADOS, id_operacao_cliente: OPERACAO,
+  }, USUARIO_A, { incluirResultadoCriacao: true }), (recebido) => recebido === erro);
+  assert.equal(mocks.buscarPorOperacaoClienteNoAmbiente.mock.callCount(), 2);
+  assert.deepEqual(eventos, [
+    "buscarLocalAutorizadoNoAmbiente", "buscarPorOperacaoClienteNoAmbiente",
+    "criarNoAmbiente", "buscarPorOperacaoClienteNoAmbiente",
+  ]);
+});
+
+test("Resultado de criação: INSERT sem registro autorizado mantém 404, nunca criada true", async (t) => {
+  const { mocks, eventos } = simularRepositorio(t, respostasCriacao({ criarNoAmbiente: null }));
+  await assert.rejects(service.criarEvidencia(DADOS, USUARIO_A, { incluirResultadoCriacao: true }), {
+    statusCode: 404, message: "Local não encontrado.",
+  });
+  assert.deepEqual(unica(mocks.criarNoAmbiente), [CRIACAO, USUARIO_A]);
+  assert.deepEqual(eventos, ["buscarLocalAutorizadoNoAmbiente", "criarNoAmbiente"]);
+});
+
+
+
