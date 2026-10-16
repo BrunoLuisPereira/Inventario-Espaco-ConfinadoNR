@@ -167,7 +167,7 @@ app.use(
 
 app.use((req, res, next) => {
   const erro = new Error(
-    `Rota não encontrada: ${req.method} ${req.originalUrl}`
+    "Rota não encontrada."
   );
 
   erro.statusCode = 404;
@@ -183,30 +183,51 @@ app.use((req, res, next) => {
 // ======================================================
 
 app.use((erro, req, res, next) => {
-  console.error(erro);
+  if (res.headersSent) {
+    return next(erro);
+  }
+
+  const statusValido = (valor) =>
+    Number.isInteger(valor) && valor >= 400 && valor <= 599;
 
   let statusCode =
-    erro.statusCode ||
-    erro.status ||
-    500;
+    statusValido(erro?.statusCode)
+      ? erro.statusCode
+      : statusValido(erro?.status)
+        ? erro.status
+        : 500;
 
   let mensagem =
-    erro.message ||
-    "Erro interno do servidor.";
+    statusCode < 500 && typeof erro?.message === "string" && erro.message
+      ? erro.message
+      : "Erro interno do servidor.";
+
+
+  // Erros técnicos do parser recebem mensagens fixas, mesmo com expose=true.
+  const errosParser = {
+    "entity.parse.failed": [400, "JSON inválido."],
+    "entity.too.large": [413, "Corpo da requisição excede o tamanho permitido."],
+    "charset.unsupported": [415, "Charset da requisição não suportado."],
+    "encoding.unsupported": [415, "Codificação da requisição não suportada."],
+    "request.size.invalid": [400, "Tamanho do corpo da requisição inconsistente."],
+  };
+  if (typeof erro?.type === "string" && Object.hasOwn(errosParser, erro.type)) {
+    [statusCode, mensagem] = errosParser[erro.type];
+  }
 
 
   // ==================================================
   // Erros específicos do Multer
   // ==================================================
 
-  if (erro.code === "LIMIT_FILE_SIZE") {
+  if (erro?.code === "LIMIT_FILE_SIZE") {
     statusCode = 400;
 
     mensagem =
       "Arquivo muito grande. O tamanho máximo permitido é 10 MB.";
   }
 
-  if (erro.code === "LIMIT_UNEXPECTED_FILE") {
+  if (erro?.code === "LIMIT_UNEXPECTED_FILE") {
     statusCode = 400;
 
     mensagem =
@@ -218,21 +239,21 @@ app.use((erro, req, res, next) => {
   // Erros do PostgreSQL
   // ==================================================
 
-  if (erro.code === "23505") {
+  if (erro?.code === "23505") {
     statusCode = 409;
 
     mensagem =
       "Já existe um registro com esses dados.";
   }
 
-  if (erro.code === "23503") {
+  if (erro?.code === "23503") {
     statusCode = 400;
 
     mensagem =
       "Não foi possível realizar a operação devido a um relacionamento inválido.";
   }
 
-  if (erro.code === "23514") {
+  if (erro?.code === "23514") {
     statusCode = 400;
 
     mensagem =
@@ -243,6 +264,13 @@ app.use((erro, req, res, next) => {
   // ==================================================
   // Resposta padronizada da API
   // ==================================================
+
+  if (statusCode >= 500) {
+    mensagem = "Erro interno do servidor.";
+  }
+
+  // Apenas o status validado: não registra erro, mensagem, stack ou requisição.
+  console.error("Erro no processamento da requisição.", { statusCode });
 
   return res.status(statusCode).json({
     status: "error",
