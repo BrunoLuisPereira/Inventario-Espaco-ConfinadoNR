@@ -45,7 +45,7 @@ async function criar(req, res) {
 }
 async function listar(req, res) {
   try {
-    const usuarios = await usuarioService.listarUsuarios();
+    const usuarios = await usuarioService.listarUsuarios(req.usuario);
 
     if (res.headersSent) return res;
 
@@ -57,11 +57,17 @@ async function listar(req, res) {
   } catch (error) {
     if (res.headersSent) return res;
 
-    console.error("Erro ao listar usuários.", { statusCode: 500 });
+    const statusCode = error?.statusCode === 401 || error?.statusCode === 403
+      ? error.statusCode
+      : 500;
 
-    return res.status(500).json({
+    console.error("Erro ao listar usuários.", { statusCode });
+
+    return res.status(statusCode).json({
       status: "error",
-      message: "Erro interno ao listar usuários.",
+      message: statusCode < 500 && typeof error?.message === "string" && error.message
+        ? error.message
+        : "Erro interno ao listar usuários.",
     });
   }
 }
@@ -69,7 +75,8 @@ async function listar(req, res) {
 async function buscarPorId(req, res) {
   try {
     const usuario = await usuarioService.buscarUsuarioPorId(
-      req.params.id
+      req.params.id,
+      req.usuario
     );
 
     if (res.headersSent) return res;

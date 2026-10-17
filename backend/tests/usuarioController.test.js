@@ -62,7 +62,7 @@ const STATUS_INVALIDOS = [
 ];
 
 function reqSimulada() {
-  // O contrato legado NÃO encaminha req.usuario. Não adiciona autorização nova.
+  // Os GETs encaminham esta mesma instância; as escritas mantêm o contrato legado.
   return { body: CORPO, params: { id: "12" }, query: {}, usuario: { id_usuario: 99 } };
 }
 
@@ -110,8 +110,8 @@ function resposta(t) {
 
 function argumentos(op, req) {
   if (op.nome === "criar") return [req.body];
-  if (op.nome === "listar") return [];
-  if (op.nome === "buscarPorId") return [req.params.id];
+  if (op.nome === "listar") return [req.usuario];
+  if (op.nome === "buscarPorId") return [req.params.id, req.usuario];
   return [req.params.id, req.body];
 }
 
@@ -178,6 +178,32 @@ for (const op of OPERACOES) {
     assert.strictEqual(res.body.data, registro);
     assert.strictEqual(req.body, CORPO);
     verificarChamada(contexto, op, req);
+    if (op.nome === "listar" || op.nome === "buscarPorId") {
+      // Exercita novamente o GET, com identidade forjada em todas as entradas
+      // do cliente. A identidade efetiva continua sendo a instância original.
+      const identidadeOriginal = req.usuario;
+      const identidadeForjada = Object.freeze({
+        id_usuario: 777,
+        id_ambiente: "22222222-2222-4222-8222-222222222222",
+        perfil_acesso: "ADMINISTRADOR",
+      });
+      const reqForjada = {
+        usuario: identidadeOriginal,
+        body: Object.freeze({ ...CORPO, ...identidadeForjada, usuario: identidadeForjada }),
+        query: identidadeForjada,
+        params: Object.freeze({ id: req.params.id, ...identidadeForjada }),
+      };
+      const resForjada = resposta(t);
+      const retornoForjado = await controller[op.nome](reqForjada, resForjada);
+      verificarResposta(resForjada, retornoForjado, op.codigo, sucesso(op, registro));
+      assert.strictEqual(resForjada.body.data, registro);
+      verificarChamada(contexto, op, reqForjada, 1);
+      const args = contexto.chamada.mock.calls[1].arguments;
+      const identidadeRecebida = args[op.nome === "listar" ? 0 : 1];
+      assert.strictEqual(identidadeRecebida, identidadeOriginal);
+      assert.notStrictEqual(identidadeRecebida, identidadeForjada);
+      assert.strictEqual(reqForjada.usuario, identidadeOriginal);
+    }
     assert.deepEqual(contexto.logs, []);
   });
 
@@ -191,8 +217,9 @@ for (const op of OPERACOES) {
       const req = reqSimulada();
       const res = resposta(t);
       const retorno = await controller[op.nome](req, res);
-      verificarResposta(res, retorno, op.nome === "listar" ? 500 : codigo, {
-        status: "error", message: op.nome === "listar" ? op.interno : erro.message,
+      const listarComErroInterno = op.nome === "listar" && codigo !== 401 && codigo !== 403;
+      verificarResposta(res, retorno, listarComErroInterno ? 500 : codigo, {
+        status: "error", message: listarComErroInterno ? op.interno : erro.message,
       });
       verificarPublico(res);
       verificarChamada(contexto, op, req, indice);

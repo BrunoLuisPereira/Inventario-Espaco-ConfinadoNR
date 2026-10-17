@@ -76,20 +76,44 @@ async function criarUsuario(dados) {
     perfilAcesso,
   });
 }
-async function listarUsuarios() {
-  return usuarioRepository.listarTodos();
+// Exclusiva das consultas administrativas: identidade vem de req.usuario,
+// revalidada no banco pelo middleware, nunca do corpo, query ou usuário-alvo.
+function validarAdministradorConsulta(usuarioAutenticado) {
+  if (
+    !usuarioAutenticado ||
+    !Number.isSafeInteger(usuarioAutenticado.id_usuario) ||
+    usuarioAutenticado.id_usuario <= 0 ||
+    typeof usuarioAutenticado.id_ambiente !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(usuarioAutenticado.id_ambiente)
+  ) {
+    const error = new Error("Usuário não autenticado.");
+    error.statusCode = 401;
+    throw error;
+  }
+  if (usuarioAutenticado.perfil_acesso !== "ADMINISTRADOR") {
+    const error = new Error("Você não possui permissão para acessar este recurso.");
+    error.statusCode = 403;
+    throw error;
+  }
+  return usuarioAutenticado.id_ambiente;
 }
 
-async function buscarUsuarioPorId(idUsuario) {
+async function listarUsuarios(usuarioAutenticado) {
+  const idAmbiente = validarAdministradorConsulta(usuarioAutenticado);
+  return usuarioRepository.listarPorAmbiente(idAmbiente);
+}
+
+async function buscarUsuarioPorId(idUsuario, usuarioAutenticado) {
+  const idAmbiente = validarAdministradorConsulta(usuarioAutenticado);
   const id = Number(idUsuario);
 
-  if (!Number.isInteger(id) || id <= 0) {
+  if (!Number.isSafeInteger(id) || id <= 0) {
     const error = new Error("O ID do usuário é inválido.");
     error.statusCode = 400;
     throw error;
   }
 
-  const usuario = await usuarioRepository.buscarPorId(id);
+  const usuario = await usuarioRepository.buscarPorIdEAmbiente(id, idAmbiente);
 
   if (!usuario) {
     const error = new Error("Usuário não encontrado.");

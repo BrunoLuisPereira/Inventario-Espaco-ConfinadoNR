@@ -111,6 +111,63 @@ async function buscarPorId(idUsuario) {
   return result.rows[0] || null;
 }
 
+// Consultas específicas: as funções globais acima permanecem para os módulos
+// legados que ainda dependem delas, sem fallback global nestas duas operações.
+function validarAmbienteConsulta(idAmbiente) {
+  if (
+    typeof idAmbiente !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idAmbiente)
+  ) {
+    const error = new Error("Identificador do ambiente inválido.");
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
+async function listarPorAmbiente(idAmbiente) {
+  validarAmbienteConsulta(idAmbiente);
+  const query = `
+    SELECT
+      id_usuario,
+      nome,
+      email,
+      perfil_acesso,
+      ativo,
+      data_criacao,
+      data_atualizacao
+    FROM usuario
+    WHERE id_ambiente = $1
+    ORDER BY nome ASC
+  `;
+  const result = await pool.query(query, [idAmbiente]);
+  return result.rows;
+}
+
+async function buscarPorIdEAmbiente(idUsuario, idAmbiente) {
+  validarAmbienteConsulta(idAmbiente);
+  if (!Number.isSafeInteger(idUsuario) || idUsuario <= 0) {
+    const error = new Error("O ID do usuário é inválido.");
+    error.statusCode = 400;
+    throw error;
+  }
+  const query = `
+    SELECT
+      id_usuario,
+      nome,
+      email,
+      perfil_acesso,
+      ativo,
+      data_criacao,
+      data_atualizacao
+    FROM usuario
+    WHERE id_usuario = $1
+      AND id_ambiente = $2
+    LIMIT 1
+  `;
+  const result = await pool.query(query, [idUsuario, idAmbiente]);
+  return result.rows[0] || null;
+}
+
 async function atualizar(idUsuario, dados) {
   const {
     nome,
@@ -272,6 +329,8 @@ module.exports = {
   criar,
   listarTodos,
   buscarPorId,
+  listarPorAmbiente,
+  buscarPorIdEAmbiente,
   buscarPorIdComSenha,
   atualizar,
   atualizarStatus,
