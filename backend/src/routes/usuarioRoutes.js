@@ -24,6 +24,13 @@ router.use(
   autorizar("ADMINISTRADOR")
 );
 
-router.post("/", usuarioController.criar);
+router.post("/", (req, res) => {
+  if (res.headersSent) return res;
+
+  return res.status(403).json({
+    status: "error",
+    message: "Cadastro direto de usuários desativado. Utilize o fluxo de convites.",
+  });
+});
 
 module.exports = router;
