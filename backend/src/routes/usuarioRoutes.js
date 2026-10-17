@@ -12,10 +12,12 @@ const {
 
 const router = express.Router();
 
-// Consultas usam identidade e perfil atuais do banco. As escritas abaixo
-// continuam com a autenticação legada até sua revisão específica.
+// Consultas e alterações usam identidade atual. O cadastro direto POST
+// permanece legado até sua revisão específica.
 router.get("/", autenticarMultiTenant, autorizar("ADMINISTRADOR"), usuarioController.listar);
 router.get("/:id", autenticarMultiTenant, autorizar("ADMINISTRADOR"), usuarioController.buscarPorId);
+router.put("/:id", autenticarMultiTenant, autorizar("ADMINISTRADOR"), usuarioController.atualizar);
+router.patch("/:id/status", autenticarMultiTenant, autorizar("ADMINISTRADOR"), usuarioController.alterarStatus);
 
 router.use(
   autenticar,
@@ -23,7 +25,5 @@ router.use(
 );
 
 router.post("/", usuarioController.criar);
-router.put("/:id", usuarioController.atualizar);
-router.patch("/:id/status", usuarioController.alterarStatus);
 
 module.exports = router;

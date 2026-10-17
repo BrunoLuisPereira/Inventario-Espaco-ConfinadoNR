@@ -54,6 +54,8 @@ function preparar(t) {
   const estado = {
     ambientes, usuarios, consultas: [], identidades: [], leituras: [], jwt: [],
     inesperadas: [], conexoes: 0, erroIdentidade: null, erroLeitura: null, logs: [],
+    bloqueiosEmailProibidos: 0,
+    chamadasConviteProibidas: [],
     // Relação de usuários exibíveis, independente da identidade autenticadora.
     // Permite representar listagem vazia sem inventar administrador inexistente.
     resultados: usuarios,
@@ -139,6 +141,29 @@ function preparar(t) {
     },
     connect() { estado.conexoes += 1; throw new Error("Conexão real ou transacional proibida nestas consultas"); },
   };
+  // O import é permitido, mas GET nunca pode adquirir bloqueio de e-mail.
+  // O contador também detecta uma chamada cuja exceção seja capturada acima.
+  const emailLock = Object.freeze({
+    bloquearEmail() {
+      estado.bloqueiosEmailProibidos += 1;
+      throw new Error("Bloqueio de e-mail proibido nos testes GET");
+    },
+  });
+  // O repositório de usuários importa convites para o PUT. Nos GETs, nenhuma
+  // função pode ser executada, mesmo que o controller capture sua exceção.
+  const convite = new Proxy(Object.freeze(Object.fromEntries([
+    "existeConvitePendente", "existeUsuarioPorEmail", "criarConvite",
+    "buscarConvitePorTokenHash", "registrarAceiteConvite", "buscarEmailConvitePorTokenHash",
+  ].map((nome) => [nome, () => {
+    estado.chamadasConviteProibidas.push(nome);
+    throw new Error("Operação de convite proibida nos testes GET");
+  }]))), {
+    get(alvo, propriedade) {
+      if (Object.hasOwn(alvo, propriedade)) return alvo[propriedade];
+      estado.chamadasConviteProibidas.push(String(propriedade));
+      throw new Error("Membro desconhecido do mock de convites");
+    },
+  });
   const bcrypt = new Proxy({}, { get() { throw new Error("Bcrypt não deve ser usado por GET"); } });
   const cacheAnterior = new Map(Object.values(CAMINHOS).map((caminho) => [caminho, require.cache[caminho]]));
   const load = Module._load;
@@ -155,6 +180,8 @@ function preparar(t) {
     assert.deepEqual(proibidas, []);
     assert.deepEqual(estado.inesperadas, [], "SQL desconhecido não pode parecer erro de negócio esperado");
     assert.equal(estado.conexoes, 0);
+    assert.equal(estado.bloqueiosEmailProibidos, 0, "GET não pode chamar bloquearEmail");
+    assert.deepEqual(estado.chamadasConviteProibidas, [], "GET não pode executar operações de convite");
   });
   try {
     for (const caminho of cacheAnterior.keys()) delete require.cache[caminho];
@@ -169,7 +196,10 @@ function preparar(t) {
       }
       return load.call(this, request, parent, ...resto);
     };
-    dependencias.set(CAMINHOS.repository, new Map([["../config/database", pool]]));
+    dependencias.set(CAMINHOS.repository, new Map([
+      ["../config/database", pool], ["./emailLockRepository", emailLock],
+      ["./conviteRepository", convite],
+    ]));
     modulos.repository = require(CAMINHOS.repository);
     dependencias.set(CAMINHOS.service, new Map([["bcryptjs", bcrypt], ["../repositories/usuarioRepository", modulos.repository]]));
     modulos.service = require(CAMINHOS.service);

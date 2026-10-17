@@ -110,7 +110,8 @@ async function atualizar(req, res) {
   try {
     const usuario = await usuarioService.atualizarUsuario(
       req.params.id,
-      req.body
+      req.body,
+      req.usuario
     );
 
     if (res.headersSent) return res;
@@ -154,7 +155,8 @@ async function alterarStatus(req, res) {
     const usuario =
       await usuarioService.alterarStatusUsuario(
         req.params.id,
-        req.body
+        req.body,
+        req.usuario
       );
 
     if (res.headersSent) return res;

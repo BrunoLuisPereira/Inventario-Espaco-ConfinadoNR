@@ -62,7 +62,7 @@ const STATUS_INVALIDOS = [
 ];
 
 function reqSimulada() {
-  // Os GETs encaminham esta mesma instância; as escritas mantêm o contrato legado.
+  // GETs, PUT e PATCH encaminham esta mesma instância autenticada.
   return { body: CORPO, params: { id: "12" }, query: {}, usuario: { id_usuario: 99 } };
 }
 
@@ -112,7 +112,7 @@ function argumentos(op, req) {
   if (op.nome === "criar") return [req.body];
   if (op.nome === "listar") return [req.usuario];
   if (op.nome === "buscarPorId") return [req.params.id, req.usuario];
-  return [req.params.id, req.body];
+  return [req.params.id, req.body, req.usuario];
 }
 
 function verificarChamada(contexto, op, req, indice = 0) {
@@ -178,8 +178,8 @@ for (const op of OPERACOES) {
     assert.strictEqual(res.body.data, registro);
     assert.strictEqual(req.body, CORPO);
     verificarChamada(contexto, op, req);
-    if (op.nome === "listar" || op.nome === "buscarPorId") {
-      // Exercita novamente o GET, com identidade forjada em todas as entradas
+    if (["listar", "buscarPorId", "atualizar", "alterarStatus"].includes(op.nome)) {
+      // Exercita novamente a operação, com identidade forjada em todas as entradas
       // do cliente. A identidade efetiva continua sendo a instância original.
       const identidadeOriginal = req.usuario;
       const identidadeForjada = Object.freeze({
@@ -199,7 +199,8 @@ for (const op of OPERACOES) {
       assert.strictEqual(resForjada.body.data, registro);
       verificarChamada(contexto, op, reqForjada, 1);
       const args = contexto.chamada.mock.calls[1].arguments;
-      const identidadeRecebida = args[op.nome === "listar" ? 0 : 1];
+      const indiceIdentidade = op.nome === "listar" ? 0 : op.nome === "buscarPorId" ? 1 : 2;
+      const identidadeRecebida = args[indiceIdentidade];
       assert.strictEqual(identidadeRecebida, identidadeOriginal);
       assert.notStrictEqual(identidadeRecebida, identidadeForjada);
       assert.strictEqual(reqForjada.usuario, identidadeOriginal);
