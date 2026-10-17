@@ -3,9 +3,14 @@ const localController = require("../controllers/localController");
 
 const {
   autenticar,
+  autenticarMultiTenant,
 } = require("../middlewares/autenticacaoMiddleware");
 
 const router = express.Router();
+
+// Somente a exportação usa identidade e ambiente revalidados.
+// Deve preceder o middleware legado e a rota "/:id".
+router.get("/exportar", autenticarMultiTenant, localController.exportar);
 
 router.use(autenticar);
 
@@ -14,10 +19,6 @@ router.post("/", localController.criar);
 
 // Listar todos os locais
 router.get("/", localController.listar);
-
-// Exportar locais para Excel
-// IMPORTANTE: deve ficar antes da rota "/:id"
-router.get("/exportar", localController.exportar);
 
 // Buscar local por ID
 router.get("/:id", localController.buscarPorId);

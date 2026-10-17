@@ -118,7 +118,9 @@ async function alterarStatus(req, res) {
 }
 async function exportar(req, res) {
   try {
-    const buffer = await excelService.gerarExcelLocais();
+    const buffer = await excelService.gerarExcelLocais(req.usuario);
+
+    if (res.headersSent) return res;
 
     const nomeArquivo = "inventario-locais.xlsx";
 
@@ -139,15 +141,17 @@ async function exportar(req, res) {
 
     return res.status(200).send(buffer);
   } catch (error) {
-    console.error(
-      "Erro ao exportar locais para Excel:",
-      error
-    );
+    if (res.headersSent) return res;
 
-    return res.status(500).json({
+    const statusCode = error?.statusCode === 401 ? 401 : 500;
+    console.error("Erro ao exportar locais para Excel.", { statusCode });
+
+    return res.status(statusCode).json({
       status: "error",
       message:
-        "Erro interno ao exportar locais para Excel.",
+        statusCode === 401
+          ? "Usuário não autenticado."
+          : "Erro interno ao exportar locais para Excel.",
     });
   }
 }
