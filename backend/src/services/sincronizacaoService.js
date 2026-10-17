@@ -305,6 +305,20 @@ async function criarSincronizacao(
         usuarioAutenticado
       );
 
+      if (
+        existente.operacao === "ATUALIZAR" &&
+        ["CAMPANHA", "LOCAL", "CHECKLIST_NR33", "DADOS_TECNICOS"].includes(existente.entidade)
+      ) {
+        const entidadeAutorizada = await sincronizacaoAplicacaoRepository.buscarDadosAtuaisServidor(
+          existente.entidade,
+          existente.id_entidade,
+          usuarioAutenticado
+        );
+        if (!entidadeAutorizada) {
+          throw criarErro("Registro da entidade não encontrado no servidor.", 404);
+        }
+      }
+
       return existente;
     }
   }
@@ -425,6 +439,23 @@ async function criarSincronizacao(
   let dadosServidor =
     null;
 
+  // A propriedade da sincronização e a igualdade de versões não autorizam
+  // acesso à entidade. Reutiliza a leitura autorizada também no conflito.
+  let dadosAutorizados;
+  if (
+    dados.operacao === "ATUALIZAR" &&
+    ["CAMPANHA", "LOCAL", "CHECKLIST_NR33", "DADOS_TECNICOS"].includes(entidade)
+  ) {
+    dadosAutorizados = await sincronizacaoAplicacaoRepository.buscarDadosAtuaisServidor(
+      entidade,
+      idEntidade,
+      usuarioAutenticado
+    );
+    if (!dadosAutorizados) {
+      throw criarErro("Registro da entidade não encontrado no servidor.", 404);
+    }
+  }
+
   if (
     versaoCliente !==
     versaoServidor
@@ -435,8 +466,9 @@ async function criarSincronizacao(
     mensagemErro =
       "Conflito de versão detectado. O registro do servidor foi alterado desde a última sincronização do cliente.";
 
-    dadosServidor =
-      await sincronizacaoAplicacaoRepository
+    dadosServidor = dadosAutorizados !== undefined
+      ? dadosAutorizados
+      : await sincronizacaoAplicacaoRepository
         .buscarDadosAtuaisServidor(
           entidade,
           idEntidade,
@@ -948,7 +980,8 @@ async function processarSincronizacao(
 
   return sincronizacaoAplicacaoRepository
     .processarSincronizacaoPendente(
-      sincronizacao
+      sincronizacao,
+      usuarioAutenticado
     );
 }
 
