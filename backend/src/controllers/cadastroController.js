@@ -18,6 +18,8 @@ async function cadastrarAmbiente(req, res) {
         req.body || {}
       );
 
+    if (res.headersSent) return res;
+
     return res.status(201).json({
       status: "success",
       message:
@@ -25,12 +27,18 @@ async function cadastrarAmbiente(req, res) {
       data: resultado,
     });
   } catch (erro) {
-    console.error(
-      "Erro ao cadastrar ambiente:",
-      erro
-    );
+    if (res.headersSent) return res;
 
-    if (erro.code === "23505") {
+    const statusCode = erro?.code === "23505"
+      ? 409
+      : Number.isInteger(erro?.statusCode) &&
+        erro.statusCode >= 400 && erro.statusCode <= 599
+        ? erro.statusCode
+        : 500;
+
+    console.error("Erro ao cadastrar ambiente.", { statusCode });
+
+    if (erro?.code === "23505") {
       return res.status(409).json({
         status: "error",
         message:
@@ -38,11 +46,9 @@ async function cadastrarAmbiente(req, res) {
       });
     }
 
-    return res.status(
-      erro.statusCode || 500
-    ).json({
+    return res.status(statusCode).json({
       status: "error",
-      message: erro.statusCode
+      message: statusCode < 500 && typeof erro?.message === "string" && erro.message
         ? erro.message
         : "Erro interno ao cadastrar ambiente.",
     });
