@@ -20,6 +20,8 @@ async function emitir(req, res) {
       !Number.isSafeInteger(idUsuarioAdministrador) ||
       idUsuarioAdministrador <= 0
     ) {
+      if (res.headersSent) return res;
+
       return res.status(401).json({
         status: "error",
         message: "Usuário não autenticado.",
@@ -31,20 +33,28 @@ async function emitir(req, res) {
       req.body || {}
     );
 
+    if (res.headersSent) return res;
+
     return res.status(201).json({
       status: "success",
       message: "Convite criado com sucesso.",
       data: resultado,
     });
   } catch (erro) {
-    console.error(
-      "Erro ao emitir convite:",
-      erro
-    );
+    if (res.headersSent) return res;
 
-    return res.status(erro.statusCode || 500).json({
+    const statusCode =
+      Number.isInteger(erro?.statusCode) &&
+      erro.statusCode >= 400 &&
+      erro.statusCode <= 599
+        ? erro.statusCode
+        : 500;
+
+    console.error("Erro ao emitir convite.", { statusCode });
+
+    return res.status(statusCode).json({
       status: "error",
-      message: erro.statusCode
+      message: statusCode < 500 && typeof erro?.message === "string" && erro.message
         ? erro.message
         : "Erro interno ao emitir convite.",
     });
@@ -69,20 +79,28 @@ async function aceitar(req, res) {
       { nome, senha }
     );
 
+    if (res.headersSent) return res;
+
     return res.status(201).json({
       status: "success",
       message: "Convite aceito com sucesso.",
       data: resultado,
     });
   } catch (erro) {
-    console.error(
-      "Erro ao aceitar convite:",
-      erro
-    );
+    if (res.headersSent) return res;
 
-    return res.status(erro.statusCode || 500).json({
+    const statusCode =
+      Number.isInteger(erro?.statusCode) &&
+      erro.statusCode >= 400 &&
+      erro.statusCode <= 599
+        ? erro.statusCode
+        : 500;
+
+    console.error("Erro ao aceitar convite.", { statusCode });
+
+    return res.status(statusCode).json({
       status: "error",
-      message: erro.statusCode
+      message: statusCode < 500 && typeof erro?.message === "string" && erro.message
         ? erro.message
         : "Erro interno ao aceitar convite.",
     });
