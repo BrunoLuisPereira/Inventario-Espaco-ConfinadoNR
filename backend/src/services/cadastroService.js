@@ -23,7 +23,7 @@ function criarErro(mensagem, statusCode) {
  * coordenar o cadastro com a emissão de convites.
  */
 async function cadastrarAmbiente(dados = {}) {
-  const { nome, email, senha } = dados;
+  const { nome, email, senha } = dados && typeof dados === 'object' && !Array.isArray(dados) ? dados : {};
 
   if (typeof nome !== "string" || !nome.trim()) {
     throw criarErro("O nome é obrigatório.", 400);
@@ -60,9 +60,13 @@ async function cadastrarAmbiente(dados = {}) {
 
   const senhaHash = await bcrypt.hash(senha, 12);
   const client = await pool.connect();
+  let iniciada = false;
+  let descartar = false;
+  let commitIniciado = false;
 
   try {
     await client.query("BEGIN");
+    iniciada = true;
 
     // Serializa operações concorrentes para o mesmo e-mail.
     await emailLockRepository.bloquearEmail(
@@ -84,9 +88,13 @@ async function cadastrarAmbiente(dados = {}) {
       );
     }
 
+    if (await conviteRepository.existeUsuarioPorEmail(client, emailNormalizado)) {
+      throw criarErro("Já existe um usuário com este e-mail.", 409);
+    }
+
     const ambiente = await ambienteRepository.criar(
       client,
-      `Ambiente de ${nomeNormalizado}`
+      `Ambiente de ${nomeNormalizado}`.slice(0, 180)
     );
 
     const administrador =
@@ -97,7 +105,11 @@ async function cadastrarAmbiente(dados = {}) {
         senhaHash,
       });
 
+    if (!administrador) throw new Error("Cadastro não retornou o administrador.");
+
+    commitIniciado = true;
     await client.query("COMMIT");
+    iniciada = false;
 
     return {
       ambiente: {
@@ -107,16 +119,16 @@ async function cadastrarAmbiente(dados = {}) {
       usuario: administrador,
     };
   } catch (erro) {
-    try {
-      await client.query("ROLLBACK");
-    } catch (erroRollback) {
-      console.error(
-        "Erro ao reverter cadastro:",
-        erroRollback
-      );
+    descartar = commitIniciado || !iniciada;
+    if (iniciada) {
+      try { await client.query("ROLLBACK"); }
+      catch {
+        descartar = true;
+        console.error("Falha ao encerrar transação de cadastro/convite.", { statusCode: 500 });
+      }
     }
 
-    if (erro.code === "23505") {
+    if (erro?.code === "23505") {
       throw criarErro(
         "Já existe um usuário com este e-mail.",
         409
@@ -125,7 +137,7 @@ async function cadastrarAmbiente(dados = {}) {
 
     throw erro;
   } finally {
-    client.release();
+    if (descartar) client.release(true); else client.release();
   }
 }
 

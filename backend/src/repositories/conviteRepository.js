@@ -141,13 +141,14 @@ async function criarConvite(client, dados) {
  * - não foi cancelado;
  * - pertence a um ambiente ativo.
  *
- * ATENÇÃO:
- * O bloqueio do ambiente associado ainda será
- * tratado em uma etapa posterior.
+ * O serviço deve bloquear primeiro o ambiente. A opção interna
+ * bloquear: false permite somente a leitura preliminar; a escrita exige
+ * nova consulta com o bloqueio padrão e revalidação do convite.
  */
 async function buscarConvitePorTokenHash(
   client,
-  tokenHash
+  tokenHash,
+  opcoes = {}
 ) {
   validarConexao(client);
 
@@ -175,7 +176,7 @@ async function buscarConvitePorTokenHash(
     INNER JOIN ambiente AS a
       ON a.id_ambiente = c.id_ambiente
     WHERE c.token_hash = $1
-    FOR UPDATE OF c
+    ${opcoes.bloquear === false ? '' : 'FOR UPDATE OF c'}
   `;
 
   const resultado = await client.query(query, [

@@ -122,9 +122,13 @@ async function emitirConvite(idUsuarioAdministrador, dados) {
   const { email, perfilAcesso } = validarDadosConvite(dados);
 
   const client = await pool.connect();
+  let iniciada = false;
+  let descartar = false;
+  let commitIniciado = false;
 
   try {
     await client.query("BEGIN");
+    iniciada = true;
 
     // O bloqueio coordena convites e cadastros
     // concorrentes para o mesmo e-mail.
@@ -137,7 +141,8 @@ async function emitirConvite(idUsuarioAdministrador, dados) {
     const administrador =
       await administradorRepository.buscarAdministradorAtivo(
         client,
-        idUsuarioAdministrador
+        idUsuarioAdministrador,
+        { bloquear: true }
       );
 
     if (!administrador) {
@@ -191,25 +196,29 @@ async function emitirConvite(idUsuarioAdministrador, dados) {
       }
     );
 
+    if (!convite) throw new Error("Emissão não retornou o convite.");
+
+    commitIniciado = true;
     await client.query("COMMIT");
+    iniciada = false;
 
     return {
       convite,
       token,
     };
   } catch (erro) {
-    try {
-      await client.query("ROLLBACK");
-    } catch (erroRollback) {
-      console.error(
-        "Erro ao reverter emissão de convite:",
-        erroRollback
-      );
+    descartar = commitIniciado || !iniciada;
+    if (iniciada) {
+      try { await client.query("ROLLBACK"); }
+      catch {
+        descartar = true;
+        console.error("Falha ao encerrar transação de cadastro/convite.", { statusCode: 500 });
+      }
     }
 
     throw erro;
   } finally {
-    client.release();
+    if (descartar) client.release(true); else client.release();
   }
 }
 
@@ -319,9 +328,13 @@ async function aceitarConvite(token, dados = {}) {
 
   const senhaHash = await bcrypt.hash(senha, 12);
   const client = await pool.connect();
+  let iniciada = false;
+  let descartar = false;
+  let commitIniciado = false;
 
   try {
     await client.query("BEGIN");
+    iniciada = true;
 
     // Primeira consulta: identifica o e-mail sem
     // bloquear o registro do convite.
@@ -344,21 +357,26 @@ async function aceitarConvite(token, dados = {}) {
       referencia.email
     );
 
-    // Segundo bloqueio: registro do convite.
-    const convite =
+    // Consulta preliminar preserva a precedência dos erros públicos. Não é
+    // autorização para escrita: o convite será relido sob bloqueio abaixo.
+    const candidato =
       await conviteRepository.buscarConvitePorTokenHash(
         client,
-        tokenHash
+        tokenHash,
+        { bloquear: false }
       );
 
-       validarConviteParaAceite(convite);
+    validarConviteParaAceite(candidato);
+    if (candidato.email.trim().toLowerCase() !== referencia.email.trim().toLowerCase()) {
+      throw criarErro("Não foi possível concluir o aceite do convite.", 409);
+    }
 
     // Bloqueia o ambiente durante o aceite.
     // Impede sua desativação até COMMIT ou ROLLBACK.
     const ambiente =
       await ambienteRepository.buscarAmbienteAtivoComBloqueio(
         client,
-        convite.id_ambiente
+        candidato.id_ambiente
       );
 
     if (!ambiente) {
@@ -366,6 +384,15 @@ async function aceitarConvite(token, dados = {}) {
         "O ambiente deste convite está inativo.",
         403
       );
+    }
+
+    // Ordem de locks: e-mail -> ambiente -> convite. Revalida o estado que
+    // pode ter mudado enquanto aguardava qualquer um desses bloqueios.
+    const convite = await conviteRepository.buscarConvitePorTokenHash(client, tokenHash);
+    validarConviteParaAceite(convite);
+    if (convite.id_ambiente !== candidato.id_ambiente ||
+        convite.email.trim().toLowerCase() !== referencia.email.trim().toLowerCase()) {
+      throw criarErro("Não foi possível concluir o aceite do convite.", 409);
     }
 
     // Confirma que o e-mail não foi cadastrado
@@ -397,6 +424,8 @@ async function aceitarConvite(token, dados = {}) {
         }
       );
 
+    if (!usuario) throw new Error("Aceite não retornou o usuário.");
+
     const aceite =
       await conviteRepository.registrarAceiteConvite(
         client,
@@ -410,7 +439,9 @@ async function aceitarConvite(token, dados = {}) {
       );
     }
 
+    commitIniciado = true;
     await client.query("COMMIT");
+    iniciada = false;
 
     return {
       usuario,
@@ -420,16 +451,16 @@ async function aceitarConvite(token, dados = {}) {
       },
     };
   } catch (erro) {
-    try {
-      await client.query("ROLLBACK");
-    } catch (erroRollback) {
-      console.error(
-        "Erro ao reverter aceite de convite:",
-        erroRollback
-      );
+    descartar = commitIniciado || !iniciada;
+    if (iniciada) {
+      try { await client.query("ROLLBACK"); }
+      catch {
+        descartar = true;
+        console.error("Falha ao encerrar transação de cadastro/convite.", { statusCode: 500 });
+      }
     }
 
-    if (erro.code === "23505") {
+    if (erro?.code === "23505") {
       throw criarErro(
         "Este e-mail já pertence a um usuário cadastrado.",
         409
@@ -438,7 +469,7 @@ async function aceitarConvite(token, dados = {}) {
 
     throw erro;
   } finally {
-    client.release();
+    if (descartar) client.release(true); else client.release();
   }
 }
 
