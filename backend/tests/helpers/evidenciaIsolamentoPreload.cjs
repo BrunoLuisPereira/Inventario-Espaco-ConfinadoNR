@@ -15,7 +15,7 @@ Module._load = function (request, parent, ...args) {
 function proibido(valor) {
   if (typeof valor !== 'string' && !Buffer.isBuffer(valor) && !(valor instanceof URL)) return false;
   const nome = String(valor).replace(/\\/g, '/');
-  return /(?:^|\/)\.env(?:\.|$)/i.test(nome) || /(?:^|\/)uploads(?:\/|$)/i.test(nome);
+  return /(?:^|\/)\.env(?:\.|$)/i.test(nome) || /(?:^|\/)uploads(?:\/|$)/i.test(nome) || /\.pdf$/i.test(nome);
 }
 for (const nome of ['readFileSync', 'writeFileSync', 'appendFileSync', 'unlinkSync', 'renameSync', 'copyFileSync', 'mkdirSync', 'openSync', 'statSync', 'lstatSync', 'realpathSync', 'existsSync', 'createReadStream', 'createWriteStream']) {
   const original = fs[nome];

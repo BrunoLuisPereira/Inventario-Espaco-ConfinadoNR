@@ -2,11 +2,11 @@ const express = require("express");
 
 const relatorioController = require("../controllers/relatorioController");
 
-const { autenticar } = require("../middlewares/autenticacaoMiddleware");
+const { autenticarMultiTenant } = require("../middlewares/autenticacaoMiddleware");
 
 const router = express.Router();
 
-router.use(autenticar);
+router.use(autenticarMultiTenant);
 
 router.post("/", relatorioController.criar);
 
