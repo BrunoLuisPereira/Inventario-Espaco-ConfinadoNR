@@ -49,13 +49,16 @@ function InventarioLocal() {
   const [erro, setErro] = useState('')
 
   useEffect(() => {
+    let atual = true
     async function carregarInventario() {
       try {
         setCarregando(true)
         setErro('')
+        setLocal(null)
 
         const respostaLocal =
           await buscarLocalPorId(idLocal)
+        if (!atual) return
 
         setLocal(respostaLocal.data)
 
@@ -63,6 +66,7 @@ function InventarioLocal() {
         try {
           const respostaChecklists =
             await listarChecklists()
+          if (!atual) return
 
           const checklists =
             respostaChecklists.data || []
@@ -88,6 +92,7 @@ function InventarioLocal() {
             await buscarDadosTecnicosPorLocal(
               idLocal
             )
+          if (!atual) return
 
           setStatusDadosTecnicos(
             respostaDadosTecnicos.data
@@ -105,6 +110,7 @@ function InventarioLocal() {
             await listarEvidenciasPorLocal(
               idLocal
             )
+          if (!atual) return
 
           const evidencias =
             respostaEvidencias.data || []
@@ -124,6 +130,7 @@ function InventarioLocal() {
             await buscarRelatorioPorLocal(
               idLocal
             )
+          if (!atual) return
 
           const relatorio =
             respostaRelatorio.data
@@ -149,13 +156,14 @@ function InventarioLocal() {
           setStatusResponsaveis('PENDENTE')
         }
       } catch (error) {
-        setErro(error.message)
+        if (atual) setErro(error.message)
       } finally {
-        setCarregando(false)
+        if (atual) setCarregando(false)
       }
     }
 
     carregarInventario()
+    return () => { atual = false }
   }, [idLocal])
 
   function formatarStatus(status) {

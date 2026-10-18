@@ -1,7 +1,8 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  envDir: false,
   plugins: [react()],
 
   server: {
@@ -13,11 +14,11 @@ export default defineConfig({
       '.trycloudflare.com',
     ],
 
-    proxy: {
+    proxy: mode === 'demo' ? undefined : {
       '/api': {
         target: 'http://127.0.0.1:3000',
         changeOrigin: true,
       },
     },
   },
-})
+}))

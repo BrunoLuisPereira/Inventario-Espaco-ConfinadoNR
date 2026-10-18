@@ -1,88 +1,21 @@
-const API_URL = '/api'
-
-async function request(endpoint, options = {}) {
-  const token = localStorage.getItem('token')
-
-  const ehFormData = options.body instanceof FormData
-
-  const headers = {
-    ...options.headers,
-  }
-
-  if (!ehFormData) {
-    headers['Content-Type'] = 'application/json'
-  }
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
-  }
-
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  })
-
-  const data = await response.json()
-
-  if (!response.ok) {
-    const error = new Error(
-      data.message ||
-        data.mensagem ||
-        'Erro ao comunicar com o servidor'
-    )
-
-    error.status = response.status
-
-    throw error
-  }
-
-  return data
+import { criarHttp } from './http.js'
+import { modoDemo, sessaoAtual, eventoSessaoExpirada } from './sessao.js'
+import { criarDemo } from './demoApi.js'
+let demo
+export function demonstracaoAtual() {
+  if (!modoDemo) throw new Error('Demo desativada.')
+  return demo ||= criarDemo(sessionStorage)
 }
-
-/**
- * Realiza uma requisição autenticada para um arquivo.
- *
- * Diferente de request(), esta função não tenta
- * converter a resposta para JSON. O conteúdo é
- * retornado como Blob para JPG, PNG, PDF, XLSX etc.
- */
-async function requestArquivo(endpoint) {
-  const token = localStorage.getItem('token')
-
-  const headers = {}
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
-  }
-
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    method: 'GET',
-    headers,
-  })
-
-  if (!response.ok) {
-    let mensagem =
-      'Erro ao carregar o arquivo'
-
-    try {
-      const data = await response.json()
-
-      mensagem =
-        data.message ||
-        data.mensagem ||
-        mensagem
-    } catch {
-      // A resposta pode não ser JSON.
-    }
-
-    const error = new Error(mensagem)
-    error.status = response.status
-
-    throw error
-  }
-
-  return response.blob()
-}
+const request = criarHttp({
+  obterToken: () => sessaoAtual().ler().token,
+  expirar: () => {
+    sessaoAtual().limpar()
+    window.dispatchEvent(new Event(eventoSessaoExpirada))
+  },
+  fetchImpl: (...args) => fetch(...args),
+  demonstracao: modoDemo ? (...args) => demonstracaoAtual().request(...args) : null,
+})
+const requestArquivo = endpoint => request(endpoint, { method: 'GET' }, true)
 
 // Autenticação
 
@@ -134,6 +67,10 @@ export async function alterarMinhaSenha(dados) {
 }
 
 // Campanhas
+export async function buscarCampanhaPorId(id) {
+  return request('/campanhas/' + encodeURIComponent(id))
+}
+
 
 export async function listarCampanhas() {
   return request('/campanhas')

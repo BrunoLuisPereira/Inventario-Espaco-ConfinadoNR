@@ -9,7 +9,7 @@ import Header from '../components/layout/Header'
 import LocalForm from '../components/locais/LocalForm'
 import {
   alterarStatusLocal,
-  listarCampanhas,
+  buscarCampanhaPorId,
   listarLocais,
 } from '../services/api'
 import '../styles/Locais.css'
@@ -29,23 +29,23 @@ function LocaisCampanha() {
     useState(null)
 
   useEffect(() => {
+    let atual = true
     async function carregarDados() {
       try {
         setCarregando(true)
         setErro('')
+        setCampanha(null)
+        setLocais([])
 
         const [respostaCampanhas, respostaLocais] =
           await Promise.all([
-            listarCampanhas(),
+            buscarCampanhaPorId(idCampanha),
             listarLocais(),
           ])
+        if (!atual) return
 
         const campanhaEncontrada =
-          respostaCampanhas.data.find(
-            (item) =>
-              Number(item.id_campanha) ===
-              Number(idCampanha)
-          )
+          respostaCampanhas.data
 
         if (!campanhaEncontrada) {
           throw new Error('Campanha não encontrada.')
@@ -54,20 +54,21 @@ function LocaisCampanha() {
         const locaisDaCampanha =
           respostaLocais.data.filter(
             (local) =>
-              Number(local.id_campanha) ===
-              Number(idCampanha)
+              String(local.id_campanha) ===
+              String(idCampanha)
           )
 
         setCampanha(campanhaEncontrada)
         setLocais(locaisDaCampanha)
       } catch (error) {
-        setErro(error.message)
+        if (atual) setErro(error.message)
       } finally {
-        setCarregando(false)
+        if (atual) setCarregando(false)
       }
     }
 
     carregarDados()
+    return () => { atual = false }
   }, [idCampanha])
 
   function abrirFormularioNovo() {
@@ -170,7 +171,7 @@ function LocaisCampanha() {
             </p>
           )}
 
-          {!carregando && campanha && (
+          {!carregando && !erro && campanha && (
             <>
               <div className="locais-title">
                 <div>

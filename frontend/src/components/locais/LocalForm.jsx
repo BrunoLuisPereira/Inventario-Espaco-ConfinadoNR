@@ -66,7 +66,7 @@ function LocalForm({
         resposta = await criarLocal({
           ...dados,
           status: 'ATIVO',
-          id_campanha: Number(idCampanha),
+          id_campanha: idCampanha,
         })
       }
 
@@ -92,6 +92,7 @@ function LocalForm({
           <input
             id="nome_local"
             name="nome_local"
+            maxLength={150}
             type="text"
             value={formulario.nome_local}
             onChange={atualizarCampo}
@@ -108,6 +109,7 @@ function LocalForm({
           <input
             id="setor"
             name="setor"
+            maxLength={120}
             type="text"
             value={formulario.setor}
             onChange={atualizarCampo}
@@ -138,6 +140,7 @@ function LocalForm({
           <input
             id="endereco"
             name="endereco"
+            maxLength={255}
             type="text"
             value={formulario.endereco}
             onChange={atualizarCampo}
@@ -153,6 +156,8 @@ function LocalForm({
           <input
             id="latitude"
             name="latitude"
+            min={-90}
+            max={90}
             type="number"
             step="any"
             value={formulario.latitude}
@@ -169,6 +174,8 @@ function LocalForm({
           <input
             id="longitude"
             name="longitude"
+            min={-180}
+            max={180}
             type="number"
             step="any"
             value={formulario.longitude}

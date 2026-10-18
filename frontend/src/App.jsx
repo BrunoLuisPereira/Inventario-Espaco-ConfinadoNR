@@ -5,6 +5,7 @@ import {
 } from 'react-router-dom'
 
 import Login from './pages/Login'
+import DemoBanner from './components/DemoBanner'
 import Dashboard from './pages/Dashboard'
 import Campanhas from './pages/Campanhas'
 import LocaisCampanha from './pages/LocaisCampanha'
@@ -20,10 +21,17 @@ import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './hooks/useAuth'
 
 function App() {
-  const { autenticado } = useAuth()
+  const { autenticado, token, carregandoSessao, erroSessao, tentarNovamente, logout } = useAuth()
+  if (carregandoSessao || (token && erroSessao && !autenticado)) {
+    return <><DemoBanner /><main className="sessao-pendente" aria-live="polite">
+      <h1>{carregandoSessao ? 'Validando sessão...' : 'Não foi possível validar a sessão'}</h1>
+      {erroSessao && <p role="alert">{erroSessao}</p>}
+      {!carregandoSessao && <><button onClick={tentarNovamente}>Tentar novamente</button> <button onClick={logout}>Voltar ao login</button></>}
+    </main></>
+  }
 
   return (
-    <Routes>
+    <><DemoBanner /><Routes>
       {/* Login */}
       <Route
         path="/login"
@@ -151,7 +159,7 @@ function App() {
           />
         }
       />
-    </Routes>
+    </Routes></>
   )
 }
 
