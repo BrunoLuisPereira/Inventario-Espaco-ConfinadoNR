@@ -5,6 +5,7 @@ const evidenciaController = require(
 
 const {
   autenticar,
+  autenticarMultiTenant,
 } = require("../middlewares/autenticacaoMiddleware");
 
 const {
@@ -12,6 +13,13 @@ const {
 } = require("../middlewares/uploadEvidenciaMiddleware");
 
 const router = express.Router();
+
+// O download revalida a identidade e o ambiente antes de acessar o arquivo.
+router.get(
+  "/:id/arquivo",
+  autenticarMultiTenant,
+  evidenciaController.visualizarArquivo
+);
 
 // Todas as rotas de evidências exigem autenticação.
 router.use(autenticar);
@@ -39,13 +47,6 @@ router.get(
 router.get(
   "/local/:idLocal",
   evidenciaController.listarPorLocal
-);
-
-// Visualizar o arquivo de uma evidência.
-// Deve ficar antes da rota GET /:id.
-router.get(
-  "/:id/arquivo",
-  evidenciaController.visualizarArquivo
 );
 
 // Buscar uma evidência específica.

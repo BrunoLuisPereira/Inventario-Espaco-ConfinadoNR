@@ -2,6 +2,10 @@ const evidenciaService = require(
   "../services/evidenciaService"
 );
 
+const evidenciaMultiTenantService = require(
+  "../services/evidenciaMultiTenantService"
+);
+
 const evidenciaArquivoUtils = require(
   "../utils/evidenciaArquivoUtils"
 );
@@ -197,12 +201,29 @@ async function visualizarArquivo(
   res,
   next
 ) {
+  if (res.headersSent) return;
+
+  let erroArquivoEncaminhado = false;
+  const encaminharErroArquivo = (erro) => {
+    if (res.headersSent || erroArquivoEncaminhado) return;
+    erroArquivoEncaminhado = true;
+
+    const ausente = erro?.code === "ENOENT";
+    const erroPublico = new Error(
+      ausente ? "Arquivo da evidência não encontrado." : "Erro interno do servidor."
+    );
+    erroPublico.statusCode = ausente ? 404 : 500;
+    return next(erroPublico);
+  };
+
   try {
     const evidencia =
-      await evidenciaService.buscarEvidenciaPorId(
+      await evidenciaMultiTenantService.buscarEvidenciaPorId(
         req.params.id,
         req.usuario
       );
+
+    if (res.headersSent) return;
 
     if (!evidencia.caminho_arquivo) {
       const erro = new Error(
@@ -213,10 +234,14 @@ async function visualizarArquivo(
       throw erro;
     }
 
-    const caminhoCompleto =
-      evidenciaArquivoUtils.obterCaminhoCompleto(
+    let caminhoCompleto;
+    try {
+      caminhoCompleto = evidenciaArquivoUtils.obterCaminhoCompleto(
         evidencia.caminho_arquivo
       );
+    } catch (erro) {
+      return encaminharErroArquivo(erro);
+    }
 
     if (!caminhoCompleto) {
       const erro = new Error(
@@ -227,19 +252,21 @@ async function visualizarArquivo(
       throw erro;
     }
 
-    return res.sendFile(
-      caminhoCompleto,
-      (erro) => {
-        if (erro && !res.headersSent) {
-          erro.statusCode =
-            erro.statusCode || 404;
+    if (res.headersSent) return;
 
-          next(erro);
+    try {
+      return res.sendFile(
+        caminhoCompleto,
+        (erro) => {
+          if (erro) return encaminharErroArquivo(erro);
         }
-      }
-    );
+      );
+    } catch (erro) {
+      return encaminharErroArquivo(erro);
+    }
   } catch (erro) {
-    next(erro);
+    if (res.headersSent) return;
+    return next(erro);
   }
 }
 
