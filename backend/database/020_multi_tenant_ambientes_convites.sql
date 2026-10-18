@@ -11,6 +11,27 @@
 -- ============================================================
 
 BEGIN;
+DO $seguranca$
+BEGIN
+  IF current_database() !~ '^nr33_lab_[0-9]{8}_[a-f0-9]{6}$'
+     OR current_setting('nr33.laboratorio', true) IS DISTINCT FROM 'passo702' THEN
+    RAISE EXCEPTION 'Execucao restrita ao laboratorio descartavel autorizado.';
+  END IF;
+END;
+$seguranca$;
+LOCK TABLE public.usuario, public.campanha, public.local, public.checklist_nr33, public.dados_tecnicos, public.evidencia, public.relatorio, public.sincronizacao, public.versao_entidade IN ACCESS EXCLUSIVE MODE;
+DO $historico$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.usuario) OR EXISTS (SELECT 1 FROM public.campanha)
+    OR EXISTS (SELECT 1 FROM public.local) OR EXISTS (SELECT 1 FROM public.checklist_nr33)
+    OR EXISTS (SELECT 1 FROM public.evidencia) OR EXISTS (SELECT 1 FROM public.dados_tecnicos)
+    OR EXISTS (SELECT 1 FROM public.relatorio) OR EXISTS (SELECT 1 FROM public.sincronizacao)
+    OR EXISTS (SELECT 1 FROM public.versao_entidade) THEN
+    RAISE EXCEPTION 'Dados legados exigem mapeamento de ambiente aprovado; migracao automatica bloqueada.';
+  END IF;
+END;
+$historico$;
+ALTER TABLE public.campanha ALTER COLUMN status SET DEFAULT 'EM ANDAMENTO';
 
 -- ============================================================
 
@@ -134,31 +155,9 @@ ALTER TABLE usuario
 
 ADD COLUMN id_ambiente UUID;
 
--- Criar o ambiente que recebera os dados legados.
+-- Cadastro inicial cria ambientes explicitamente; nenhum tenant implicito.
 
--- Seu nome podera ser alterado posteriormente.
-
-INSERT INTO ambiente (nome)
-
-VALUES ('Ambiente Principal - Inventario NR-33');
-
--- Associar todos os usuarios existentes ao ambiente legado.
-
--- A migracao pressupoe que existe somente um ambiente
-
--- neste momento, criado pelo INSERT acima.
-
-UPDATE usuario
-
-SET id_ambiente = (
-
-    SELECT id_ambiente
-
-    FROM ambiente
-
-    WHERE nome = 'Ambiente Principal - Inventario NR-33'
-
-);
+-- Usuarios historicos exigem politica de mapeamento separada.
 
 -- Impedir usuarios sem ambiente.
 
@@ -202,13 +201,7 @@ ALTER TABLE campanha
 
 ADD COLUMN id_ambiente UUID;
 
-UPDATE campanha c
-
-SET id_ambiente = u.id_ambiente
-
-FROM usuario u
-
-WHERE u.id_usuario = c.id_usuario;
+-- Sem UPDATE de campanha: preserva o versionamento durante a transicao.
 
 ALTER TABLE campanha
 
@@ -236,13 +229,7 @@ ALTER TABLE sincronizacao
 
 ADD COLUMN id_ambiente UUID;
 
-UPDATE sincronizacao s
-
-SET id_ambiente = u.id_ambiente
-
-FROM usuario u
-
-WHERE u.id_usuario = s.id_usuario;
+-- Nenhuma sincronizacao recebe ambiente por suposicao.
 
 ALTER TABLE sincronizacao
 
@@ -270,21 +257,7 @@ ALTER TABLE versao_entidade
 
 ADD COLUMN id_ambiente UUID;
 
--- Nesta migracao inicial, todos os registros de versionamento,
-
--- inclusive os tombstones, pertencem ao ambiente legado.
-
-UPDATE versao_entidade
-
-SET id_ambiente = (
-
-    SELECT id_ambiente
-
-    FROM ambiente
-
-    WHERE nome = 'Ambiente Principal - Inventario NR-33'
-
-);
+-- Tombstones historicos nao recebem ambiente por suposicao.
 
 ALTER TABLE versao_entidade
 
@@ -573,4 +546,11 @@ EXECUTE FUNCTION public.bloquear_alteracao_campanha_local();
 -- FIM DA MIGRACAO 020
 -- ============================================================
 
+-- Bloqueio fail-closed enquanto a funcao multi-tenant da 021 nao estiver instalada.
+CREATE OR REPLACE FUNCTION public.atualizar_versao_entidade()
+RETURNS TRIGGER LANGUAGE plpgsql AS $transicao$
+BEGIN
+  RAISE EXCEPTION 'Versionamento em transicao: concluir migracao 021 antes de escrever.';
+END;
+$transicao$;
 COMMIT;

@@ -10,6 +10,22 @@ const hash = crypto.createHash('sha256').update(token).digest('hex');
 const dados = { nome: 'Pessoa', email: ' NOVA@example.invalid ', senha: 'senha-simulada' };
 const conviteDados = { email: ' NOVA@example.invalid ', perfilAcesso: 'ENGENHEIRO_SEGURANCA' };
 
+for (const operacao of ['cadastro', 'aceitar']) for (const tamanho of [120, 121]) {
+  test(`contrato DDL observado: ${operacao} nome com ${tamanho} caracteres`, async t => {
+    const c = preparar(t, { comConvite: operacao === 'aceitar' });
+    const entrada = { ...dados, nome: 'N'.repeat(tamanho) };
+    const executar = () => operacao === 'cadastro' ? c.cadastro.cadastrarAmbiente(entrada) : c.convites.aceitarConvite(token, entrada);
+    if (tamanho === 121) {
+      await assert.rejects(executar(), { statusCode: 400 });
+      assert.deepEqual(c.eventos, [], 'nome invalido deve ser rejeitado antes de conectar');
+    } else {
+      await executar();
+      assert.equal(c.estado.usuarios[0].nome, entrada.nome);
+      assert.ok(c.eventos.some(e => e.sql === 'COMMIT'));
+    }
+  });
+}
+
 function preparar(t, opcoes = {}) {
   const estado = { administrador: { id_usuario: 10, id_ambiente: A, perfil_acesso: 'ADMINISTRADOR', ativo: true },
     ambienteAtivo: true, usuarios: [], ambientes: [], convites: [], ...opcoes.estado };
@@ -189,9 +205,9 @@ test('cadastro cria ambiente e primeiro administrador atomicamente, ignorando id
   assert.match(insert.sql, /'ADMINISTRADOR'/);
 });
 test('nome legítimo no limite não causa falha do nome derivado do ambiente', async t => {
-  const c = preparar(t); const nome = 'n'.repeat(180);
+  const c = preparar(t); const nome = 'n'.repeat(120);
   const resultado = await c.cadastro.cadastrarAmbiente({ ...dados, nome });
-  assert.equal(resultado.usuario.nome, nome); assert.equal(resultado.ambiente.nome.length, 180);
+  assert.equal(resultado.usuario.nome, nome); assert.equal(resultado.ambiente.nome, 'Ambiente de ' + nome);
 });
 for (const tipo of ['usuario', 'convite', 'usuarioConcorrente', 'conviteConcorrente']) {
   test('cadastro bloqueia e-mail indisponível sem criar ambiente: ' + tipo, async t => {

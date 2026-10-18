@@ -314,7 +314,7 @@ async function aceitarConvite(token, dados = {}) {
   if (
     typeof nome !== "string" ||
     !nome.trim() ||
-    nome.trim().length > 180
+    nome.trim().length > 120
   ) {
     throw criarErro("Informe um nome válido.", 400);
   }

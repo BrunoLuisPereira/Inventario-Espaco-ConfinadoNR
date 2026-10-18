@@ -31,9 +31,9 @@ async function cadastrarAmbiente(dados = {}) {
 
   const nomeNormalizado = nome.trim();
 
-  if (nomeNormalizado.length > 180) {
+  if (nomeNormalizado.length > 120) {
     throw criarErro(
-      "O nome deve possuir no máximo 180 caracteres.",
+      "O nome deve possuir no máximo 120 caracteres.",
       400
     );
   }

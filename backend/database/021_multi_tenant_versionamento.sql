@@ -7,6 +7,15 @@
 -- ============================================================
 
 BEGIN;
+DO $seguranca$
+BEGIN
+  IF current_database() !~ '^nr33_lab_[0-9]{8}_[a-f0-9]{6}$'
+     OR current_setting('nr33.laboratorio', true) IS DISTINCT FROM 'passo702' THEN
+    RAISE EXCEPTION 'Execucao restrita ao laboratorio descartavel autorizado.';
+  END IF;
+END;
+$seguranca$;
+LOCK TABLE public.usuario, public.campanha, public.local, public.checklist_nr33, public.dados_tecnicos, public.evidencia, public.relatorio, public.sincronizacao, public.versao_entidade IN ACCESS EXCLUSIVE MODE;
 
 -- ============================================================
 -- 1. VALIDACOES INICIAIS
@@ -62,44 +71,32 @@ ADD CONSTRAINT uq_versao_entidade
 UNIQUE (id_ambiente, entidade, id_entidade);
 
 -- ============================================================
--- 3. REGULARIZACAO DA EVIDENCIA LEGADA
--- ============================================================
-
--- A evidencia ID 2 existe na base legada e nao possui
--- registro de versionamento.
---
--- O ambiente sera obtido pela campanha do local.
-
-INSERT INTO public.versao_entidade (
-    id_ambiente,
-    entidade,
-    id_entidade,
-    versao,
-    excluido,
-    data_exclusao,
-    data_atualizacao
-)
-SELECT
-    c.id_ambiente,
-    'EVIDENCIA',
-    e.id_evidencia,
-    1,
-    FALSE,
-    NULL,
-    CURRENT_TIMESTAMP
-FROM public.evidencia e
-JOIN public.local l
-    ON l.id_local = e.id_local
-JOIN public.campanha c
-    ON c.id_campanha = l.id_campanha
-WHERE e.id_evidencia = 2
-  AND NOT EXISTS (
-      SELECT 1
-      FROM public.versao_entidade v
-      WHERE v.entidade = 'EVIDENCIA'
-        AND v.id_entidade = e.id_evidencia
-  );
-
+-- 3. REGULARIZACAO GERAL POR ANCESTRALIDADE, SEM IDS FIXOS
+-- Versoes e tombstones conhecidos nunca sao reiniciados por este backfill.
+DO $coerencia$
+BEGIN
+  IF EXISTS (WITH ativos AS (SELECT 'CAMPANHA'::varchar(50) AS entidade, c.id_campanha AS id_entidade, c.id_ambiente FROM public.campanha c
+UNION ALL SELECT 'LOCAL', l.id_local, c.id_ambiente FROM public.local l JOIN public.campanha c USING (id_campanha)
+UNION ALL SELECT 'CHECKLIST_NR33', e.id_checklist, c.id_ambiente FROM public.checklist_nr33 e JOIN public.local l USING (id_local) JOIN public.campanha c USING (id_campanha)
+UNION ALL SELECT 'DADOS_TECNICOS', e.id_dados, c.id_ambiente FROM public.dados_tecnicos e JOIN public.local l USING (id_local) JOIN public.campanha c USING (id_campanha)
+UNION ALL SELECT 'EVIDENCIA', e.id_evidencia, c.id_ambiente FROM public.evidencia e JOIN public.local l USING (id_local) JOIN public.campanha c USING (id_campanha))
+    SELECT 1 FROM ativos a JOIN public.versao_entidade v USING (entidade, id_entidade)
+    WHERE v.id_ambiente IS DISTINCT FROM a.id_ambiente OR v.excluido) THEN
+    RAISE EXCEPTION 'Versionamento inconsistente; revisao explicita obrigatoria.';
+  END IF;
+END;
+$coerencia$;
+WITH ativos AS (SELECT 'CAMPANHA'::varchar(50) AS entidade, c.id_campanha AS id_entidade, c.id_ambiente FROM public.campanha c
+UNION ALL SELECT 'LOCAL', l.id_local, c.id_ambiente FROM public.local l JOIN public.campanha c USING (id_campanha)
+UNION ALL SELECT 'CHECKLIST_NR33', e.id_checklist, c.id_ambiente FROM public.checklist_nr33 e JOIN public.local l USING (id_local) JOIN public.campanha c USING (id_campanha)
+UNION ALL SELECT 'DADOS_TECNICOS', e.id_dados, c.id_ambiente FROM public.dados_tecnicos e JOIN public.local l USING (id_local) JOIN public.campanha c USING (id_campanha)
+UNION ALL SELECT 'EVIDENCIA', e.id_evidencia, c.id_ambiente FROM public.evidencia e JOIN public.local l USING (id_local) JOIN public.campanha c USING (id_campanha))
+INSERT INTO public.versao_entidade (id_ambiente, entidade, id_entidade, versao, excluido, data_exclusao, data_atualizacao)
+SELECT a.id_ambiente, a.entidade, a.id_entidade, 1, FALSE, NULL, CURRENT_TIMESTAMP
+FROM ativos a WHERE NOT EXISTS (
+ SELECT 1 FROM public.versao_entidade v WHERE v.entidade = a.entidade AND v.id_entidade = a.id_entidade
+);
+-- Versao 1 e inicializacao no laboratorio, nao recuperacao de historico perdido.
 -- ============================================================
 -- 4. FUNCAO DE VERSIONAMENTO MULTI-TENANT
 -- ============================================================
@@ -354,41 +351,21 @@ $function$;
 -- 5. VALIDACOES FINAIS
 -- ============================================================
 
-DO $$
+DO $validacao$
 BEGIN
-
-    -- Nenhuma versao pode estar sem ambiente.
-
-    IF EXISTS (
-        SELECT 1
-        FROM public.versao_entidade
-        WHERE id_ambiente IS NULL
-    ) THEN
-        RAISE EXCEPTION
-            'Versionamento sem ambiente apos migracao.';
-    END IF;
-
-    -- A evidencia legada ID 2 deve possuir versao ativa.
-
-    IF NOT EXISTS (
-        SELECT 1
-        FROM public.versao_entidade v
-        JOIN public.evidencia e
-            ON e.id_evidencia = v.id_entidade
-        JOIN public.local l
-            ON l.id_local = e.id_local
-        JOIN public.campanha c
-            ON c.id_campanha = l.id_campanha
-        WHERE v.entidade = 'EVIDENCIA'
-          AND v.id_entidade = 2
-          AND v.id_ambiente = c.id_ambiente
-          AND v.excluido = FALSE
-    ) THEN
-        RAISE EXCEPTION
-            'Versionamento valido da evidencia ID 2 nao encontrado.';
-    END IF;
-
+  IF EXISTS (SELECT 1 FROM public.versao_entidade WHERE id_ambiente IS NULL) THEN
+    RAISE EXCEPTION 'Versionamento sem ambiente apos migracao.';
+  END IF;
+  IF EXISTS (WITH ativos AS (SELECT 'CAMPANHA'::varchar(50) AS entidade, c.id_campanha AS id_entidade, c.id_ambiente FROM public.campanha c
+UNION ALL SELECT 'LOCAL', l.id_local, c.id_ambiente FROM public.local l JOIN public.campanha c USING (id_campanha)
+UNION ALL SELECT 'CHECKLIST_NR33', e.id_checklist, c.id_ambiente FROM public.checklist_nr33 e JOIN public.local l USING (id_local) JOIN public.campanha c USING (id_campanha)
+UNION ALL SELECT 'DADOS_TECNICOS', e.id_dados, c.id_ambiente FROM public.dados_tecnicos e JOIN public.local l USING (id_local) JOIN public.campanha c USING (id_campanha)
+UNION ALL SELECT 'EVIDENCIA', e.id_evidencia, c.id_ambiente FROM public.evidencia e JOIN public.local l USING (id_local) JOIN public.campanha c USING (id_campanha))
+    SELECT 1 FROM ativos a WHERE NOT EXISTS (
+      SELECT 1 FROM public.versao_entidade v WHERE v.id_ambiente = a.id_ambiente
+      AND v.entidade = a.entidade AND v.id_entidade = a.id_entidade AND NOT v.excluido)) THEN
+    RAISE EXCEPTION 'Entidade ativa sem versionamento consistente.';
+  END IF;
 END;
-$$;
-
-    COMMIT;
+$validacao$;
+COMMIT;
