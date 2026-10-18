@@ -20,7 +20,10 @@ async function gerarExcelLocais(usuarioAutenticado) {
   // Recebe exclusivamente req.usuario, definido pela autenticação multi-tenant.
   // Sem fallback para a consulta global, inclusive na ausência de identidade.
   const registros =
-    await localRepository.listarParaExportacaoPorAmbiente(usuarioAutenticado.id_ambiente);
+    await localRepository.listarParaExportacaoPorAmbiente(
+      usuarioAutenticado.id_ambiente,
+      usuarioAutenticado
+    );
 
   const workbook = new ExcelJS.Workbook();
 

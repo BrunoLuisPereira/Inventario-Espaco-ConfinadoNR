@@ -26,7 +26,7 @@ const CAMPOS = {
 };
 const LOCAL = { id_local: 40, id_campanha: 30, nome_local: "Tanque A", status: "ATIVO" };
 const METODOS = [
-  "criarNoAmbiente", "listarPorAmbiente", "buscarPorIdEAmbiente",
+  "criarNoAmbiente", "listarPermitidosNoAmbiente", "buscarPermitidoPorIdNoAmbiente",
   "atualizarNoAmbiente", "atualizarStatusNoAmbiente", "listarParaExportacaoPorAmbiente",
 ];
 const IDS_INVALIDOS = [
@@ -157,9 +157,9 @@ test("Preserva entrada nome_local e normaliza espaços sem aceitar nomeLocal com
   await service.criarLocal(DADOS, USUARIO_A);
   await service.atualizarLocal(40, DADOS, USUARIO_A);
   assert.deepEqual(argumentosUnicos(mocks.criarNoAmbiente), [
-    { ...CAMPOS, status: "ATIVO", idCampanha: 30 }, USUARIO_A,
+    { ...CAMPOS, status: "ATIVO", idCampanha: 30 }, USUARIO_A, { bloquearAutorizacao: true },
   ]);
-  assert.deepEqual(argumentosUnicos(mocks.atualizarNoAmbiente), [40, CAMPOS, USUARIO_A]);
+  assert.deepEqual(argumentosUnicos(mocks.atualizarNoAmbiente), [40, CAMPOS, USUARIO_A, { bloquearAutorizacao: true }]);
 
   const dados = { ...DADOS, nomeLocal: "Nome camelCase" };
   delete dados.nome_local;
@@ -261,7 +261,7 @@ test("Aceita somente ATIVO e INATIVO na criação e alteração de status", asyn
     assert.deepEqual(await service.criarLocal({ ...DADOS, status }, USUARIO_A), { ...LOCAL, status });
     assert.deepEqual(await service.alterarStatusLocal(40, { status }, USUARIO_A), { ...LOCAL, status });
     assert.equal(mocks.criarNoAmbiente.mock.calls[indice].arguments[0].status, status);
-    assert.deepEqual(mocks.atualizarStatusNoAmbiente.mock.calls[indice].arguments, [40, status, USUARIO_A]);
+    assert.deepEqual(mocks.atualizarStatusNoAmbiente.mock.calls[indice].arguments, [40, status, USUARIO_A, { bloquearAutorizacao: true }]);
   }
   assert.equal(mocks.criarNoAmbiente.mock.callCount(), 2);
   assert.equal(mocks.atualizarStatusNoAmbiente.mock.callCount(), 2);
@@ -272,7 +272,7 @@ test("Cria local encaminhando somente os campos permitidos e a identidade autent
   const resultado = await service.criarLocal(DADOS, { ...USUARIO_A, id_usuario: "10" });
   assert.deepEqual(resultado, LOCAL);
   assert.deepEqual(argumentosUnicos(mocks.criarNoAmbiente), [
-    { ...CAMPOS, status: "ATIVO", idCampanha: 30 }, USUARIO_A,
+    { ...CAMPOS, status: "ATIVO", idCampanha: 30 }, USUARIO_A, { bloquearAutorizacao: true },
   ]);
 });
 
@@ -288,33 +288,33 @@ test("Ignora usuário, ambiente e perfil forjados no corpo das três escritas", 
   await service.atualizarLocal(40, dados, USUARIO_A);
   await service.alterarStatusLocal(40, dados, USUARIO_A);
   assert.deepEqual(argumentosUnicos(mocks.criarNoAmbiente), [
-    { ...CAMPOS, status: "INATIVO", idCampanha: 30 }, USUARIO_A,
+    { ...CAMPOS, status: "INATIVO", idCampanha: 30 }, USUARIO_A, { bloquearAutorizacao: true },
   ]);
-  assert.deepEqual(argumentosUnicos(mocks.atualizarNoAmbiente), [40, CAMPOS, USUARIO_A]);
-  assert.deepEqual(argumentosUnicos(mocks.atualizarStatusNoAmbiente), [40, "INATIVO", USUARIO_A]);
+  assert.deepEqual(argumentosUnicos(mocks.atualizarNoAmbiente), [40, CAMPOS, USUARIO_A, { bloquearAutorizacao: true }]);
+  assert.deepEqual(argumentosUnicos(mocks.atualizarStatusNoAmbiente), [40, "INATIVO", USUARIO_A, { bloquearAutorizacao: true }]);
 });
 
 test("Lista locais exclusivamente pelo ambiente autenticado", async (t) => {
-  const mocks = simularRepositorio(t, { listarPorAmbiente: [LOCAL] });
+  const mocks = simularRepositorio(t, { listarPermitidosNoAmbiente: [LOCAL] });
   assert.deepEqual(await service.listarLocais(USUARIO_A), [LOCAL]);
-  assert.deepEqual(argumentosUnicos(mocks.listarPorAmbiente), [AMBIENTE_A]);
+  assert.deepEqual(argumentosUnicos(mocks.listarPermitidosNoAmbiente), [USUARIO_A]);
 });
 
 test("Busca local pelo ID normalizado e ambiente autenticado", async (t) => {
-  const mocks = simularRepositorio(t, { buscarPorIdEAmbiente: LOCAL });
+  const mocks = simularRepositorio(t, { buscarPermitidoPorIdNoAmbiente: LOCAL });
   assert.deepEqual(await service.buscarLocalPorId("40", USUARIO_A), LOCAL);
-  assert.deepEqual(argumentosUnicos(mocks.buscarPorIdEAmbiente), [40, AMBIENTE_A]);
+  assert.deepEqual(argumentosUnicos(mocks.buscarPermitidoPorIdNoAmbiente), [40, USUARIO_A]);
 });
 
 test("Retorna HTTP 404 para local inexistente ou externo ao ambiente", async (t) => {
-  const mocks = simularRepositorio(t, { buscarPorIdEAmbiente: null });
+  const mocks = simularRepositorio(t, { buscarPermitidoPorIdNoAmbiente: null });
   for (const [indice, usuario] of [USUARIO_A, USUARIO_B].entries()) {
     await assert.rejects(service.buscarLocalPorId(40, usuario), {
       statusCode: 404, message: "Local não encontrado.",
     });
-    assert.deepEqual(mocks.buscarPorIdEAmbiente.mock.calls[indice].arguments, [40, usuario.id_ambiente]);
+    assert.deepEqual(mocks.buscarPermitidoPorIdNoAmbiente.mock.calls[indice].arguments, [40, usuario]);
   }
-  assert.equal(mocks.buscarPorIdEAmbiente.mock.callCount(), 2);
+  assert.equal(mocks.buscarPermitidoPorIdNoAmbiente.mock.callCount(), 2);
 });
 
 test("Atualiza local sem permitir troca de campanha ou alteração de status pelo PUT", async (t) => {
@@ -323,8 +323,8 @@ test("Atualiza local sem permitir troca de campanha ou alteração de status pel
     ...DADOS, id_campanha: 999, idCampanha: 999, status: "INATIVO",
   }, USUARIO_A);
   assert.deepEqual(resultado, LOCAL);
-  assert.deepEqual(argumentosUnicos(mocks.atualizarNoAmbiente), [40, CAMPOS, USUARIO_A]);
-  assert.equal(mocks.buscarPorIdEAmbiente.mock.callCount(), 0);
+  assert.deepEqual(argumentosUnicos(mocks.atualizarNoAmbiente), [40, CAMPOS, USUARIO_A, { bloquearAutorizacao: true }]);
+  assert.equal(mocks.buscarPermitidoPorIdNoAmbiente.mock.callCount(), 0);
 });
 
 test("Retorna HTTP 404 quando a atualização não é autorizada", async (t) => {
@@ -332,15 +332,15 @@ test("Retorna HTTP 404 quando a atualização não é autorizada", async (t) => 
   await assert.rejects(service.atualizarLocal(40, DADOS, USUARIO_A), {
     statusCode: 404, message: "Local não encontrado.",
   });
-  assert.deepEqual(argumentosUnicos(mocks.atualizarNoAmbiente), [40, CAMPOS, USUARIO_A]);
+  assert.deepEqual(argumentosUnicos(mocks.atualizarNoAmbiente), [40, CAMPOS, USUARIO_A, { bloquearAutorizacao: true }]);
 });
 
 test("Altera status utilizando ID normalizado e identidade autenticada", async (t) => {
   const atualizado = { ...LOCAL, status: "INATIVO" };
   const mocks = simularRepositorio(t, { atualizarStatusNoAmbiente: atualizado });
   assert.deepEqual(await service.alterarStatusLocal("40", { status: "INATIVO" }, USUARIO_A), atualizado);
-  assert.deepEqual(argumentosUnicos(mocks.atualizarStatusNoAmbiente), [40, "INATIVO", USUARIO_A]);
-  assert.equal(mocks.buscarPorIdEAmbiente.mock.callCount(), 0);
+  assert.deepEqual(argumentosUnicos(mocks.atualizarStatusNoAmbiente), [40, "INATIVO", USUARIO_A, { bloquearAutorizacao: true }]);
+  assert.equal(mocks.buscarPermitidoPorIdNoAmbiente.mock.callCount(), 0);
 });
 
 test("Retorna HTTP 404 quando a alteração de status não é autorizada", async (t) => {
@@ -348,15 +348,15 @@ test("Retorna HTTP 404 quando a alteração de status não é autorizada", async
   await assert.rejects(service.alterarStatusLocal(40, { status: "INATIVO" }, USUARIO_A), {
     statusCode: 404, message: "Local não encontrado.",
   });
-  assert.deepEqual(argumentosUnicos(mocks.atualizarStatusNoAmbiente), [40, "INATIVO", USUARIO_A]);
+  assert.deepEqual(argumentosUnicos(mocks.atualizarStatusNoAmbiente), [40, "INATIVO", USUARIO_A, { bloquearAutorizacao: true }]);
 });
 
 test("Lista dados para exportação somente pelo ambiente autenticado", async (t) => {
   const registros = [{ id_local: 40, id_evidencia: null }];
   const mocks = simularRepositorio(t, { listarParaExportacaoPorAmbiente: registros });
   assert.deepEqual(await service.listarLocaisParaExportacao(USUARIO_A), registros);
-  assert.deepEqual(argumentosUnicos(mocks.listarParaExportacaoPorAmbiente), [AMBIENTE_A]);
-  assert.equal(mocks.listarPorAmbiente.mock.callCount(), 0);
+  assert.deepEqual(argumentosUnicos(mocks.listarParaExportacaoPorAmbiente), [AMBIENTE_A, USUARIO_A]);
+  assert.equal(mocks.listarPermitidosNoAmbiente.mock.callCount(), 0);
 });
 
 test("Encaminha argumentos isolados para ambientes A e B nas seis operações", async (t) => {
@@ -377,12 +377,12 @@ test("Encaminha argumentos isolados para ambientes A e B nas seis operações", 
     await service.listarLocaisParaExportacao(usuario);
 
     const esperados = {
-      criarNoAmbiente: [{ ...CAMPOS, status: "ATIVO", idCampanha: 30 }, usuario],
-      listarPorAmbiente: [usuario.id_ambiente],
-      buscarPorIdEAmbiente: [40, usuario.id_ambiente],
-      atualizarNoAmbiente: [40, CAMPOS, usuario],
-      atualizarStatusNoAmbiente: [40, "INATIVO", usuario],
-      listarParaExportacaoPorAmbiente: [usuario.id_ambiente],
+      criarNoAmbiente: [{ ...CAMPOS, status: "ATIVO", idCampanha: 30 }, usuario, { bloquearAutorizacao: true }],
+      listarPermitidosNoAmbiente: [usuario],
+      buscarPermitidoPorIdNoAmbiente: [40, usuario],
+      atualizarNoAmbiente: [40, CAMPOS, usuario, { bloquearAutorizacao: true }],
+      atualizarStatusNoAmbiente: [40, "INATIVO", usuario, { bloquearAutorizacao: true }],
+      listarParaExportacaoPorAmbiente: [usuario.id_ambiente, usuario],
     };
     for (const metodo of METODOS) {
       assert.equal(mocks[metodo].mock.callCount(), indice + 1);
@@ -417,6 +417,6 @@ test("Retorna HTTP 404 quando a campanha da criação não é encontrada ou auto
     statusCode: 404, message: "Campanha não encontrada.",
   });
   assert.deepEqual(argumentosUnicos(mocks.criarNoAmbiente), [
-    { ...CAMPOS, status: "ATIVO", idCampanha: 30 }, USUARIO_A,
+    { ...CAMPOS, status: "ATIVO", idCampanha: 30 }, USUARIO_A, { bloquearAutorizacao: true },
   ]);
 });

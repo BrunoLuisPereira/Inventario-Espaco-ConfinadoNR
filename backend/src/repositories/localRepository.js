@@ -116,13 +116,21 @@ async function listarParaExportacao() {
 
 // Consulta específica da exportação autenticada. Depende de campanha.id_ambiente
 // previsto na migração 020; a compatibilidade real exige homologação.
-async function listarParaExportacaoPorAmbiente(idAmbiente) {
+async function listarParaExportacaoPorAmbiente(idAmbiente, usuarioAutenticado) {
   if (
     typeof idAmbiente !== "string" ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idAmbiente)
   ) {
     const erro = new Error("Identificação do ambiente inválida.");
     erro.statusCode = 400;
+    throw erro;
+  }
+
+  if (!usuarioAutenticado || typeof usuarioAutenticado !== "object" ||
+    Array.isArray(usuarioAutenticado) || usuarioAutenticado.id_ambiente !== idAmbiente ||
+    !Number.isSafeInteger(usuarioAutenticado.id_usuario) || usuarioAutenticado.id_usuario <= 0) {
+    const erro = new Error("Usuário não autenticado.");
+    erro.statusCode = 401;
     throw erro;
   }
 
@@ -149,13 +157,20 @@ async function listarParaExportacaoPorAmbiente(idAmbiente) {
     LEFT JOIN evidencia e
       ON e.id_local = l.id_local
     WHERE c.id_ambiente = $1
+      AND EXISTS (
+        SELECT 1 FROM usuario AS u
+        INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente
+        WHERE u.id_usuario = $2 AND u.id_ambiente = c.id_ambiente
+          AND u.ativo = TRUE AND a.ativo = TRUE
+          AND (u.perfil_acesso = 'ADMINISTRADOR' OR c.id_usuario = u.id_usuario)
+      )
     ORDER BY
       c.nome_campanha ASC,
       l.nome_local ASC,
       e.id_evidencia ASC
   `;
 
-  const result = await pool.query(query, [idAmbiente]);
+  const result = await pool.query(query, [idAmbiente, usuarioAutenticado.id_usuario]);
   return result.rows;
 }
 

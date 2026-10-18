@@ -29,7 +29,7 @@ const ORDEM = " ORDER BY c.nome_campanha ASC, l.nome_local ASC, e.id_evidencia A
 const SQL_GLOBAL = SELECAO + ORDEM;
 // Variante mínima prevista. SQL futuro diferente deverá ser revisado e
 // reconhecido explicitamente, nunca aprovado por presença parcial de palavras.
-const SQL_AMBIENTE = SELECAO + " WHERE c.id_ambiente = $1" + ORDEM;
+const SQL_AMBIENTE = SELECAO + " WHERE c.id_ambiente = $1 AND EXISTS ( SELECT 1 FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $2 AND u.id_ambiente = c.id_ambiente AND u.ativo = TRUE AND a.ativo = TRUE AND (u.perfil_acesso = 'ADMINISTRADOR' OR c.id_usuario = u.id_usuario) )" + ORDEM;
 
 function preparar(t) {
   const estado = { consultas: [], globais: [], exportacoes: [], identidades: [],
@@ -42,7 +42,7 @@ function preparar(t) {
       estado.usuarios.set(id, { id_usuario: id, id_ambiente: contexto.ambiente, perfil_acesso: perfil, ativo: true });
     }
     const campanha = { id_campanha: indice + 1, id_ambiente: contexto.ambiente,
-      nome_campanha: "CAMPANHA_EXCLUSIVA_" + contexto.nome, id_usuario: 99 };
+      nome_campanha: "CAMPANHA_EXCLUSIVA_" + contexto.nome, id_usuario: contexto.engenheiro };
     estado.campanhas.push(campanha);
     for (const [id, nome] of [[contexto.local, "COM_FOTOS"], [contexto.semFoto, "SEM_FOTOS"]]) {
       estado.locais.push({ id_local: id, id_campanha: campanha.id_campanha,
@@ -58,11 +58,16 @@ function preparar(t) {
         origem_coordenadas: "GPS", precisao_gps: String(3 + indice + foto / 10) });
     }
   }
-  function juntar(ambiente) {
+  function juntar(ambiente, idUsuario) {
     const rows = [];
     for (const local of estado.locais) {
       const campanha = estado.campanhas.find((c) => c.id_campanha === local.id_campanha);
       if (!campanha || (ambiente !== undefined && campanha.id_ambiente !== ambiente)) continue;
+      if (idUsuario !== undefined) {
+        const u = estado.usuarios.get(idUsuario);
+        if (!u?.ativo || !estado.ambientes.get(u.id_ambiente) || u.id_ambiente !== campanha.id_ambiente ||
+          (u.perfil_acesso !== "ADMINISTRADOR" && campanha.id_usuario !== u.id_usuario)) continue;
+      }
       const evidencias = estado.evidencias.filter((e) => e.id_local === local.id_local);
       // LEFT JOIN: um local autorizado sem evidência ainda produz uma linha.
       for (const evidencia of evidencias.length ? evidencias : [null]) {
@@ -102,14 +107,16 @@ function preparar(t) {
           assert.deepEqual(params, []);
           estado.globais.push(sql);
         } else {
-          assert.equal(params.length, 1);
+          assert.equal(params.length, 2);
           assert.ok([A, B].includes(params[0]));
+          assert.ok(estado.usuarios.has(params[1]));
         }
         estado.exportacoes.push({ sql, params: [...params], global });
         if (estado.erroExportacao) throw estado.erroExportacao;
         // GLOBAL retorna realmente os dois ambientes. O mock não filtra usando
         // token, req.usuario ou o ambiente esperado pelo caso de teste.
-        const rows = juntar(global ? undefined : params[0]);
+        if (estado.antesExportar) estado.antesExportar();
+        const rows = juntar(global ? undefined : params[0], global ? undefined : params[1]);
         return { rows, rowCount: rows.length };
       }
       estado.inesperadas.push(sql);
@@ -189,7 +196,7 @@ function preparar(t) {
     dependencias.set(CAMINHOS.excel, new Map([["exceljs", ExcelJS], ["../repositories/localRepository", modulos.localRepository]]));
     modulos.excel = require(CAMINHOS.excel);
     dependencias.set(CAMINHOS.controller, new Map([
-      ["../services/localService", externo("localService não usado na exportação legada")],
+      ["../services/localMultiTenantService", externo("localService não usado na exportação legada")],
       ["../services/excelService", modulos.excel],
     ]));
     modulos.controller = require(CAMINHOS.controller);
@@ -284,7 +291,7 @@ async function verificarIsolamento(ctx, contexto, resposta) {
     }
   }));
   assert.equal(ctx.estado.globais.length, 0, "SELECT global não é uma exportação isolada");
-  assert.deepEqual(ctx.estado.exportacoes.at(-1).params, [contexto.ambiente]);
+  assert.deepEqual(ctx.estado.exportacoes.at(-1).params, [contexto.ambiente, resposta.req.usuario.id_usuario]);
   assert.equal(resposta.req.usuario.id_ambiente, contexto.ambiente);
   return worksheet;
 }
@@ -421,7 +428,7 @@ test("Exportação: chamadas A, B e A não misturam resultados entre requisiçõ
     await verificarIsolamento(ctx, contexto, await ctx.exportar("admin-" + contexto.nome));
   }
   assert.deepEqual(ctx.estado.identidades, [11, 21, 11]);
-  assert.deepEqual(ctx.estado.exportacoes.map((c) => c.params), [[A], [B], [A]]);
+  assert.deepEqual(ctx.estado.exportacoes.map((c) => c.params), [[A, 11], [B, 21], [A, 11]]);
 });
 
 test("Exportação: consulta efetivamente produzida exige filtro parametrizado do ambiente autenticado", async (t) => {
@@ -430,9 +437,56 @@ test("Exportação: consulta efetivamente produzida exige filtro parametrizado d
   assert.equal(ctx.estado.globais.length, 0, "Consulta global não é aceita como segura");
   assert.equal(ctx.estado.exportacoes.length, 1);
   assert.equal(ctx.estado.exportacoes[0].sql, SQL_AMBIENTE);
-  assert.deepEqual(ctx.estado.exportacoes[0].params, [A]);
+  assert.deepEqual(ctx.estado.exportacoes[0].params, [A, 11]);
   await verificarIsolamento(ctx, CONTEXTOS[0], resposta);
 });
+
+for (const contexto of CONTEXTOS) {
+  test("Excel " + contexto.nome + ": engenheiro não recebe locais de outra campanha do mesmo ambiente", async (t) => {
+    const ctx = preparar(t);
+    const idCampanha = contexto.local + 500;
+    ctx.estado.campanhas.push({ id_campanha: idCampanha, id_ambiente: contexto.ambiente, id_usuario: 999, nome_campanha: "CAMPANHA_NAO_AUTORIZADA" });
+    ctx.estado.locais.push({ id_local: idCampanha, id_campanha: idCampanha, nome_local: "LOCAL_NAO_AUTORIZADO", status: "ATIVO" });
+    ctx.estado.evidencias.push({ id_local: idCampanha, id_evidencia: 999, descricao: "EVIDENCIA_NAO_AUTORIZADA", latitude: 88 });
+    const resposta = await ctx.exportar("engenheiro-" + contexto.nome);
+    const worksheet = await abrir(resposta.res);
+    assert.deepEqual(linhas(worksheet), esperado(ctx.juntar(contexto.ambiente, contexto.engenheiro)));
+    assert.equal(worksheet.rowCount, 4);
+    assert.equal(JSON.stringify(linhas(worksheet)).includes("NAO_AUTORIZAD"), false);
+    const admin = await abrir((await ctx.exportar("admin-" + contexto.nome)).res);
+    assert.equal(admin.rowCount, 5);
+    assert.equal(JSON.stringify(linhas(admin)).includes("LOCAL_NAO_AUTORIZADO"), true);
+  });
+  test("Excel " + contexto.nome + ": revogação da responsabilidade é revalidada na consulta", async (t) => {
+    const ctx = preparar(t);
+    ctx.estado.antesExportar = () => { ctx.estado.campanhas.find(c => c.id_ambiente === contexto.ambiente).id_usuario = 999; };
+    const worksheet = await abrir((await ctx.exportar("engenheiro-" + contexto.nome)).res);
+    assert.equal(worksheet.rowCount, 1);
+    assert.deepEqual(linhas(worksheet), []);
+  });
+  test("Excel " + contexto.nome + ": perfil administrativo revogado não exporta campanha alheia", async (t) => {
+    const ctx = preparar(t);
+    ctx.estado.antesExportar = () => { ctx.estado.usuarios.get(contexto.admin).perfil_acesso = "ENGENHEIRO_SEGURANCA"; };
+    const worksheet = await abrir((await ctx.exportar("admin-" + contexto.nome)).res);
+    assert.equal(worksheet.rowCount, 1);
+  });
+  test("Excel " + contexto.nome + ": corpo e query não restauram responsabilidade revogada", async (t) => {
+    const ctx = preparar(t);
+    ctx.estado.campanhas.find(c => c.id_ambiente === contexto.ambiente).id_usuario = 999;
+    const forjado = { id_usuario: contexto.admin, id_ambiente: contexto.ambiente, perfil_acesso: "ADMINISTRADOR" };
+    const resposta = await ctx.exportar("engenheiro-" + contexto.nome, { body: forjado, query: forjado, params: forjado, usuario: forjado });
+    const worksheet = await abrir(resposta.res);
+    assert.equal(worksheet.rowCount, 1);
+    assert.equal(resposta.req.usuario.id_usuario, contexto.engenheiro);
+  });
+  test("Excel " + contexto.nome + ": local sem evidências exige responsabilidade igualmente", async (t) => {
+    const ctx = preparar(t);
+    ctx.estado.evidencias = [];
+    const worksheet = await abrir((await ctx.exportar("engenheiro-" + contexto.nome)).res);
+    assert.equal(worksheet.rowCount, 3);
+    assert.ok(linhas(worksheet).every(l => l.slice(7).every(v => v === "")));
+  });
+}
 
 // Limitações: junções são simuladas com tabelas independentes em memória;
 // não validam constraints, RLS, triggers, concorrência ou execução PostgreSQL.

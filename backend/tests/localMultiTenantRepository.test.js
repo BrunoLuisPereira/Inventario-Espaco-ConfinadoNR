@@ -72,7 +72,7 @@ test("Recusa UUID de ambiente inválido nas seis funções antes de consultar", 
       ...escritas(usuario),
       () => repository.listarPorAmbiente(ambiente),
       () => repository.buscarPorIdEAmbiente(40, ambiente),
-      () => repository.listarParaExportacaoPorAmbiente(ambiente),
+      () => repository.listarParaExportacaoPorAmbiente(ambiente, { id_usuario: 10, id_ambiente: ambiente }),
     ];
     for (const executar of operacoes) {
       await assert.rejects(executar, {
@@ -219,13 +219,14 @@ test("Atualiza local com filtros de local, vínculo com campanha e ambiente", as
   assert.match(sql, /UPDATE\s+local\s+AS\s+l/i);
   assert.match(sql, /FROM\s+campanha\s+AS\s+c/i);
   assert.match(sql, /WHERE\s+l\.id_local\s*=\s*\$1\s+AND\s+c\.id_campanha\s*=\s*l\.id_campanha\s+AND\s+c\.id_ambiente\s*=\s*\$2/i);
-  assert.match(sql, /nome_local\s*=\s*\$4/i);
-  assert.match(sql, /longitude\s*=\s*\$9/i);
+  assert.match(sql, /nome_local\s*=\s*CASE WHEN \$10::boolean THEN \$4 ELSE l\.nome_local END/i);
+  assert.match(sql, /longitude\s*=\s*CASE WHEN \$15::boolean THEN \$9 ELSE l\.longitude END/i);
   assert.match(sql, /data_atualizacao\s*=\s*CURRENT_TIMESTAMP/i);
   assert.match(sql, /RETURNING\s+l\.id_local/i);
   assert.deepEqual(parametros, [
     40, AMBIENTE_A, 10, DADOS.nomeLocal, DADOS.setor, DADOS.descricao,
     DADOS.endereco, DADOS.latitude, DADOS.longitude,
+    true, true, true, true, true, true,
   ]);
 });
 
@@ -312,11 +313,15 @@ test("Exportação filtra os ambientes A e B por WHERE c.id_ambiente = $1", asyn
   const registros = [{ id_local: 40, nome_campanha: "Campanha", id_evidencia: null }];
   const consulta = simularBanco(t, registros);
   for (const [indice, ambiente] of [AMBIENTE_A, AMBIENTE_B].entries()) {
-    assert.deepEqual(await repository.listarParaExportacaoPorAmbiente(ambiente), registros);
+    assert.deepEqual(await repository.listarParaExportacaoPorAmbiente(ambiente, { id_usuario: 10, id_ambiente: ambiente }), registros);
     const [sql, parametros] = consulta.mock.calls[indice].arguments;
     assert.match(sql, /c\.id_campanha\s*=\s*l\.id_campanha/i);
-    assert.match(sql, /WHERE\s+c\.id_ambiente\s*=\s*\$1\s+ORDER\s+BY/i);
-    assert.deepEqual(parametros, [ambiente]);
+    assert.match(sql, /WHERE\s+c\.id_ambiente\s*=\s*\$1\s+AND\s+EXISTS/i);
+    assert.deepEqual(parametros, [ambiente, 10]);
+    assert.match(sql, /u\.id_usuario\s*=\s*\$2/);
+    assert.match(sql, /u\.ativo\s*=\s*TRUE/);
+    assert.match(sql, /a\.ativo\s*=\s*TRUE/);
+    assert.match(sql, /c\.id_usuario\s*=\s*u\.id_usuario/);
   }
   assert.equal(consulta.mock.callCount(), 2);
 });
@@ -324,7 +329,7 @@ test("Exportação filtra os ambientes A e B por WHERE c.id_ambiente = $1", asyn
 test("Exportação preserva LEFT JOIN evidencia, aliases legados e locais sem fotos", async (t) => {
   const registros = [{ id_local: 40, id_evidencia: null }];
   const consulta = simularBanco(t, registros);
-  assert.deepEqual(await repository.listarParaExportacaoPorAmbiente(AMBIENTE_A), registros);
+  assert.deepEqual(await repository.listarParaExportacaoPorAmbiente(AMBIENTE_A, USUARIO_A), registros);
   const [sql] = consultaUnica(consulta);
 
   assert.match(sql, /LEFT\s+JOIN\s+evidencia\s+AS\s+e\s+ON\s+e\.id_local\s*=\s*l\.id_local/i);
@@ -349,7 +354,7 @@ test("Não interpola valores do cliente no SQL das seis funções", async (t) =>
   await repository.buscarPorIdEAmbiente(78903, AMBIENTE_B);
   await repository.atualizarNoAmbiente(78903, dados, usuario);
   await repository.atualizarStatusNoAmbiente(78903, "INATIVO", usuario);
-  await repository.listarParaExportacaoPorAmbiente(AMBIENTE_B);
+  await repository.listarParaExportacaoPorAmbiente(AMBIENTE_B, USUARIO_B);
 
   assert.equal(consulta.mock.callCount(), 6);
   for (const chamada of consulta.mock.calls) {

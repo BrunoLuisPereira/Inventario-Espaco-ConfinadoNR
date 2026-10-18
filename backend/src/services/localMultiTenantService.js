@@ -1,7 +1,6 @@
 const localRepository = require("../repositories/localMultiTenantRepository");
 
-// Depende da homologação multi-tenant e do versionamento.
-// Não utilizar nas rotas antes da homologação.
+// O esquema multi-tenant e o versionamento ainda exigem homologação real.
 const STATUS_PERMITIDOS = ["ATIVO", "INATIVO"];
 
 function criarErro(message, statusCode) {
@@ -132,7 +131,8 @@ async function criarLocal(dados, usuarioAutenticado) {
   // O INSERT SELECT verifica ambiente, atividade e autorização no SQL.
   const local = await localRepository.criarNoAmbiente(
     { ...campos, status, idCampanha },
-    usuario
+    usuario,
+    { bloquearAutorizacao: true }
   );
 
   if (!local) {
@@ -145,16 +145,16 @@ async function criarLocal(dados, usuarioAutenticado) {
 
 async function listarLocais(usuarioAutenticado) {
   const usuario = validarIdentidade(usuarioAutenticado);
-  return localRepository.listarPorAmbiente(usuario.id_ambiente);
+  return localRepository.listarPermitidosNoAmbiente(usuario);
 }
 
 async function buscarLocalPorId(idLocal, usuarioAutenticado) {
   const usuario = validarIdentidade(usuarioAutenticado);
   const id = validarIdentificador(idLocal, "ID do local inválido.");
 
-  const local = await localRepository.buscarPorIdEAmbiente(
+  const local = await localRepository.buscarPermitidoPorIdNoAmbiente(
     id,
-    usuario.id_ambiente
+    usuario
   );
 
   return exigirLocal(local);
@@ -165,9 +165,16 @@ async function atualizarLocal(idLocal, dados, usuarioAutenticado) {
   const id = validarIdentificador(idLocal, "ID do local inválido.");
   const campos = validarCamposLocal(dados);
 
+  // Nome continua obrigatório; omissão dos opcionais não apaga dados.
+  for (const campo of ["setor", "descricao", "endereco", "latitude", "longitude"]) {
+    if (!Object.hasOwn(dados, campo)) delete campos[campo];
+  }
+
   // id_campanha e campos de identidade enviados no corpo são ignorados.
   // A autorização é verificada na própria instrução UPDATE.
-  const local = await localRepository.atualizarNoAmbiente(id, campos, usuario);
+  const local = await localRepository.atualizarNoAmbiente(id, campos, usuario, {
+    bloquearAutorizacao: true,
+  });
 
   return exigirLocal(local);
 }
@@ -181,7 +188,8 @@ async function alterarStatusLocal(idLocal, dados, usuarioAutenticado) {
   const local = await localRepository.atualizarStatusNoAmbiente(
     id,
     dados.status,
-    usuario
+    usuario,
+    { bloquearAutorizacao: true }
   );
 
   return exigirLocal(local);
@@ -189,7 +197,7 @@ async function alterarStatusLocal(idLocal, dados, usuarioAutenticado) {
 
 async function listarLocaisParaExportacao(usuarioAutenticado) {
   const usuario = validarIdentidade(usuarioAutenticado);
-  return localRepository.listarParaExportacaoPorAmbiente(usuario.id_ambiente);
+  return localRepository.listarParaExportacaoPorAmbiente(usuario.id_ambiente, usuario);
 }
 
 module.exports = {

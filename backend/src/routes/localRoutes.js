@@ -2,17 +2,15 @@ const express = require("express");
 const localController = require("../controllers/localController");
 
 const {
-  autenticar,
   autenticarMultiTenant,
 } = require("../middlewares/autenticacaoMiddleware");
 
 const router = express.Router();
 
-// Somente a exportação usa identidade e ambiente revalidados.
-// Deve preceder o middleware legado e a rota "/:id".
-router.get("/exportar", autenticarMultiTenant, localController.exportar);
-
-router.use(autenticar);
+// Uma única autenticação atual para todas as operações montadas.
+router.use(autenticarMultiTenant);
+// A exportação deve preceder "/:id".
+router.get("/exportar", localController.exportar);
 
 // Criar local
 router.post("/", localController.criar);

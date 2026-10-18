@@ -1,7 +1,6 @@
 const pool = require("../config/database");
 
-// Depende da homologação das migrações multi-tenant e do versionamento.
-// Não utilizar nas rotas antes da homologação.
+// O esquema multi-tenant e os bloqueios exigem homologação PostgreSQL.
 
 // Fragmentos estáticos internos; nenhum dado do cliente compõe o SQL.
 const COLUNAS_LOCAL = `
@@ -90,7 +89,7 @@ function validarStatus(status) {
   }
 }
 
-async function criarNoAmbiente(dados, usuarioAutenticado) {
+async function criarNoAmbiente(dados, usuarioAutenticado, opcoes) {
   const usuario = validarIdentidade(usuarioAutenticado);
   validarDados(dados);
 
@@ -141,6 +140,9 @@ async function criarNoAmbiente(dados, usuarioAutenticado) {
     longitude,
     status,
   ];
+  if (opcoes?.bloquearAutorizacao === true) {
+    return executarEscritaComBloqueios(query, valores, usuario, id, true);
+  }
   const resultado = await pool.query(query, valores);
 
   return resultado.rows[0] || null;
@@ -180,7 +182,7 @@ async function buscarPorIdEAmbiente(idLocal, idAmbiente) {
   return resultado.rows[0] || null;
 }
 
-async function atualizarNoAmbiente(idLocal, dados, usuarioAutenticado) {
+async function atualizarNoAmbiente(idLocal, dados, usuarioAutenticado, opcoes) {
   const id = validarIdentificador(idLocal, "ID do local inválido.");
   const usuario = validarIdentidade(usuarioAutenticado);
   validarDados(dados);
@@ -191,12 +193,12 @@ async function atualizarNoAmbiente(idLocal, dados, usuarioAutenticado) {
   const query = `
     UPDATE local AS l
     SET
-      nome_local = $4,
-      setor = $5,
-      descricao = $6,
-      endereco = $7,
-      latitude = $8,
-      longitude = $9,
+      nome_local = CASE WHEN $10::boolean THEN $4 ELSE l.nome_local END,
+      setor = CASE WHEN $11::boolean THEN $5 ELSE l.setor END,
+      descricao = CASE WHEN $12::boolean THEN $6 ELSE l.descricao END,
+      endereco = CASE WHEN $13::boolean THEN $7 ELSE l.endereco END,
+      latitude = CASE WHEN $14::boolean THEN $8 ELSE l.latitude END,
+      longitude = CASE WHEN $15::boolean THEN $9 ELSE l.longitude END,
       data_atualizacao = CURRENT_TIMESTAMP
     FROM campanha AS c
     WHERE l.id_local = $1
@@ -216,13 +218,19 @@ async function atualizarNoAmbiente(idLocal, dados, usuarioAutenticado) {
     endereco,
     latitude,
     longitude,
+    ...["nomeLocal", "setor", "descricao", "endereco", "latitude", "longitude"].map(
+      (campo) => Object.hasOwn(dados, campo)
+    ),
   ];
+  if (opcoes?.bloquearAutorizacao === true) {
+    return executarEscritaComBloqueios(query, valores, usuario, id, false);
+  }
   const resultado = await pool.query(query, valores);
 
   return resultado.rows[0] || null;
 }
 
-async function atualizarStatusNoAmbiente(idLocal, status, usuarioAutenticado) {
+async function atualizarStatusNoAmbiente(idLocal, status, usuarioAutenticado, opcoes) {
   const id = validarIdentificador(idLocal, "ID do local inválido.");
   const usuario = validarIdentidade(usuarioAutenticado);
   validarStatus(status);
@@ -240,18 +248,24 @@ async function atualizarStatusNoAmbiente(idLocal, status, usuarioAutenticado) {
     RETURNING ${COLUNAS_LOCAL}
   `;
 
-  const resultado = await pool.query(query, [
+  const valores = [
     id,
     usuario.id_ambiente,
     usuario.id_usuario,
     status,
-  ]);
+  ];
+  if (opcoes?.bloquearAutorizacao === true) {
+    return executarEscritaComBloqueios(query, valores, usuario, id, false);
+  }
+  const resultado = await pool.query(query, valores);
 
   return resultado.rows[0] || null;
 }
 
-async function listarParaExportacaoPorAmbiente(idAmbiente) {
+async function listarParaExportacaoPorAmbiente(idAmbiente, usuarioAutenticado) {
   validarIdAmbiente(idAmbiente);
+  const usuario = validarIdentidade(usuarioAutenticado);
+  if (usuario.id_ambiente !== idAmbiente) throw criarErro("Usuário não autenticado.", 401);
 
   const query = `
     SELECT
@@ -276,6 +290,7 @@ async function listarParaExportacaoPorAmbiente(idAmbiente) {
     LEFT JOIN evidencia AS e
       ON e.id_local = l.id_local
     WHERE c.id_ambiente = $1
+      ${AUTORIZACAO_ESCRITA.replace(/\$3/g, "$2")}
     ORDER BY
       c.nome_campanha ASC,
       l.nome_local ASC,
@@ -283,11 +298,86 @@ async function listarParaExportacaoPorAmbiente(idAmbiente) {
       e.id_evidencia ASC
   `;
 
-  const resultado = await pool.query(query, [idAmbiente]);
+  const resultado = await pool.query(query, [idAmbiente, usuario.id_usuario]);
   return resultado.rows;
 }
 
+// Leituras públicas exigem identidade, atividade e responsabilidade no SQL.
+// As consultas antigas por ambiente permanecem para seus consumidores existentes.
+async function listarPermitidosNoAmbiente(usuarioAutenticado) {
+  const u = validarIdentidade(usuarioAutenticado);
+  const resultado = await pool.query(`
+    SELECT ${COLUNAS_LOCAL}, c.nome_campanha
+    FROM local AS l INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha
+    WHERE c.id_ambiente = $1 ${AUTORIZACAO_ESCRITA.replace(/\$3/g, "$2")}
+    ORDER BY l.data_criacao DESC
+  `, [u.id_ambiente, u.id_usuario]);
+  return resultado.rows;
+}
+
+async function buscarPermitidoPorIdNoAmbiente(idLocal, usuarioAutenticado) {
+  const id = validarIdentificador(idLocal, "ID do local inválido.");
+  const u = validarIdentidade(usuarioAutenticado);
+  const resultado = await pool.query(`
+    SELECT ${COLUNAS_LOCAL}, c.nome_campanha
+    FROM local AS l INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha
+    WHERE l.id_local = $1 AND c.id_ambiente = $2 ${AUTORIZACAO_ESCRITA}
+    LIMIT 1
+  `, [id, u.id_ambiente, u.id_usuario]);
+  return resultado.rows[0] || null;
+}
+
+// Ordem de bloqueios: ambiente -> solicitante -> campanha -> local.
+// O ID da campanha observado no primeiro SELECT é fixado nos SELECTs seguintes.
+// A própria escrita mantém a autorização, sem recuperação global por ID.
+async function executarEscritaComBloqueios(query, valores, usuario, id, criacao) {
+  const client = await pool.connect();
+  let aberta = false;
+  let descartar;
+  try {
+    await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+    aberta = true;
+    let idCampanha;
+    for (const alias of criacao ? ["a", "u", "c"] : ["a", "u", "c", "l"]) {
+      const parametros = [id, usuario.id_ambiente, usuario.id_usuario];
+      if (idCampanha !== undefined) parametros.push(idCampanha);
+      const bloqueio = await client.query(`
+        SELECT c.id_campanha
+        FROM ambiente AS a INNER JOIN usuario AS u ON u.id_ambiente = a.id_ambiente
+        INNER JOIN campanha AS c ON c.id_ambiente = a.id_ambiente
+        ${criacao ? "" : "INNER JOIN local AS l ON l.id_campanha = c.id_campanha"}
+        WHERE ${criacao ? "c.id_campanha" : "l.id_local"} = $1
+          AND a.id_ambiente = $2 AND u.id_usuario = $3
+          AND u.ativo = TRUE AND a.ativo = TRUE
+          AND (u.perfil_acesso = 'ADMINISTRADOR' OR c.id_usuario = u.id_usuario)
+          ${idCampanha === undefined ? "" : "AND c.id_campanha = $4"}
+        FOR ${["c", "l"].includes(alias) ? "UPDATE" : "SHARE"} OF ${alias}
+      `, parametros);
+      if (!bloqueio.rows[0]) {
+        await client.query("ROLLBACK");
+        aberta = false;
+        return null;
+      }
+      idCampanha = bloqueio.rows[0].id_campanha;
+    }
+    const resultado = await client.query(query, valores);
+    if (!resultado.rows[0]) throw criarErro("Falha interna ao salvar local.", 500);
+    await client.query("COMMIT");
+    aberta = false;
+    return resultado.rows[0];
+  } catch (erro) {
+    if (aberta) {
+      try { await client.query("ROLLBACK"); } catch (falha) { descartar = falha; }
+    } else descartar = erro;
+    throw erro;
+  } finally {
+    if (descartar) client.release(descartar); else client.release();
+  }
+}
+
 module.exports = {
+  listarPermitidosNoAmbiente,
+  buscarPermitidoPorIdNoAmbiente,
   criarNoAmbiente,
   listarPorAmbiente,
   buscarPorIdEAmbiente,
