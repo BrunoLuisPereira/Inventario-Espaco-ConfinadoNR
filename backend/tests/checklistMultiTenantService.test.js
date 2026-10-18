@@ -24,7 +24,7 @@ const DADOS = { id_local: 40, ...RESPOSTAS, observacoes: "Observação simulada"
 const CRIACAO = { ...DADOS, status: "PENDENTE" };
 const CHECKLIST = { ...CRIACAO, id_checklist: 50, id_usuario: 10 };
 const METODOS = [
-  "criarNoAmbiente", "listarPorAmbiente", "buscarPorIdEAmbiente",
+  "criarNoAmbiente", "listarPermitidosNoAmbiente", "buscarPermitidoPorIdNoAmbiente",
   "atualizarNoAmbiente", "atualizarStatusNoAmbiente", "buscarPorLocalEAmbiente",
 ];
 const IDS_INVALIDOS = [
@@ -172,7 +172,7 @@ test("Aceita somente SIM e NAO nas respostas de criação e atualização", asyn
     const respostas = Object.fromEntries(CAMPOS.map((campo) => [campo, valor]));
     await service.criarChecklist({ ...DADOS, ...respostas }, USUARIO_A);
     await service.atualizarChecklist(50, respostas, USUARIO_A);
-    assert.deepEqual(mocks.atualizarNoAmbiente.mock.calls[indice].arguments, [50, respostas, USUARIO_A]);
+    assert.deepEqual(mocks.atualizarNoAmbiente.mock.calls[indice].arguments, [50, respostas, USUARIO_A, { bloquearAutorizacao: true }]);
     for (const campo of CAMPOS) {
       assert.equal(mocks.criarNoAmbiente.mock.calls[indice].arguments[0][campo], valor);
     }
@@ -205,7 +205,7 @@ test("Valida observações textuais, rejeita tipos incorretos e preserva omitida
 test("Utiliza PENDENTE como status inicial padrão", async (t) => {
   const mocks = simularRepositorio(t, { criarNoAmbiente: CHECKLIST });
   await service.criarChecklist(DADOS, USUARIO_A);
-  assert.deepEqual(unica(mocks.criarNoAmbiente), [CRIACAO, USUARIO_A]);
+  assert.deepEqual(unica(mocks.criarNoAmbiente), [CRIACAO, USUARIO_A, { bloquearAutorizacao: true }]);
 });
 
 test("Aceita somente PENDENTE e CONCLUIDO como status", async (t) => {
@@ -223,7 +223,7 @@ test("Aceita somente PENDENTE e CONCLUIDO como status", async (t) => {
     assert.deepEqual(await service.criarChecklist({ ...DADOS, status }, USUARIO_A), { ...CHECKLIST, status });
     assert.deepEqual(await service.alterarStatusChecklist(50, { status }, USUARIO_A), { ...CHECKLIST, status });
     assert.equal(mocks.criarNoAmbiente.mock.calls[indice].arguments[0].status, status);
-    assert.deepEqual(mocks.atualizarStatusNoAmbiente.mock.calls[indice].arguments, [50, status, USUARIO_A]);
+    assert.deepEqual(mocks.atualizarStatusNoAmbiente.mock.calls[indice].arguments, [50, status, USUARIO_A, { bloquearAutorizacao: true }]);
   }
   assert.equal(mocks.criarNoAmbiente.mock.callCount(), 2);
   assert.equal(mocks.atualizarStatusNoAmbiente.mock.callCount(), 2);
@@ -233,7 +233,7 @@ test("Cria checklist usando exclusivamente identidade autenticada e IDs normaliz
   const mocks = simularRepositorio(t, { criarNoAmbiente: CHECKLIST });
   const resultado = await service.criarChecklist({ ...DADOS, id_local: "40" }, { ...USUARIO_A, id_usuario: "10" });
   assert.deepEqual(resultado, CHECKLIST);
-  assert.deepEqual(unica(mocks.criarNoAmbiente), [CRIACAO, USUARIO_A]);
+  assert.deepEqual(unica(mocks.criarNoAmbiente), [CRIACAO, USUARIO_A, { bloquearAutorizacao: true }]);
 });
 
 test("Ignora usuário, ambiente e perfil forjados no corpo das três escritas", async (t) => {
@@ -247,32 +247,32 @@ test("Ignora usuário, ambiente e perfil forjados no corpo das três escritas", 
   await service.criarChecklist(dados, USUARIO_A);
   await service.atualizarChecklist(50, dados, USUARIO_A);
   await service.alterarStatusChecklist(50, dados, USUARIO_A);
-  assert.deepEqual(unica(mocks.criarNoAmbiente), [{ ...CRIACAO, status: "CONCLUIDO" }, USUARIO_A]);
-  assert.deepEqual(unica(mocks.atualizarNoAmbiente), [50, { ...RESPOSTAS, observacoes: DADOS.observacoes }, USUARIO_A]);
-  assert.deepEqual(unica(mocks.atualizarStatusNoAmbiente), [50, "CONCLUIDO", USUARIO_A]);
+  assert.deepEqual(unica(mocks.criarNoAmbiente), [{ ...CRIACAO, status: "CONCLUIDO" }, USUARIO_A, { bloquearAutorizacao: true }]);
+  assert.deepEqual(unica(mocks.atualizarNoAmbiente), [50, { ...RESPOSTAS, observacoes: DADOS.observacoes }, USUARIO_A, { bloquearAutorizacao: true }]);
+  assert.deepEqual(unica(mocks.atualizarStatusNoAmbiente), [50, "CONCLUIDO", USUARIO_A, { bloquearAutorizacao: true }]);
 });
 
 test("Lista checklists exclusivamente pelo ambiente autenticado", async (t) => {
-  const mocks = simularRepositorio(t, { listarPorAmbiente: [CHECKLIST] });
+  const mocks = simularRepositorio(t, { listarPermitidosNoAmbiente: [CHECKLIST] });
   assert.deepEqual(await service.listarChecklists(USUARIO_A), [CHECKLIST]);
-  assert.deepEqual(unica(mocks.listarPorAmbiente), [AMBIENTE_A]);
+  assert.deepEqual(unica(mocks.listarPermitidosNoAmbiente), [USUARIO_A]);
 });
 
 test("Busca checklist pelo ID e ambiente autenticado", async (t) => {
-  const mocks = simularRepositorio(t, { buscarPorIdEAmbiente: CHECKLIST });
+  const mocks = simularRepositorio(t, { buscarPermitidoPorIdNoAmbiente: CHECKLIST });
   assert.deepEqual(await service.buscarChecklistPorId("50", USUARIO_A), CHECKLIST);
-  assert.deepEqual(unica(mocks.buscarPorIdEAmbiente), [50, AMBIENTE_A]);
+  assert.deepEqual(unica(mocks.buscarPermitidoPorIdNoAmbiente), [50, USUARIO_A]);
 });
 
 test("Retorna HTTP 404 para checklist inexistente ou externo ao ambiente", async (t) => {
-  const mocks = simularRepositorio(t, { buscarPorIdEAmbiente: null });
+  const mocks = simularRepositorio(t, { buscarPermitidoPorIdNoAmbiente: null });
   for (const [indice, usuario] of [USUARIO_A, USUARIO_B].entries()) {
     await assert.rejects(service.buscarChecklistPorId(50, usuario), {
       statusCode: 404, message: "Checklist não encontrado.",
     });
-    assert.deepEqual(mocks.buscarPorIdEAmbiente.mock.calls[indice].arguments, [50, usuario.id_ambiente]);
+    assert.deepEqual(mocks.buscarPermitidoPorIdNoAmbiente.mock.calls[indice].arguments, [50, usuario]);
   }
-  assert.equal(mocks.buscarPorIdEAmbiente.mock.callCount(), 2);
+  assert.equal(mocks.buscarPermitidoPorIdNoAmbiente.mock.callCount(), 2);
 });
 
 test("Atualiza parcialmente sem encaminhar respostas omitidas ou null e sem leitura prévia", async (t) => {
@@ -284,10 +284,10 @@ test("Atualiza parcialmente sem encaminhar respostas omitidas ou null e sem leit
   ];
   for (const [indice, [dados, esperado]] of casos.entries()) {
     assert.deepEqual(await service.atualizarChecklist(50, dados, USUARIO_A), CHECKLIST);
-    assert.deepEqual(mocks.atualizarNoAmbiente.mock.calls[indice].arguments, [50, esperado, USUARIO_A]);
+    assert.deepEqual(mocks.atualizarNoAmbiente.mock.calls[indice].arguments, [50, esperado, USUARIO_A, { bloquearAutorizacao: true }]);
   }
   assert.equal(mocks.atualizarNoAmbiente.mock.callCount(), 3);
-  assert.equal(mocks.buscarPorIdEAmbiente.mock.callCount(), 0);
+  assert.equal(mocks.buscarPermitidoPorIdNoAmbiente.mock.callCount(), 0);
   assert.equal(mocks.buscarPorLocalEAmbiente.mock.callCount(), 0);
 });
 
@@ -296,7 +296,7 @@ test("Encaminha observações vazias para limpeza pelo repositório", async (t) 
   await service.criarChecklist({ ...DADOS, observacoes: "" }, USUARIO_A);
   await service.atualizarChecklist(50, { observacoes: "" }, USUARIO_A);
   assert.equal(unica(mocks.criarNoAmbiente)[0].observacoes, "");
-  assert.deepEqual(unica(mocks.atualizarNoAmbiente), [50, { observacoes: "" }, USUARIO_A]);
+  assert.deepEqual(unica(mocks.atualizarNoAmbiente), [50, { observacoes: "" }, USUARIO_A, { bloquearAutorizacao: true }]);
 });
 
 test("PUT de respostas não encaminha alteração de id_local, id_usuario ou status", async (t) => {
@@ -305,7 +305,7 @@ test("PUT de respostas não encaminha alteração de id_local, id_usuario ou sta
     criterio_a: "NAO", id_local: 999, id_usuario: 999, status: "CONCLUIDO",
     id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR",
   }, USUARIO_A);
-  assert.deepEqual(unica(mocks.atualizarNoAmbiente), [50, { criterio_a: "NAO" }, USUARIO_A]);
+  assert.deepEqual(unica(mocks.atualizarNoAmbiente), [50, { criterio_a: "NAO" }, USUARIO_A, { bloquearAutorizacao: true }]);
   assert.equal(mocks.atualizarStatusNoAmbiente.mock.callCount(), 0);
 });
 
@@ -314,15 +314,15 @@ test("Retorna HTTP 404 quando atualização não é autorizada", async (t) => {
   await assert.rejects(service.atualizarChecklist(50, { criterio_a: "NAO" }, USUARIO_A), {
     statusCode: 404, message: "Checklist não encontrado.",
   });
-  assert.deepEqual(unica(mocks.atualizarNoAmbiente), [50, { criterio_a: "NAO" }, USUARIO_A]);
+  assert.deepEqual(unica(mocks.atualizarNoAmbiente), [50, { criterio_a: "NAO" }, USUARIO_A, { bloquearAutorizacao: true }]);
 });
 
 test("Altera status utilizando a identidade autenticada", async (t) => {
   const atualizado = { ...CHECKLIST, status: "CONCLUIDO" };
   const mocks = simularRepositorio(t, { atualizarStatusNoAmbiente: atualizado });
   assert.deepEqual(await service.alterarStatusChecklist("50", { status: "CONCLUIDO" }, USUARIO_A), atualizado);
-  assert.deepEqual(unica(mocks.atualizarStatusNoAmbiente), [50, "CONCLUIDO", USUARIO_A]);
-  assert.equal(mocks.buscarPorIdEAmbiente.mock.callCount(), 0);
+  assert.deepEqual(unica(mocks.atualizarStatusNoAmbiente), [50, "CONCLUIDO", USUARIO_A, { bloquearAutorizacao: true }]);
+  assert.equal(mocks.buscarPermitidoPorIdNoAmbiente.mock.callCount(), 0);
 });
 
 test("Retorna HTTP 404 quando alteração de status não é autorizada", async (t) => {
@@ -330,7 +330,7 @@ test("Retorna HTTP 404 quando alteração de status não é autorizada", async (
   await assert.rejects(service.alterarStatusChecklist(50, { status: "CONCLUIDO" }, USUARIO_A), {
     statusCode: 404, message: "Checklist não encontrado.",
   });
-  assert.deepEqual(unica(mocks.atualizarStatusNoAmbiente), [50, "CONCLUIDO", USUARIO_A]);
+  assert.deepEqual(unica(mocks.atualizarStatusNoAmbiente), [50, "CONCLUIDO", USUARIO_A, { bloquearAutorizacao: true }]);
 });
 
 test("Retorna HTTP 404 quando criação não encontra local autorizado", async (t) => {
@@ -338,7 +338,7 @@ test("Retorna HTTP 404 quando criação não encontra local autorizado", async (
   await assert.rejects(service.criarChecklist(DADOS, USUARIO_A), {
     statusCode: 404, message: "Local não encontrado.",
   });
-  assert.deepEqual(unica(mocks.criarNoAmbiente), [CRIACAO, USUARIO_A]);
+  assert.deepEqual(unica(mocks.criarNoAmbiente), [CRIACAO, USUARIO_A, { bloquearAutorizacao: true }]);
   assert.equal(mocks.buscarPorLocalEAmbiente.mock.callCount(), 0);
 });
 
@@ -351,7 +351,7 @@ test("Preserva HTTP 409 e a mesma instância do conflito identificado pelo repos
     assert.equal(recebido.statusCode, 409);
     return true;
   });
-  assert.deepEqual(unica(mocks.criarNoAmbiente), [CRIACAO, USUARIO_A]);
+  assert.deepEqual(unica(mocks.criarNoAmbiente), [CRIACAO, USUARIO_A, { bloquearAutorizacao: true }]);
   assert.equal(mocks.buscarPorLocalEAmbiente.mock.callCount(), 0);
 });
 
@@ -366,7 +366,7 @@ test("Não consulta duplicidade antes de tentar a criação autorizada no reposi
 
 test("Encaminha parâmetros dos ambientes A e B sem usar identidade forjada", async (t) => {
   const respostas = Object.fromEntries(METODOS.slice(0, 5).map((metodo) => [
-    metodo, metodo === "listarPorAmbiente" ? [CHECKLIST] : CHECKLIST,
+    metodo, metodo === "listarPermitidosNoAmbiente" ? [CHECKLIST] : CHECKLIST,
   ]));
   const mocks = simularRepositorio(t, respostas);
   for (const [indice, usuario] of [USUARIO_A, USUARIO_B].entries()) {
@@ -380,11 +380,11 @@ test("Encaminha parâmetros dos ambientes A e B sem usar identidade forjada", as
     await service.atualizarChecklist(50, { ...dados, criterio_a: "NAO" }, usuario);
     await service.alterarStatusChecklist(50, { ...dados, status: "CONCLUIDO" }, usuario);
     const esperados = {
-      criarNoAmbiente: [CRIACAO, usuario],
-      listarPorAmbiente: [usuario.id_ambiente],
-      buscarPorIdEAmbiente: [50, usuario.id_ambiente],
-      atualizarNoAmbiente: [50, { ...RESPOSTAS, criterio_a: "NAO", observacoes: DADOS.observacoes }, usuario],
-      atualizarStatusNoAmbiente: [50, "CONCLUIDO", usuario],
+      criarNoAmbiente: [CRIACAO, usuario, { bloquearAutorizacao: true }],
+      listarPermitidosNoAmbiente: [usuario],
+      buscarPermitidoPorIdNoAmbiente: [50, usuario],
+      atualizarNoAmbiente: [50, { ...RESPOSTAS, criterio_a: "NAO", observacoes: DADOS.observacoes }, usuario, { bloquearAutorizacao: true }],
+      atualizarStatusNoAmbiente: [50, "CONCLUIDO", usuario, { bloquearAutorizacao: true }],
     };
     for (const metodo of METODOS.slice(0, 5)) {
       assert.equal(mocks[metodo].mock.callCount(), indice + 1);
@@ -417,7 +417,7 @@ test("Propaga erros internos inesperados nas cinco funções sem converter em 40
 
 test("As cinco funções não utilizam repositórios legados nem acesso direto ao banco", async (t) => {
   const respostas = Object.fromEntries(METODOS.slice(0, 5).map((metodo) => [
-    metodo, metodo === "listarPorAmbiente" ? [] : CHECKLIST,
+    metodo, metodo === "listarPermitidosNoAmbiente" ? [] : CHECKLIST,
   ]));
   const mocks = simularRepositorio(t, respostas);
   for (const executar of operacoes(USUARIO_A)) await executar();

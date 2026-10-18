@@ -1,50 +1,58 @@
-const checklistService = require("../services/checklistService");
+const checklistService = require("../services/checklistMultiTenantService");
 
 async function criar(req, res, next) {
+  if (res.headersSent) return res;
   try {
     const checklist = await checklistService.criarChecklist(
       req.body,
       req.usuario
     );
 
+    if (res.headersSent) return res;
     return res.status(201).json({
       status: "success",
       data: checklist,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
 async function listar(req, res, next) {
+  if (res.headersSent) return res;
   try {
-    const checklists = await checklistService.listarChecklists();
+    const checklists = await checklistService.listarChecklists(req.usuario);
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
       total: checklists.length,
       data: checklists,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
 async function buscarPorId(req, res, next) {
+  if (res.headersSent) return res;
   try {
     const checklist = await checklistService.buscarChecklistPorId(
-      req.params.id
+      req.params.id,
+      req.usuario
     );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
       data: checklist,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 async function atualizar(req, res, next) {
+  if (res.headersSent) return res;
   try {
     const checklist = await checklistService.atualizarChecklist(
       req.params.id,
@@ -52,16 +60,18 @@ async function atualizar(req, res, next) {
       req.usuario
     );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
       message: "Checklist atualizado com sucesso.",
       data: checklist,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 async function alterarStatus(req, res, next) {
+  if (res.headersSent) return res;
   try {
     const checklist =
       await checklistService.alterarStatusChecklist(
@@ -70,13 +80,14 @@ async function alterarStatus(req, res, next) {
         req.usuario
       );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
       message: "Status do checklist atualizado com sucesso.",
       data: checklist,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 module.exports = {

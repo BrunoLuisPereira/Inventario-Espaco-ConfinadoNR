@@ -1,6 +1,6 @@
 const checklistRepository = require("../repositories/checklistMultiTenantRepository");
 
-// Não utilizar nas rotas antes da homologação multi-tenant e do versionamento.
+// O esquema multi-tenant, critérios e versionamento exigem homologação real.
 const CAMPOS_RESPOSTAS = [
   "criterio_a",
   "criterio_b",
@@ -111,7 +111,8 @@ async function criarChecklist(dados, usuarioAutenticado) {
   // a unicidade. O erro 409 controlado pelo repositório é propagado intacto.
   const checklist = await checklistRepository.criarNoAmbiente(
     { id_local: idLocal, ...respostas, ...observacoes, status },
-    usuario
+    usuario,
+    { bloquearAutorizacao: true }
   );
 
   if (!checklist) {
@@ -123,15 +124,15 @@ async function criarChecklist(dados, usuarioAutenticado) {
 
 async function listarChecklists(usuarioAutenticado) {
   const usuario = validarIdentidade(usuarioAutenticado);
-  return checklistRepository.listarPorAmbiente(usuario.id_ambiente);
+  return checklistRepository.listarPermitidosNoAmbiente(usuario);
 }
 
 async function buscarChecklistPorId(idChecklist, usuarioAutenticado) {
   const usuario = validarIdentidade(usuarioAutenticado);
   const id = validarIdentificador(idChecklist, "ID do checklist inválido.");
-  const checklist = await checklistRepository.buscarPorIdEAmbiente(
+  const checklist = await checklistRepository.buscarPermitidoPorIdNoAmbiente(
     id,
-    usuario.id_ambiente
+    usuario
   );
   return exigirChecklist(checklist);
 }
@@ -150,7 +151,8 @@ async function atualizarChecklist(idChecklist, dados, usuarioAutenticado) {
   const checklist = await checklistRepository.atualizarNoAmbiente(
     id,
     campos,
-    usuario
+    usuario,
+    { bloquearAutorizacao: true }
   );
   return exigirChecklist(checklist);
 }
@@ -164,7 +166,8 @@ async function alterarStatusChecklist(idChecklist, dados, usuarioAutenticado) {
   const checklist = await checklistRepository.atualizarStatusNoAmbiente(
     id,
     dados.status,
-    usuario
+    usuario,
+    { bloquearAutorizacao: true }
   );
   return exigirChecklist(checklist);
 }

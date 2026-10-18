@@ -1,7 +1,7 @@
 const pool = require("../config/database");
 
 // Requer os critérios da migração 018 e a homologação multi-tenant/versionamento.
-// Não utilizar nas rotas antes da homologação das migrações bloqueadas.
+// A compatibilidade real deve ser verificada em homologação PostgreSQL.
 const CAMPOS_RESPOSTAS = [
   "criterio_a",
   "criterio_b",
@@ -104,7 +104,7 @@ function ehDuplicidadePorLocal(erro) {
   return erro.table === "checklist_nr33" && erro.column === "id_local";
 }
 
-async function criarNoAmbiente(dados, usuarioAutenticado) {
+async function criarNoAmbiente(dados, usuarioAutenticado, opcoes) {
   const usuario = validarIdentidade(usuarioAutenticado);
   validarDados(dados);
   const idLocal = validarIdentificador(dados.id_local, "ID do local inválido.");
@@ -150,6 +150,9 @@ async function criarNoAmbiente(dados, usuarioAutenticado) {
 
   try {
     // Apenas um local autorizado chega ao INSERT e à restrição UNIQUE.
+    if (opcoes?.bloquearAutorizacao === true) {
+      return await executarEscritaComBloqueios(query, valores, usuario, idLocal, true);
+    }
     const resultado = await pool.query(query, valores);
     return resultado.rows[0] || null;
   } catch (erro) {
@@ -218,7 +221,7 @@ async function buscarPorLocalEAmbiente(idLocal, idAmbiente) {
   return resultado.rows[0] || null;
 }
 
-async function atualizarNoAmbiente(idChecklist, dados, usuarioAutenticado) {
+async function atualizarNoAmbiente(idChecklist, dados, usuarioAutenticado, opcoes) {
   const id = validarIdentificador(idChecklist, "ID do checklist inválido.");
   const usuario = validarIdentidade(usuarioAutenticado);
   validarDados(dados, true);
@@ -256,11 +259,14 @@ async function atualizarNoAmbiente(idChecklist, dados, usuarioAutenticado) {
     ...CAMPOS_RESPOSTAS.map((campo) => dados[campo] ?? null),
     dados.observacoes ?? null,
   ];
+  if (opcoes?.bloquearAutorizacao === true) {
+    return executarEscritaComBloqueios(query, valores, usuario, id, false);
+  }
   const resultado = await pool.query(query, valores);
   return resultado.rows[0] || null;
 }
 
-async function atualizarStatusNoAmbiente(idChecklist, status, usuarioAutenticado) {
+async function atualizarStatusNoAmbiente(idChecklist, status, usuarioAutenticado, opcoes) {
   const id = validarIdentificador(idChecklist, "ID do checklist inválido.");
   const usuario = validarIdentidade(usuarioAutenticado);
   validarStatus(status);
@@ -278,16 +284,101 @@ async function atualizarStatusNoAmbiente(idChecklist, status, usuarioAutenticado
       ${AUTORIZACAO_ESCRITA}
     RETURNING ch.*
   `;
-  const resultado = await pool.query(query, [
+  const valores = [
     id,
     usuario.id_ambiente,
     usuario.id_usuario,
     status,
-  ]);
+  ];
+  if (opcoes?.bloquearAutorizacao === true) {
+    return executarEscritaComBloqueios(query, valores, usuario, id, false);
+  }
+  const resultado = await pool.query(query, valores);
   return resultado.rows[0] || null;
 }
 
+async function listarPermitidosNoAmbiente(usuarioAutenticado) {
+  const u = validarIdentidade(usuarioAutenticado);
+  const resultado = await pool.query(`
+    SELECT ch.*, l.nome_local, criador.nome AS usuario_responsavel
+    FROM checklist_nr33 AS ch
+    INNER JOIN local AS l ON l.id_local = ch.id_local
+    INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha
+    INNER JOIN usuario AS criador ON criador.id_usuario = ch.id_usuario
+      AND criador.id_ambiente = c.id_ambiente
+    WHERE c.id_ambiente = $1 ${AUTORIZACAO_ESCRITA.replace(/\$3/g, "$2")}
+    ORDER BY ch.id_checklist ASC
+  `, [u.id_ambiente, u.id_usuario]);
+  return resultado.rows;
+}
+
+async function buscarPermitidoPorIdNoAmbiente(idChecklist, usuarioAutenticado) {
+  const id = validarIdentificador(idChecklist, "ID do checklist inválido.");
+  const u = validarIdentidade(usuarioAutenticado);
+  const resultado = await pool.query(`
+    SELECT ch.*, l.nome_local, criador.nome AS usuario_responsavel
+    FROM checklist_nr33 AS ch
+    INNER JOIN local AS l ON l.id_local = ch.id_local
+    INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha
+    INNER JOIN usuario AS criador ON criador.id_usuario = ch.id_usuario
+      AND criador.id_ambiente = c.id_ambiente
+    WHERE ch.id_checklist = $1 AND c.id_ambiente = $2 ${AUTORIZACAO_ESCRITA}
+    LIMIT 1
+  `, [id, u.id_ambiente, u.id_usuario]);
+  return resultado.rows[0] || null;
+}
+
+// Ordem compatível com os módulos anteriores: ambiente -> usuário -> campanha
+// -> local -> checklist. IDs dos pais são fixados desde a primeira leitura.
+async function executarEscritaComBloqueios(query, valores, usuario, id, criacao) {
+  const client = await pool.connect();
+  let aberta = false;
+  let descartar;
+  try {
+    await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+    aberta = true;
+    let pais;
+    for (const alias of criacao ? ["a", "u", "c", "l"] : ["a", "u", "c", "l", "ch"]) {
+      const parametros = [id, usuario.id_ambiente, usuario.id_usuario];
+      if (pais) parametros.push(pais.id_campanha, pais.id_local);
+      const bloqueio = await client.query(`
+        SELECT c.id_campanha, l.id_local
+        FROM ambiente AS a INNER JOIN usuario AS u ON u.id_ambiente = a.id_ambiente
+        INNER JOIN campanha AS c ON c.id_ambiente = a.id_ambiente
+        INNER JOIN local AS l ON l.id_campanha = c.id_campanha
+        ${criacao ? "" : "INNER JOIN checklist_nr33 AS ch ON ch.id_local = l.id_local"}
+        WHERE ${criacao ? "l.id_local" : "ch.id_checklist"} = $1
+          AND a.id_ambiente = $2 AND u.id_usuario = $3
+          AND u.ativo = TRUE AND a.ativo = TRUE
+          AND (u.perfil_acesso = 'ADMINISTRADOR' OR c.id_usuario = u.id_usuario)
+          ${pais ? "AND c.id_campanha = $4 AND l.id_local = $5" : ""}
+        FOR ${["a", "u"].includes(alias) ? "SHARE" : "UPDATE"} OF ${alias}
+      `, parametros);
+      if (!bloqueio.rows[0]) {
+        await client.query("ROLLBACK");
+        aberta = false;
+        return null;
+      }
+      pais = bloqueio.rows[0];
+    }
+    const resultado = await client.query(query, valores);
+    if (!resultado.rows[0]) throw criarErro("Falha interna ao salvar checklist.", 500);
+    await client.query("COMMIT");
+    aberta = false;
+    return resultado.rows[0];
+  } catch (erro) {
+    if (aberta) {
+      try { await client.query("ROLLBACK"); } catch (falha) { descartar = falha; }
+    } else descartar = erro;
+    throw erro;
+  } finally {
+    if (descartar) client.release(descartar); else client.release();
+  }
+}
+
 module.exports = {
+  listarPermitidosNoAmbiente,
+  buscarPermitidoPorIdNoAmbiente,
   criarNoAmbiente,
   listarPorAmbiente,
   buscarPorIdEAmbiente,
