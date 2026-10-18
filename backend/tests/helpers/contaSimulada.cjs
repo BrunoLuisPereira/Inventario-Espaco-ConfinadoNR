@@ -124,6 +124,8 @@ function preparar(t, opcoes = {}) {
   try {
     for (const p of arquivos) delete require.cache[p];
     Module._load = function (request, parent, ...resto) {
+      // Utilitario puro real, restrito aos tres consumidores autorizados.
+      if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../../src/' + p))) return require('../../src/utils/normalizarIdDominio');
       if (parent && arquivos.includes(parent.filename)) {
         if (request === '../config/database') return pool;
         if (request === 'bcryptjs') return bcrypt;

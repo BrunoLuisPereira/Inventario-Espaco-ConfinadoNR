@@ -65,6 +65,8 @@ function preparar(t, opcoes = {}) {
   try {
     for (const p of caminhos) delete require.cache[p];
     Module._load = function (request, parent, ...args) {
+      // Utilitario puro real, restrito aos tres consumidores autorizados.
+      if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (caminhos.includes(parent?.filename)) {
         if (request === '../config/database') return pool;
         if (request === '../repositories/usuarioRepository') return usuarioRepository;

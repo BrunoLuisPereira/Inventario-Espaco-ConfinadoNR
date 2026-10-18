@@ -16,6 +16,8 @@ function preparar(t) {
   try {
     for (const p of cache.keys()) delete require.cache[p];
     Module._load = function (r, parent, ...args) {
+      // Utilitario puro real, restrito aos tres consumidores autorizados.
+      if (r === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (parent?.filename === authPath) {
         if (r === 'jsonwebtoken') return { verify(token) { if (token !== 'valido') throw Object.assign(new Error('TOKEN_PRIVADO'), { name: token === 'expirado' ? 'TokenExpiredError' : 'JsonWebTokenError' }); return { sub: '11', perfil: 'ADMINISTRADOR', id_ambiente: 'FORJADO_JWT' }; } };
         if (r === '../repositories/usuarioRepository') return { async buscarIdentidadeAutenticada() { consultas++; return estado.ativo && estado.ambienteAtivo ? { id_usuario: 11, id_ambiente: A, perfil_acesso: estado.perfil } : null; } };

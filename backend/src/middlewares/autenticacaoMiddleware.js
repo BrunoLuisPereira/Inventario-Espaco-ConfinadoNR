@@ -1,5 +1,6 @@
 
 const jwt = require("jsonwebtoken");
+const normalizarIdDominio = require("../utils/normalizarIdDominio");
 
 const usuarioRepository = require(
   "../repositories/usuarioRepository"
@@ -57,7 +58,15 @@ function validarToken(req) {
     }
   );
 
-  const idUsuario = Number(payload?.sub);
+  let idUsuario;
+  try {
+    if (typeof payload?.sub !== "string") throw new TypeError();
+    idUsuario = normalizarIdDominio(payload.sub);
+  } catch {
+    const error = new Error("Token inválido.");
+    error.statusCode = 401;
+    throw error;
+  }
 
   const perfisPermitidos = [
     "ADMINISTRADOR",
@@ -175,8 +184,12 @@ async function autenticarMultiTenant(req, res, next) {
       return res.status(403).json({ status: "error", message: "Perfil de acesso inválido." });
     }
 
+    const idUsuario = normalizarIdDominio(usuario.id_usuario);
+    if (idUsuario !== identidadeToken.id_usuario) {
+      return res.status(401).json({ status: "error", message: "Token inválido." });
+    }
     req.usuario = {
-      id_usuario: usuario.id_usuario,
+      id_usuario: idUsuario,
       id_ambiente: usuario.id_ambiente,
       perfil_acesso: usuario.perfil_acesso,
     };

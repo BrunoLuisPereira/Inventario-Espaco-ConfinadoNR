@@ -1,10 +1,11 @@
 const repository = require("../repositories/relatorioMultiTenantRepository");
 const pdfService = require("./pdfService");
 const arquivos = require("../utils/relatorioArquivoUtils");
+const normalizarIdDominio = require("../utils/normalizarIdDominio");
 const erro = (message, statusCode) => Object.assign(new Error(message), { statusCode });
 function idValido(valor, nome = "ID do relatório", statusCode = 400) {
-  if (!["number", "string"].includes(typeof valor) || !Number.isSafeInteger(Number(valor)) || Number(valor) <= 0) throw erro(`${nome} inválido.`, statusCode);
-  return Number(valor);
+  try { return normalizarIdDominio(valor); }
+  catch { throw erro(`${nome} inválido.`, statusCode); }
 }
 function identidade(u) {
   if (!u || typeof u !== "object" || Array.isArray(u) || typeof u.id_ambiente !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(u.id_ambiente)) throw erro("Usuário autenticado inválido.", 401);
@@ -47,7 +48,7 @@ async function gerarPdfRelatorio(id, usuario) {
   return exigir(await repository.gerarNoAmbiente(id, u, async dados => {
     const imagens = new Map();
     for (const e of dados.evidencias || []) {
-      const imagem = await arquivos.lerFoto(e, u, dados.id_local);
+      const imagem = await arquivos.lerFoto(e, u, normalizarIdDominio(dados.id_local));
       if (imagem) imagens.set(e.id_evidencia, imagem);
     }
     const buffer = await pdfService.gerarPdfRelatorio(dados, { somenteBuffer: true, imagens });
@@ -58,7 +59,7 @@ async function obterPdfParaDownload(id, usuario) {
   const u = identidade(usuario); id = idValido(id);
   return exigir(await repository.comRelatorioAutorizado(id, u, async r => {
     if (!r.caminho_pdf) throw erro("Este relatório ainda não possui PDF gerado.", 404);
-    try { return { relatorio: r, ...await arquivos.lerPdf(r, u) }; }
+    try { return { relatorio: r, ...await arquivos.lerPdf({ ...r, id_relatorio: normalizarIdDominio(r.id_relatorio) }, u) }; }
     catch (falha) {
       if (falha.code === "ENOENT" || falha.statusCode === 404) throw erro("Arquivo PDF não encontrado no servidor.", 404);
       throw erro("Erro interno ao obter PDF.", 500);

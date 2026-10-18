@@ -42,6 +42,8 @@ function preparar(t) {
   try {
     for (const p of cache.keys()) delete require.cache[p];
     Module._load = function (request, parent, ...args) {
+      // Utilitario puro real, restrito aos tres consumidores autorizados.
+      if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cache.has(parent?.filename)) {
         if (!maps.get(parent.filename)?.has(request)) { proibidas.push(request); throw new Error('Dependência inesperada: ' + request); }
         return maps.get(parent.filename).get(request);

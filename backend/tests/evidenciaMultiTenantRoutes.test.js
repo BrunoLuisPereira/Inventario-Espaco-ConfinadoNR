@@ -98,6 +98,7 @@ async function preparar(t, cenario = {}) {
     return { ...cenario.usuario };
   });
   const middleware = carregarIsolado(MIDDLEWARE_PATH, {
+    "../utils/normalizarIdDominio": require("../src/utils/normalizarIdDominio"),
     jsonwebtoken: { verify: verificarJwt },
     "../repositories/usuarioRepository": { buscarIdentidadeAutenticada: consultaIdentidade },
   }, importsMiddleware);
@@ -133,7 +134,7 @@ async function preparar(t, cenario = {}) {
     },
   }, importsRouter);
 
-  assert.deepEqual(importsMiddleware, ["jsonwebtoken", "../repositories/usuarioRepository"]);
+  assert.deepEqual(importsMiddleware, ["jsonwebtoken", "../utils/normalizarIdDominio", "../repositories/usuarioRepository"]);
   assert.deepEqual(importsRouter, [
     "express", "../controllers/evidenciaMultiTenantController", "../middlewares/autenticacaoMiddleware",
   ]);

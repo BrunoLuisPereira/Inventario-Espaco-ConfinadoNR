@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const normalizarIdDominio = require("../utils/normalizarIdDominio");
 const usuarioRepository = require("../repositories/usuarioRepository");
 
 function criarErro(message, statusCode) {
@@ -212,8 +213,14 @@ async function loginMultiTenant(dados = {}) {
     );
   }
 
-  if (!Number.isSafeInteger(usuario.id_usuario) || usuario.id_usuario <= 0 ||
-      usuario.id_usuario !== anterior.id_usuario || usuario.id_ambiente !== anterior.id_ambiente ||
+  let idUsuario, idAnterior;
+  try {
+    idUsuario = normalizarIdDominio(usuario.id_usuario);
+    idAnterior = normalizarIdDominio(anterior.id_usuario);
+  } catch {
+    throw criarErro("E-mail ou senha inválidos.", 401);
+  }
+  if (idUsuario !== idAnterior || usuario.id_ambiente !== anterior.id_ambiente ||
       usuario.senha_hash !== anterior.senha_hash) {
     throw criarErro("E-mail ou senha inválidos.", 401);
   }
@@ -222,7 +229,7 @@ async function loginMultiTenant(dados = {}) {
     { perfil: usuario.perfil_acesso },
     process.env.JWT_SECRET,
     {
-      subject: String(usuario.id_usuario),
+      subject: String(idUsuario),
       expiresIn:
         process.env.JWT_EXPIRES_IN || "8h",
       issuer:
