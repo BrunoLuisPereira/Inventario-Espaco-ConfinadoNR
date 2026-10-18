@@ -86,6 +86,7 @@ function validarToken(req) {
  * Responde aos erros de validação do JWT.
  */
 function responderErroAutenticacao(res, error) {
+  if (res.headersSent) return res;
   if (error.name === "TokenExpiredError") {
     return res.status(401).json({
       status: "error",
@@ -96,7 +97,7 @@ function responderErroAutenticacao(res, error) {
   if (error.statusCode === 500) {
     console.error(
       "Erro na configuração da autenticação:",
-      error.message
+      { statusCode: 500 }
     );
 
     return res.status(500).json({
@@ -143,6 +144,7 @@ function autenticar(req, res, next) {
  * Não utilizar nas rotas antes da homologação.
  */
 async function autenticarMultiTenant(req, res, next) {
+  if (res.headersSent) return res;
   let identidadeToken;
 
   // Etapa 1: validação do JWT.
@@ -158,6 +160,8 @@ async function autenticarMultiTenant(req, res, next) {
       await usuarioRepository.buscarIdentidadeAutenticada(
         identidadeToken.id_usuario
       );
+
+    if (res.headersSent) return res;
 
     if (!usuario) {
       return res.status(401).json({
@@ -175,9 +179,10 @@ async function autenticarMultiTenant(req, res, next) {
 
     return next();
   } catch (error) {
+    if (res.headersSent) return res;
     console.error(
       "Erro ao consultar identidade autenticada:",
-      error
+      { statusCode: 500 }
     );
 
     return res.status(500).json({

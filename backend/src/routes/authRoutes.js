@@ -1,169 +1,49 @@
-const authService = require("../services/authService");
-const express = require("express");
-const authController = require("../controllers/authController");
-const usuarioRepository = require("../repositories/usuarioRepository");
-
-const {
-  autenticar,
-} = require("../middlewares/autenticacaoMiddleware");
+const express = require('express');
+const authController = require('../controllers/authController');
+const contaService = require('../services/contaMultiTenantService');
+const { autenticarMultiTenant } = require('../middlewares/autenticacaoMiddleware');
 
 const router = express.Router();
+router.post('/login', authController.login);
 
-router.post("/login", authController.login);
-
-router.get("/me", autenticar, (req, res) => {
-  return res.status(200).json({
-    status: "success",
-    message: "Usuário autenticado.",
-    data: req.usuario,
-  });
-});
-
-/**
- * GET /api/auth/perfil
- *
- * Retorna os dados atualizados do usuário autenticado.
- * O ID é obtido do token JWT.
- */
-router.get("/perfil", autenticar, async (req, res) => {
-  try {
-    const idUsuario = req.usuario.id_usuario;
-
-    const usuario = await usuarioRepository.buscarPorId(
-      idUsuario
-    );
-
-    if (!usuario || !usuario.ativo) {
-      return res.status(404).json({
-        status: "error",
-        message: "Usuário não encontrado ou desativado.",
+// Apenas erros gerados pela conta possuem mensagens públicas controladas.
+function handler(operacao, message, mensagemInterna, incluirData = true) {
+  return async (req, res) => {
+    if (res.headersSent) return res;
+    try {
+      const data = await operacao(req);
+      if (res.headersSent) return res;
+      return res.status(200).json({ status: 'success', message, ...(incluirData ? { data } : {}) });
+    } catch (erro) {
+      if (res.headersSent) return res;
+      const statusCode = erro?.publicoConta === true && Number.isInteger(erro.statusCode) &&
+        erro.statusCode >= 400 && erro.statusCode <= 599 ? erro.statusCode : 500;
+      console.error('Falha na operação de conta autenticada.', { statusCode });
+      return res.status(statusCode).json({
+        status: 'error', message: statusCode < 500 ? erro.message : mensagemInterna,
       });
     }
+  };
+}
 
-    return res.status(200).json({
-      status: "success",
-      message: "Perfil consultado com sucesso.",
-      data: usuario,
-    });
-  } catch (error) {
-    console.error("Erro ao consultar perfil:", error);
-
-    return res.status(500).json({
-      status: "error",
-      message: "Erro interno ao consultar perfil.",
-    });
-  }
-});
-
-/**
- * PUT /api/auth/perfil
- *
- * Atualiza apenas o nome e o e-mail
- * do usuário autenticado.
- */
-router.put("/perfil", autenticar, async (req, res) => {
-  try {
-    const idUsuario = req.usuario.id_usuario;
-    const { nome, email } = req.body || {};
-
-    if (
-      typeof nome !== "string" ||
-      !nome.trim() ||
-      typeof email !== "string" ||
-      !email.trim()
-    ) {
-      return res.status(400).json({
-        status: "error",
-        message: "Nome e e-mail são obrigatórios.",
-      });
-    }
-
-    const emailNormalizado = email.trim().toLowerCase();
-
-    const usuarioAtual =
-      await usuarioRepository.buscarPorId(idUsuario);
-
-    if (!usuarioAtual || !usuarioAtual.ativo) {
-      return res.status(403).json({
-        status: "error",
-        message: "Usuário não encontrado ou desativado.",
-      });
-    }
-
-    const usuarioMesmoEmail =
-      await usuarioRepository.buscarPorEmail(
-        emailNormalizado
-      );
-
-    if (
-      usuarioMesmoEmail &&
-      Number(usuarioMesmoEmail.id_usuario) !== idUsuario
-    ) {
-      return res.status(409).json({
-        status: "error",
-        message: "Já existe outro usuário com este e-mail.",
-      });
-    }
-
-    const usuarioAtualizado =
-      await usuarioRepository.atualizar(idUsuario, {
-        nome: nome.trim(),
-        email: emailNormalizado,
-        perfilAcesso: usuarioAtual.perfil_acesso,
-      });
-
-    return res.status(200).json({
-      status: "success",
-      message: "Perfil atualizado com sucesso.",
-      data: usuarioAtualizado,
-    });
-  } catch (error) {
-    console.error("Erro ao atualizar perfil:", error);
-
-    if (error.code === "23505") {
-      return res.status(409).json({
-        status: "error",
-        message: "Já existe outro usuário com este e-mail.",
-      });
-    }
-
-    return res.status(500).json({
-      status: "error",
-      message: "Erro interno ao atualizar perfil.",
-    });
-  }
-});
-
-/**
- * PUT /api/auth/senha
- *
- * Permite ao usuário autenticado
- * alterar somente a própria senha.
- */
-router.put("/senha", autenticar, async (req, res) => {
-  try {
-    const idUsuario = req.usuario.id_usuario;
-
-    await authService.alterarSenha(
-      idUsuario,
-      req.body
-    );
-
-    return res.status(200).json({
-      status: "success",
-      message: "Senha alterada com sucesso.",
-    });
-  } catch (error) {
-    console.error("Erro ao alterar senha:", error);
-
-    return res.status(error.statusCode || 500).json({
-      status: "error",
-      message:
-        error.statusCode
-          ? error.message
-          : "Erro interno ao alterar senha.",
-    });
-  }
-});
+router.get('/me', autenticarMultiTenant, handler(
+  async (req) => {
+    const atual = await contaService.buscarPerfil(req.usuario);
+    // Preserva os dois campos anteriores, agora provenientes do banco.
+    return { id_usuario: atual.id_usuario, perfil_acesso: atual.perfil_acesso };
+  }, 'Usuário autenticado.', 'Erro interno ao validar a autenticação.'
+));
+router.get('/perfil', autenticarMultiTenant, handler(
+  (req) => contaService.buscarPerfil(req.usuario),
+  'Perfil consultado com sucesso.', 'Erro interno ao consultar perfil.'
+));
+router.put('/perfil', autenticarMultiTenant, handler(
+  (req) => contaService.atualizarPerfil(req.body, req.usuario),
+  'Perfil atualizado com sucesso.', 'Erro interno ao atualizar perfil.'
+));
+router.put('/senha', autenticarMultiTenant, handler(
+  (req) => contaService.alterarSenha(req.body, req.usuario),
+  'Senha alterada com sucesso.', 'Erro interno ao alterar senha.', false
+));
 
 module.exports = router;
