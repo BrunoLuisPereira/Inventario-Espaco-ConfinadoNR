@@ -1,7 +1,3 @@
-const evidenciaService = require(
-  "../services/evidenciaService"
-);
-
 const evidenciaMultiTenantService = require(
   "../services/evidenciaMultiTenantService"
 );
@@ -14,19 +10,25 @@ const evidenciaArquivoUtils = require(
  * Cria uma evidência sem upload de arquivo.
  */
 async function criar(req, res, next) {
+  if (res.headersSent) return;
   try {
+    if (req.body?.caminho_arquivo != null && req.body.caminho_arquivo !== "") {
+      throw Object.assign(new Error("Associe arquivos exclusivamente pelo upload autorizado."), { statusCode: 400 });
+    }
     const evidencia =
       await evidenciaMultiTenantService.criarEvidencia(
         req.body,
         req.usuario
       );
 
+    if (res.headersSent) return;
     return res.status(201).json({
       status: "success",
       message: "Evidência criada com sucesso.",
       data: evidencia,
     });
   } catch (erro) {
+    if (res.headersSent) return;
     next(erro);
   }
 }
@@ -42,8 +44,9 @@ async function criar(req, res, next) {
  * a sincronização offline.
  */
 async function criarComUpload(req, res, next) {
-  let caminhoArquivo = null;
-
+  if (res.headersSent) return;
+  let arquivoPersistido = false;
+  let associado = false;
   try {
     if (!req.file) {
       const erro = new Error(
@@ -54,67 +57,41 @@ async function criarComUpload(req, res, next) {
       throw erro;
     }
 
-    const tipo =
-      req.file.mimetype === "application/pdf"
-        ? "DOCUMENTO"
-        : "FOTO";
-
-    caminhoArquivo =
-      `uploads/evidencias/${req.file.filename}`;
-
-    const evidencia =
-  await evidenciaService.criarEvidencia(
-    {
-      id_local: req.body.id_local,
-      tipo,
-      descricao: req.body.descricao,
-      caminho_arquivo: caminhoArquivo,
-      id_operacao_cliente:
-        req.body.id_operacao_cliente,
-
-      // Localização da evidência
-      latitude: req.body.latitude,
-      longitude: req.body.longitude,
-      precisao_gps: req.body.precisao_gps,
-      origem_coordenadas:
-        req.body.origem_coordenadas,
-      data_captura_gps:
-        req.body.data_captura_gps,
-    },
-    req.usuario
-  );
-
-    const operacaoJaProcessada =
-      req.body.id_operacao_cliente &&
-      evidencia.caminho_arquivo !==
-        caminhoArquivo;
-
-    if (operacaoJaProcessada) {
-      await evidenciaArquivoUtils.removerArquivo(
-        caminhoArquivo
-      );
-
+    const formato = evidenciaArquivoUtils.validarUpload(req.file);
+    const preparado = await evidenciaMultiTenantService.prepararUpload({
+      ...req.body, tipo: formato.tipo, caminho_arquivo: null,
+    }, req.usuario);
+    if (res.headersSent) return;
+    if (preparado.existente) {
       return res.status(200).json({
         status: "success",
-        message:
-          "Operação já processada anteriormente. Evidência existente retornada.",
-        data: evidencia,
+        message: "Operação já processada anteriormente. Evidência existente retornada.",
+        data: preparado.existente,
       });
     }
-
-    return res.status(201).json({
+    const arquivo = await evidenciaArquivoUtils.persistirUploadAutorizado(
+      req.file, req.usuario, preparado.dados.id_local
+    );
+    arquivoPersistido = true;
+    // A escrita SQL revalida o contexto; não usa a leitura prévia como autorização final.
+    const resultado = await evidenciaMultiTenantService.criarEvidencia({
+      ...preparado.dados, caminho_arquivo: arquivo.caminho_arquivo,
+    }, req.usuario, { incluirResultadoCriacao: true });
+    associado = resultado.criada === true;
+    if (!associado) console.warn("Upload sem associação: reconciliação segura pendente.");
+    if (res.headersSent) return;
+    // Nenhum unlink automático: falha ou corrida não comprova ausência de
+    // referência. Arquivo não associado fica pendente para reconciliação segura.
+    return res.status(resultado.criada ? 201 : 200).json({
       status: "success",
-      message:
-        "Arquivo enviado e evidência criada com sucesso.",
-      data: evidencia,
+      message: resultado.criada
+        ? "Arquivo enviado e evidência criada com sucesso."
+        : "Operação já processada anteriormente. Evidência existente retornada.",
+      data: resultado.evidencia,
     });
   } catch (erro) {
-    if (caminhoArquivo) {
-      await evidenciaArquivoUtils.removerArquivo(
-        caminhoArquivo
-      );
-    }
-
+    if (arquivoPersistido && !associado) console.warn("Upload sem associação: reconciliação segura pendente.");
+    if (res.headersSent) return;
     next(erro);
   }
 }
@@ -124,18 +101,21 @@ async function criarComUpload(req, res, next) {
  * possui permissão para visualizar.
  */
 async function listar(req, res, next) {
+  if (res.headersSent) return;
   try {
     const evidencias =
-      await evidenciaService.listarEvidencias(
+      await evidenciaMultiTenantService.listarEvidencias(
         req.usuario
       );
 
+    if (res.headersSent) return;
     return res.status(200).json({
       status: "success",
       total: evidencias.length,
       data: evidencias,
     });
   } catch (erro) {
+    if (res.headersSent) return;
     next(erro);
   }
 }
@@ -145,19 +125,22 @@ async function listar(req, res, next) {
  * as permissões do usuário autenticado.
  */
 async function buscarPorId(req, res, next) {
+  if (res.headersSent) return;
   try {
     const evidencia =
-      await evidenciaService
+      await evidenciaMultiTenantService
         .buscarEvidenciaPorId(
           req.params.id,
           req.usuario
         );
 
+    if (res.headersSent) return;
     return res.status(200).json({
       status: "success",
       data: evidencia,
     });
   } catch (erro) {
+    if (res.headersSent) return;
     next(erro);
   }
 }
@@ -171,20 +154,23 @@ async function listarPorLocal(
   res,
   next
 ) {
+  if (res.headersSent) return;
   try {
     const evidencias =
-      await evidenciaService
+      await evidenciaMultiTenantService
         .listarEvidenciasPorLocal(
           req.params.idLocal,
           req.usuario
         );
 
+    if (res.headersSent) return;
     return res.status(200).json({
       status: "success",
       total: evidencias.length,
       data: evidencias,
     });
   } catch (erro) {
+    if (res.headersSent) return;
     next(erro);
   }
 }
@@ -274,15 +260,17 @@ async function visualizarArquivo(
  * Atualiza uma evidência existente.
  */
 async function atualizar(req, res, next) {
+  if (res.headersSent) return;
   try {
     const evidencia =
-      await evidenciaService
+      await evidenciaMultiTenantService
         .atualizarEvidencia(
           req.params.id,
           req.body,
           req.usuario
         );
 
+    if (res.headersSent) return;
     return res.status(200).json({
       status: "success",
       message:
@@ -290,6 +278,7 @@ async function atualizar(req, res, next) {
       data: evidencia,
     });
   } catch (erro) {
+    if (res.headersSent) return;
     next(erro);
   }
 }
@@ -297,18 +286,20 @@ async function atualizar(req, res, next) {
 /**
  * Exclui uma evidência.
  *
- * A remoção do arquivo físico é feita
- * pelo evidenciaService.
+ * Exclui apenas o registro autorizado. A limpeza física depende de
+ * reconciliação de propriedade e referências; não remove arquivos legados.
  */
 async function excluir(req, res, next) {
+  if (res.headersSent) return;
   try {
     const evidencia =
-      await evidenciaService
+      await evidenciaMultiTenantService
         .excluirEvidencia(
           req.params.id,
           req.usuario
         );
 
+    if (res.headersSent) return;
     return res.status(200).json({
       status: "success",
       message:
@@ -316,6 +307,7 @@ async function excluir(req, res, next) {
       data: evidencia,
     });
   } catch (erro) {
+    if (res.headersSent) return;
     next(erro);
   }
 }

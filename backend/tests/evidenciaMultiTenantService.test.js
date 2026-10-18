@@ -478,10 +478,12 @@ test("Atualização vazia ou undefined não reenvia valores antigos ao SET", asy
 test("Null e texto vazio limpam campos textuais sem reenviar GPS omitido", async (t) => {
   const { mocks } = simularRepositorio(t, respostasAtualizacao());
   for (const [indice, valor] of [null, ""].entries()) {
-    await service.atualizarEvidencia(50, { descricao: valor, caminho_arquivo: valor }, USUARIO_A);
+    await service.atualizarEvidencia(50, { descricao: valor }, USUARIO_A);
     assert.deepEqual(mocks.atualizarNoAmbiente.mock.calls[indice].arguments[1], {
-      descricao: null, caminho_arquivo: null,
+      descricao: null,
     });
+    // Política autorizada no PASSO 607: PUT não troca nem limpa a referência física.
+    await assert.rejects(service.atualizarEvidencia(50, { caminho_arquivo: valor }, USUARIO_A), { statusCode: 400 });
   }
 });
 
@@ -667,7 +669,7 @@ test("Listagem por local não autorizado retorna 404 sem consultar evidências",
 test("Exclusão utiliza apenas DELETE autorizado do repositório e retorna registro", async (t) => {
   const { mocks, eventos } = simularRepositorio(t, { excluirNoAmbiente: REGISTRO });
   assert.strictEqual(await service.excluirEvidencia("50", USUARIO_A), REGISTRO);
-  assert.deepEqual(unica(mocks.excluirNoAmbiente), [50, USUARIO_A]);
+  assert.deepEqual(unica(mocks.excluirNoAmbiente), [50, USUARIO_A, { bloquearAutorizacao: true }]);
   assert.deepEqual(eventos, ["excluirNoAmbiente"]);
 });
 
@@ -676,7 +678,7 @@ test("Exclusão sem registro autorizado retorna HTTP 404", async (t) => {
   await assert.rejects(service.excluirEvidencia(50, USUARIO_B), {
     statusCode: 404, message: "Evidência não encontrada.",
   });
-  assert.deepEqual(unica(mocks.excluirNoAmbiente), [50, USUARIO_B]);
+  assert.deepEqual(unica(mocks.excluirNoAmbiente), [50, USUARIO_B, { bloquearAutorizacao: true }]);
 });
 
 test("Criador da evidência não recebe autorização adicional quando o repositório recusa", async (t) => {
@@ -686,7 +688,7 @@ test("Criador da evidência não recebe autorização adicional quando o reposit
   });
   await assert.rejects(service.buscarEvidenciaPorId(50, criador), { statusCode: 404 });
   await assert.rejects(service.excluirEvidencia(50, criador), { statusCode: 404 });
-  assert.deepEqual(unica(mocks.excluirNoAmbiente), [50, criador]);
+  assert.deepEqual(unica(mocks.excluirNoAmbiente), [50, criador, { bloquearAutorizacao: true }]);
 });
 
 test("Não carrega dependências de banco, legados ou app e não manipula arquivos físicos", async (t) => {
@@ -758,7 +760,7 @@ test("Ambiente A: seis operações ignoram identidade forjada e encaminham somen
   }
   assert.deepEqual(unica(mocks.listarPorLocalEAmbiente), [40, usuario]);
   assert.deepEqual(unica(mocks.atualizarNoAmbiente), [50, { descricao: "Nova" }, usuario, { gpsEsperado: GPS }]);
-  assert.deepEqual(unica(mocks.excluirNoAmbiente), [50, usuario]);
+  assert.deepEqual(unica(mocks.excluirNoAmbiente), [50, usuario, { bloquearAutorizacao: true }]);
   assert.deepEqual(entrada, copiaEntrada);
   assert.deepEqual(eventos, [
     "buscarLocalAutorizadoNoAmbiente", "buscarPorOperacaoClienteNoAmbiente", "criarNoAmbiente",
@@ -805,7 +807,7 @@ test("Ambiente B: seis operações ignoram identidade forjada e encaminham somen
   }
   assert.deepEqual(unica(mocks.listarPorLocalEAmbiente), [40, usuario]);
   assert.deepEqual(unica(mocks.atualizarNoAmbiente), [50, { descricao: "Nova" }, usuario, { gpsEsperado: GPS }]);
-  assert.deepEqual(unica(mocks.excluirNoAmbiente), [50, usuario]);
+  assert.deepEqual(unica(mocks.excluirNoAmbiente), [50, usuario, { bloquearAutorizacao: true }]);
   assert.deepEqual(entrada, copiaEntrada);
   assert.deepEqual(eventos, [
     "buscarLocalAutorizadoNoAmbiente", "buscarPorOperacaoClienteNoAmbiente", "criarNoAmbiente",

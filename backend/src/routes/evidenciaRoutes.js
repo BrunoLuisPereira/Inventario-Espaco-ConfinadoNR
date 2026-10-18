@@ -4,7 +4,6 @@ const evidenciaController = require(
 );
 
 const {
-  autenticar,
   autenticarMultiTenant,
 } = require("../middlewares/autenticacaoMiddleware");
 
@@ -14,22 +13,20 @@ const {
 
 const router = express.Router();
 
+// Todas as operações revalidam a identidade antes de ler dados ou receber uploads.
+router.use(autenticarMultiTenant);
+
 // O download revalida a identidade e o ambiente antes de acessar o arquivo.
 router.get(
   "/:id/arquivo",
-  autenticarMultiTenant,
   evidenciaController.visualizarArquivo
 );
 
 // Criar evidência sem upload de arquivo.
 router.post(
   "/",
-  autenticarMultiTenant,
   evidenciaController.criar
 );
-
-// As demais rotas preservam a autenticação legada.
-router.use(autenticar);
 
 // Criar evidência com upload de JPG, PNG ou PDF.
 router.post(

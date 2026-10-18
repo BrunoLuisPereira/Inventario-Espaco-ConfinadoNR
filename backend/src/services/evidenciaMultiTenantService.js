@@ -285,6 +285,11 @@ async function atualizarEvidencia(idEvidencia, dados, usuarioAutenticado) {
   const atual = exigirEvidencia(await evidenciaRepository.buscarPorIdEAmbiente(
     id, usuario, { incluirEstadoGps: true }
   ));
+  if (presente(dados, "caminho_arquivo") && dados.caminho_arquivo !== atual.caminho_arquivo) {
+    throw criarErro("A associação do arquivo não pode ser alterada por este endpoint.");
+  }
+  // Mesmo um caminho igual não é reenviado: evita restaurar referência antiga.
+  delete campos.caminho_arquivo;
   const estadoGps = obterEstadoGps(atual);
   const patch = { ...campos, ...prepararPatchGps(dados, estadoGps) };
 
@@ -300,10 +305,27 @@ async function atualizarEvidencia(idEvidencia, dados, usuarioAutenticado) {
 async function excluirEvidencia(idEvidencia, usuarioAutenticado) {
   const usuario = validarIdentidade(usuarioAutenticado);
   const id = validarIdentificador(idEvidencia, "ID da evidência inválido.");
-  return exigirEvidencia(await evidenciaRepository.excluirNoAmbiente(id, usuario));
+  return exigirEvidencia(await evidenciaRepository.excluirNoAmbiente(id, usuario, { bloquearAutorizacao: true }));
+}
+
+async function prepararUpload(dados, usuarioAutenticado) {
+  const usuario = validarIdentidade(usuarioAutenticado);
+  validarDados(dados);
+  const idLocal = validarIdentificador(dados.id_local, "ID do local inválido.");
+  const campos = selecionarCampos({ ...dados, caminho_arquivo: null }, true);
+  const gps = selecionarGps(dados, true);
+  validarCoerenciaGps(gps);
+  const operacao = dados.id_operacao_cliente == null || dados.id_operacao_cliente === ""
+    ? null : validarUuid(dados.id_operacao_cliente, "ID da operação do cliente inválido.");
+  await exigirLocalAutorizado(idLocal, usuario);
+  const existente = operacao
+    ? await evidenciaRepository.buscarPorOperacaoClienteNoAmbiente(operacao, idLocal, usuario)
+    : null;
+  return { dados: { id_local: idLocal, ...campos, ...gps, id_operacao_cliente: operacao }, existente };
 }
 
 module.exports = {
+  prepararUpload,
   criarEvidencia,
   listarEvidencias,
   buscarEvidenciaPorId,

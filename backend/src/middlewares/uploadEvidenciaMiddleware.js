@@ -1,33 +1,7 @@
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
-
-const pastaUploads = path.join(
-  __dirname,
-  "../../uploads/evidencias"
-);
-
-if (!fs.existsSync(pastaUploads)) {
-  fs.mkdirSync(pastaUploads, {
-    recursive: true,
-  });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, pastaUploads);
-  },
-
-  filename: (req, file, cb) => {
-    const extensao = path.extname(file.originalname);
-
-    const nomeArquivo = `${Date.now()}-${Math.round(
-      Math.random() * 1e9
-    )}${extensao}`;
-
-    cb(null, nomeArquivo);
-  },
-});
+// Recebe no máximo 10 MiB em memória: nenhuma gravação ocorre antes da
+// validação do conteúdo, do local e da autorização no controller/service.
+const storage = multer.memoryStorage();
 
 const tiposPermitidos = [
   "image/jpeg",
@@ -53,6 +27,9 @@ const uploadEvidencia = multer({
   fileFilter,
   limits: {
     fileSize: 10 * 1024 * 1024,
+    files: 1,
+    fields: 20,
+    fieldSize: 64 * 1024,
   },
 });
 

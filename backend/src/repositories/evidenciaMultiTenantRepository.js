@@ -520,7 +520,7 @@ async function atualizarNoAmbiente(idEvidencia, dados, usuarioAutenticado, opcoe
   return resultado.rows[0] || null;
 }
 
-async function excluirNoAmbiente(idEvidencia, usuarioAutenticado) {
+async function excluirNoAmbiente(idEvidencia, usuarioAutenticado, opcoes) {
   const usuario = validarIdentidade(usuarioAutenticado);
   const id = validarIdentificador(idEvidencia, "ID da evidência inválido.");
   const query = `
@@ -533,7 +533,45 @@ async function excluirNoAmbiente(idEvidencia, usuarioAutenticado) {
       ${AUTORIZACAO}
     RETURNING e.*
   `;
-  const resultado = await pool.query(query, [usuario.id_ambiente, usuario.id_usuario, id]);
+  const valores = [usuario.id_ambiente, usuario.id_usuario, id];
+  if (opcoes?.bloquearAutorizacao === true) {
+    const client = await pool.connect();
+    let aberta = false;
+    let descartar;
+    try {
+      await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+      aberta = true;
+      let vinculo;
+      for (const alias of ["a", "solicitante", "c", "l", "e"]) {
+        const bloqueio = await client.query(`
+          SELECT l.id_local, c.id_campanha
+          ${RELACOES_BLOQUEIO_GPS}
+          ${vinculo ? "AND l.id_local = $4 AND c.id_campanha = $5" : ""}
+          FOR ${alias === "e" ? "UPDATE" : "SHARE"} OF ${alias}
+        `, vinculo || valores);
+        if (!bloqueio.rows[0]) {
+          await client.query("ROLLBACK");
+          aberta = false;
+          return null;
+        }
+        if (!vinculo) vinculo = [...valores, bloqueio.rows[0].id_local, bloqueio.rows[0].id_campanha];
+      }
+      const resultado = await client.query(query, valores);
+      if (!resultado.rows[0]) throw criarErro("Erro interno ao excluir evidência.", 500);
+      await client.query("COMMIT");
+      aberta = false;
+      return resultado.rows[0];
+    } catch (erro) {
+      if (aberta) {
+        try { await client.query("ROLLBACK"); } catch (falha) { descartar = falha; }
+      } else descartar = erro;
+      throw erro;
+    } finally {
+      if (descartar) client.release(descartar);
+      else client.release();
+    }
+  }
+  const resultado = await pool.query(query, valores);
   return resultado.rows[0] || null;
 }
 

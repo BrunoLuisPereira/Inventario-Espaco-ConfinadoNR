@@ -507,14 +507,13 @@ for (const fase of ["inicial", "após colisão"]) {
     else assert.equal(ctx.estado.inserts.length, 1);
   });
 }
-test("Caracterização de risco: cadastro aceita caminho textual do cliente sem acessar arquivo", async (t) => {
+test("Política autorizada: cadastro rejeita caminho textual do cliente sem acessar arquivo", async (t) => {
   const ctx = preparar(t);
   const caminho = "uploads/evidencias/CAMINHO_INFORMADO_PELO_CLIENTE.jpg";
-  sucesso((await ctx.solicitar(dados(CONTEXTOS[0], { caminho_arquivo: caminho }))).res, { caminho_arquivo: caminho });
-  assert.equal(ctx.estado.criadas[0].caminho_arquivo, caminho);
+  erroPublico((await ctx.solicitar(dados(CONTEXTOS[0], { caminho_arquivo: caminho }))).res, 400);
+  semEscrita(ctx);
   assert.deepEqual(ctx.estado.fisicas, []);
-  // Documenta aceitação atual, sem afirmar propriedade/autorização física.
-  // Política de vinculação de arquivos exige decisão e testes separados.
+  // PASSO 607: usuário autorizou associação exclusiva pelo upload gerenciado.
 });
 
 // Não inicia servidor: router.handle recebe requisição simulada. O app é
