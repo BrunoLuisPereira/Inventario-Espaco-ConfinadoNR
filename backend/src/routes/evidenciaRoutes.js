@@ -21,14 +21,15 @@ router.get(
   evidenciaController.visualizarArquivo
 );
 
-// Todas as rotas de evidências exigem autenticação.
-router.use(autenticar);
-
 // Criar evidência sem upload de arquivo.
 router.post(
   "/",
+  autenticarMultiTenant,
   evidenciaController.criar
 );
+
+// As demais rotas preservam a autenticação legada.
+router.use(autenticar);
 
 // Criar evidência com upload de JPG, PNG ou PDF.
 router.post(

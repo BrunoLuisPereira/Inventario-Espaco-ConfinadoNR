@@ -16,7 +16,7 @@ const evidenciaArquivoUtils = require(
 async function criar(req, res, next) {
   try {
     const evidencia =
-      await evidenciaService.criarEvidencia(
+      await evidenciaMultiTenantService.criarEvidencia(
         req.body,
         req.usuario
       );
