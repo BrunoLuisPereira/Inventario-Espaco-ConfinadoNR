@@ -2,12 +2,12 @@ const express = require("express");
 const campanhaController = require("../controllers/campanhaController");
 
 const {
-  autenticar,
+  autenticarMultiTenant,
 } = require("../middlewares/autenticacaoMiddleware");
 
 const router = express.Router();
 
-router.use(autenticar);
+router.use(autenticarMultiTenant);
 
 router.post("/", campanhaController.criar);
 router.get("/", campanhaController.listar);

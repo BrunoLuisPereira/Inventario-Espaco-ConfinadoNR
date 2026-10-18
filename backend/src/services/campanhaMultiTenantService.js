@@ -17,7 +17,7 @@ function criarErro(message, statusCode) {
 }
 
 function validarIdentidade(usuarioAutenticado) {
-  if (!usuarioAutenticado || typeof usuarioAutenticado !== "object") {
+  if (!usuarioAutenticado || typeof usuarioAutenticado !== "object" || Array.isArray(usuarioAutenticado)) {
     throw criarErro("Usuário não autenticado.", 401);
   }
 
@@ -114,7 +114,8 @@ async function criarCampanha(dados, usuarioAutenticado) {
       status,
       idUsuario: usuario.id_usuario,
     },
-    usuario.id_ambiente
+    usuario.id_ambiente,
+    { bloquearAutorizacao: true }
   );
 
   if (!campanha) {
@@ -127,16 +128,16 @@ async function criarCampanha(dados, usuarioAutenticado) {
 async function listarCampanhas(usuarioAutenticado) {
   const usuario = validarIdentidade(usuarioAutenticado);
 
-  return campanhaRepository.listarPorAmbiente(usuario.id_ambiente);
+  return campanhaRepository.listarPermitidasNoAmbiente(usuario);
 }
 
 async function buscarCampanhaPorId(idCampanha, usuarioAutenticado) {
   const usuario = validarIdentidade(usuarioAutenticado);
   const id = validarIdCampanha(idCampanha);
 
-  const campanha = await campanhaRepository.buscarPorIdEAmbiente(
+  const campanha = await campanhaRepository.buscarPermitidaPorIdNoAmbiente(
     id,
-    usuario.id_ambiente
+    usuario
   );
 
   return exigirCampanha(campanha);
@@ -151,7 +152,8 @@ async function atualizarCampanha(idCampanha, dados, usuarioAutenticado) {
   const campanha = await campanhaRepository.atualizarNoAmbiente(
     id,
     campos,
-    usuario
+    usuario,
+    { bloquearAutorizacao: true }
   );
 
   return exigirCampanha(campanha);
@@ -173,7 +175,8 @@ async function alterarStatusCampanha(idCampanha, dados, usuarioAutenticado) {
   const campanha = await campanhaRepository.atualizarStatusNoAmbiente(
     id,
     dados.status,
-    usuario
+    usuario,
+    { bloquearAutorizacao: true }
   );
 
   return exigirCampanha(campanha);

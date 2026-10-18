@@ -34,8 +34,8 @@ const CAMPANHA = {
 function simularRepositorio(t, respostas = {}) {
   const metodos = [
     "criarNoAmbiente",
-    "listarPorAmbiente",
-    "buscarPorIdEAmbiente",
+    "listarPermitidasNoAmbiente",
+    "buscarPermitidaPorIdNoAmbiente",
     "atualizarNoAmbiente",
     "atualizarStatusNoAmbiente",
   ];
@@ -162,6 +162,7 @@ test("Cria campanha com usuário e ambiente autenticados e normaliza os campos",
   assert.deepEqual(consultas.criarNoAmbiente.mock.calls[0].arguments, [
     { ...CAMPOS, status: "EM ANDAMENTO", idUsuario: 10 },
     AMBIENTE_A,
+    { bloquearAutorizacao: true },
   ]);
 });
 
@@ -182,40 +183,41 @@ test("Ignora usuário, ambiente e perfil enviados no corpo da criação", async 
   assert.deepEqual(consultas.criarNoAmbiente.mock.calls[0].arguments, [
     { ...CAMPOS, status: "CONCLUIDO", idUsuario: 10 },
     AMBIENTE_A,
+    { bloquearAutorizacao: true },
   ]);
 });
 
 test("Lista campanhas exclusivamente pelo ambiente autenticado", async (t) => {
   const campanhas = [CAMPANHA];
-  const consultas = simularRepositorio(t, { listarPorAmbiente: campanhas });
+  const consultas = simularRepositorio(t, { listarPermitidasNoAmbiente: campanhas });
 
   const resultado = await campanhaService.listarCampanhas(USUARIO);
 
   assert.deepEqual(resultado, campanhas);
-  assert.equal(consultas.listarPorAmbiente.mock.callCount(), 1);
-  assert.deepEqual(consultas.listarPorAmbiente.mock.calls[0].arguments, [AMBIENTE_A]);
+  assert.equal(consultas.listarPermitidasNoAmbiente.mock.callCount(), 1);
+  assert.deepEqual(consultas.listarPermitidasNoAmbiente.mock.calls[0].arguments, [USUARIO]);
 });
 
 test("Busca campanha pelo ID e ambiente autenticado", async (t) => {
-  const consultas = simularRepositorio(t, { buscarPorIdEAmbiente: CAMPANHA });
+  const consultas = simularRepositorio(t, { buscarPermitidaPorIdNoAmbiente: CAMPANHA });
 
   const resultado = await campanhaService.buscarCampanhaPorId("30", USUARIO);
 
   assert.deepEqual(resultado, CAMPANHA);
-  assert.equal(consultas.buscarPorIdEAmbiente.mock.callCount(), 1);
-  assert.deepEqual(consultas.buscarPorIdEAmbiente.mock.calls[0].arguments, [30, AMBIENTE_A]);
+  assert.equal(consultas.buscarPermitidaPorIdNoAmbiente.mock.callCount(), 1);
+  assert.deepEqual(consultas.buscarPermitidaPorIdNoAmbiente.mock.calls[0].arguments, [30, USUARIO]);
 });
 
 test("Retorna HTTP 404 quando a campanha não é encontrada no ambiente", async (t) => {
-  const consultas = simularRepositorio(t, { buscarPorIdEAmbiente: null });
+  const consultas = simularRepositorio(t, { buscarPermitidaPorIdNoAmbiente: null });
 
   await assert.rejects(
     campanhaService.buscarCampanhaPorId(30, USUARIO),
     { statusCode: 404, message: "Campanha não encontrada." }
   );
 
-  assert.equal(consultas.buscarPorIdEAmbiente.mock.callCount(), 1);
-  assert.deepEqual(consultas.buscarPorIdEAmbiente.mock.calls[0].arguments, [30, AMBIENTE_A]);
+  assert.equal(consultas.buscarPermitidaPorIdNoAmbiente.mock.callCount(), 1);
+  assert.deepEqual(consultas.buscarPermitidaPorIdNoAmbiente.mock.calls[0].arguments, [30, USUARIO]);
 });
 
 test("Valida os campos obrigatórios na atualização antes de chamar o repositório", async (t) => {
@@ -256,9 +258,9 @@ test("Encaminha atualização com identidade autenticada sem usar o perfil do co
   assert.deepEqual(resultado, CAMPANHA);
   assert.equal(consultas.atualizarNoAmbiente.mock.callCount(), 1);
   assert.deepEqual(consultas.atualizarNoAmbiente.mock.calls[0].arguments, [
-    30, CAMPOS, USUARIO,
+    30, CAMPOS, USUARIO, { bloquearAutorizacao: true },
   ]);
-  assert.equal(consultas.buscarPorIdEAmbiente.mock.callCount(), 0);
+  assert.equal(consultas.buscarPermitidaPorIdNoAmbiente.mock.callCount(), 0);
 });
 
 test("Retorna HTTP 404 quando a atualização não é autorizada", async (t) => {
@@ -271,7 +273,7 @@ test("Retorna HTTP 404 quando a atualização não é autorizada", async (t) => 
 
   assert.equal(consultas.atualizarNoAmbiente.mock.callCount(), 1);
   assert.deepEqual(consultas.atualizarNoAmbiente.mock.calls[0].arguments, [
-    30, CAMPOS, USUARIO,
+    30, CAMPOS, USUARIO, { bloquearAutorizacao: true },
   ]);
 });
 
@@ -295,7 +297,7 @@ test("Aceita somente os três status permitidos na alteração de status", async
     await campanhaService.alterarStatusCampanha(30, { status }, USUARIO);
     assert.equal(consultas.atualizarStatusNoAmbiente.mock.callCount(), indice + 1);
     assert.deepEqual(consultas.atualizarStatusNoAmbiente.mock.calls[indice].arguments, [
-      30, status, USUARIO,
+      30, status, USUARIO, { bloquearAutorizacao: true },
     ]);
   }
 });
@@ -316,9 +318,9 @@ test("Encaminha alteração de status com identidade autenticada sem usar o perf
   assert.deepEqual(resultado, campanhaAtualizada);
   assert.equal(consultas.atualizarStatusNoAmbiente.mock.callCount(), 1);
   assert.deepEqual(consultas.atualizarStatusNoAmbiente.mock.calls[0].arguments, [
-    30, "CONCLUIDO", USUARIO,
+    30, "CONCLUIDO", USUARIO, { bloquearAutorizacao: true },
   ]);
-  assert.equal(consultas.buscarPorIdEAmbiente.mock.callCount(), 0);
+  assert.equal(consultas.buscarPermitidaPorIdNoAmbiente.mock.callCount(), 0);
 });
 
 test("Retorna HTTP 404 quando a alteração de status não é autorizada", async (t) => {
@@ -331,7 +333,7 @@ test("Retorna HTTP 404 quando a alteração de status não é autorizada", async
 
   assert.equal(consultas.atualizarStatusNoAmbiente.mock.callCount(), 1);
   assert.deepEqual(consultas.atualizarStatusNoAmbiente.mock.calls[0].arguments, [
-    30, "CANCELADA", USUARIO,
+    30, "CANCELADA", USUARIO, { bloquearAutorizacao: true },
   ]);
 });
 
@@ -350,6 +352,7 @@ test("Retorna HTTP 403 quando o repositório recusa a criação", async (t) => {
   assert.deepEqual(consultas.criarNoAmbiente.mock.calls[0].arguments, [
     { ...CAMPOS, status: "EM ANDAMENTO", idUsuario: 10 },
     AMBIENTE_A,
+    { bloquearAutorizacao: true },
   ]);
 });
 
@@ -420,8 +423,8 @@ test("Mantém as cinco operações no ambiente B apesar da identidade forjada no
   };
   const consultas = simularRepositorio(t, {
     criarNoAmbiente: campanhaB,
-    listarPorAmbiente: [campanhaB],
-    buscarPorIdEAmbiente: campanhaB,
+    listarPermitidasNoAmbiente: [campanhaB],
+    buscarPermitidaPorIdNoAmbiente: campanhaB,
     atualizarNoAmbiente: campanhaB,
     atualizarStatusNoAmbiente: { ...campanhaB, status: "CANCELADA" },
   });
@@ -464,14 +467,15 @@ test("Mantém as cinco operações no ambiente B apesar da identidade forjada no
   assert.deepEqual(consultas.criarNoAmbiente.mock.calls[0].arguments, [
     { ...CAMPOS, status: "EM ANDAMENTO", idUsuario: 20 },
     AMBIENTE_B,
+    { bloquearAutorizacao: true },
   ]);
-  assert.deepEqual(consultas.listarPorAmbiente.mock.calls[0].arguments, [AMBIENTE_B]);
-  assert.deepEqual(consultas.buscarPorIdEAmbiente.mock.calls[0].arguments, [40, AMBIENTE_B]);
+  assert.deepEqual(consultas.listarPermitidasNoAmbiente.mock.calls[0].arguments, [usuarioB]);
+  assert.deepEqual(consultas.buscarPermitidaPorIdNoAmbiente.mock.calls[0].arguments, [40, usuarioB]);
   assert.deepEqual(consultas.atualizarNoAmbiente.mock.calls[0].arguments, [
-    40, CAMPOS, usuarioB,
+    40, CAMPOS, usuarioB, { bloquearAutorizacao: true },
   ]);
   assert.deepEqual(consultas.atualizarStatusNoAmbiente.mock.calls[0].arguments, [
-    40, "CANCELADA", usuarioB,
+    40, "CANCELADA", usuarioB, { bloquearAutorizacao: true },
   ]);
 });
 
@@ -490,8 +494,8 @@ test("Propaga os erros internos do repositório nas cinco operações sem conver
 
   const chamadas = [
     ["criarNoAmbiente", () => campanhaService.criarCampanha(DADOS, USUARIO)],
-    ["listarPorAmbiente", () => campanhaService.listarCampanhas(USUARIO)],
-    ["buscarPorIdEAmbiente", () => campanhaService.buscarCampanhaPorId(30, USUARIO)],
+    ["listarPermitidasNoAmbiente", () => campanhaService.listarCampanhas(USUARIO)],
+    ["buscarPermitidaPorIdNoAmbiente", () => campanhaService.buscarCampanhaPorId(30, USUARIO)],
     ["atualizarNoAmbiente", () => campanhaService.atualizarCampanha(30, DADOS, USUARIO)],
     ["atualizarStatusNoAmbiente", () => campanhaService.alterarStatusCampanha(
       30, { status: "CONCLUIDO" }, USUARIO
