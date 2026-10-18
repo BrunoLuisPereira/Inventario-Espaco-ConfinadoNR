@@ -62,11 +62,12 @@ test(
       senha: "SenhaSegura123",
     });
 
-    assert.equal(consulta.mock.callCount(), 1);
+    assert.equal(consulta.mock.callCount(), 2);
     assert.deepEqual(
       consulta.mock.calls[0].arguments,
       ["admin@exemplo.com"]
     );
+    assert.deepEqual(consulta.mock.calls[1].arguments, ["admin@exemplo.com"]);
 
     assert.equal(resultado.tipo, "Bearer");
     assert.equal(resultado.usuario.id_ambiente, ID_AMBIENTE);

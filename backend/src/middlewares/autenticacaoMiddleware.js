@@ -171,6 +171,10 @@ async function autenticarMultiTenant(req, res, next) {
       });
     }
 
+    if (!["ADMINISTRADOR", "ENGENHEIRO_SEGURANCA"].includes(usuario.perfil_acesso)) {
+      return res.status(403).json({ status: "error", message: "Perfil de acesso inválido." });
+    }
+
     req.usuario = {
       id_usuario: usuario.id_usuario,
       id_ambiente: usuario.id_ambiente,
