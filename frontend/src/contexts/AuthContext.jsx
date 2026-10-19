@@ -10,6 +10,18 @@ export function AuthProvider({ children }) {
   const [tentativa, setTentativa] = useState(0)
   const { token } = sessao
   useEffect(() => {
+    if (!token) return
+    const revalidar = () => { if (document.visibilityState !== 'hidden') setTentativa(n => n + 1) }
+    window.addEventListener('focus', revalidar)
+    window.addEventListener('nr33-permissoes-revalidar', revalidar)
+    document.addEventListener('visibilitychange', revalidar)
+    return () => {
+      window.removeEventListener('focus', revalidar)
+      window.removeEventListener('nr33-permissoes-revalidar', revalidar)
+      document.removeEventListener('visibilitychange', revalidar)
+    }
+  }, [token])
+  useEffect(() => {
     function expirada() {
       setSessao({ token: null, usuario: null })
       setValidacao(null)

@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
@@ -23,13 +24,13 @@ const CONTEXTOS = [
   { nome: "A", ambiente: A, outro: B, admin: 11, engenheiro: 12, local: 101, semFoto: 102 },
   { nome: "B", ambiente: B, outro: A, admin: 21, engenheiro: 22, local: 201, semFoto: 202 },
 ];
-const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
+const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
 const SELECAO = "SELECT c.nome_campanha, l.id_local, l.nome_local, l.setor, l.endereco, l.latitude AS latitude_local, l.longitude AS longitude_local, l.status, e.id_evidencia, e.tipo AS tipo_evidencia, e.descricao AS descricao_evidencia, e.latitude AS latitude_foto, e.longitude AS longitude_foto, e.origem_coordenadas, e.precisao_gps FROM local l INNER JOIN campanha c ON c.id_campanha = l.id_campanha LEFT JOIN evidencia e ON e.id_local = l.id_local";
 const ORDEM = " ORDER BY c.nome_campanha ASC, l.nome_local ASC, e.id_evidencia ASC";
 const SQL_GLOBAL = SELECAO + ORDEM;
 // Variante mínima prevista. SQL futuro diferente deverá ser revisado e
 // reconhecido explicitamente, nunca aprovado por presença parcial de palavras.
-const SQL_AMBIENTE = SELECAO + " WHERE c.id_ambiente = $1 AND EXISTS ( SELECT 1 FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $2 AND u.id_ambiente = c.id_ambiente AND u.ativo = TRUE AND a.ativo = TRUE AND (u.perfil_acesso = 'ADMINISTRADOR' OR c.id_usuario = u.id_usuario) )" + ORDEM;
+const SQL_AMBIENTE = SELECAO + " WHERE c.id_ambiente = $1 AND EXISTS ( SELECT 1 FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $2 AND u.id_ambiente = c.id_ambiente AND u.ativo = TRUE AND a.ativo = TRUE AND (u.perfil_acesso IN ('ADMINISTRADOR', 'ENGENHEIRO_SEGURANCA', 'TECNICO_SEGURANCA', 'COORDENADOR', 'SUPERVISOR', 'AUDITOR')) )" + ORDEM;
 
 function preparar(t) {
   const estado = { consultas: [], globais: [], exportacoes: [], identidades: [],
@@ -39,7 +40,7 @@ function preparar(t) {
     usuarios: new Map(), campanhas: [], locais: [], evidencias: [] };
   for (const [indice, contexto] of CONTEXTOS.entries()) {
     for (const [id, perfil] of [[contexto.admin, "ADMINISTRADOR"], [contexto.engenheiro, "ENGENHEIRO_SEGURANCA"]]) {
-      estado.usuarios.set(id, { id_usuario: id, id_ambiente: contexto.ambiente, perfil_acesso: perfil, ativo: true });
+      estado.usuarios.set(id, { id_usuario: id, id_ambiente: contexto.ambiente, eh_fundador: perfil === "ADMINISTRADOR", perfil_acesso: perfil, ativo: true });
     }
     const campanha = { id_campanha: indice + 1, id_ambiente: contexto.ambiente,
       nome_campanha: "CAMPANHA_EXCLUSIVA_" + contexto.nome, id_usuario: contexto.engenheiro };
@@ -66,7 +67,7 @@ function preparar(t) {
       if (idUsuario !== undefined) {
         const u = estado.usuarios.get(idUsuario);
         if (!u?.ativo || !estado.ambientes.get(u.id_ambiente) || u.id_ambiente !== campanha.id_ambiente ||
-          (u.perfil_acesso !== "ADMINISTRADOR" && campanha.id_usuario !== u.id_usuario)) continue;
+          !["ADMINISTRADOR","ENGENHEIRO_SEGURANCA","TECNICO_SEGURANCA","COORDENADOR","SUPERVISOR","AUDITOR"].includes(u.perfil_acesso)) continue;
       }
       const evidencias = estado.evidencias.filter((e) => e.id_local === local.id_local);
       // LEFT JOIN: um local autorizado sem evidência ainda produz uma linha.
@@ -98,7 +99,7 @@ function preparar(t) {
         const usuario = estado.usuarios.get(params[0]);
         const rows = usuario?.ativo === true && estado.ambientes.get(usuario.id_ambiente) === true
           ? [{ id_usuario: usuario.id_usuario, id_ambiente: usuario.id_ambiente,
-            perfil_acesso: usuario.perfil_acesso, nome: "Pessoa simulada", email: "pessoa@example.invalid" }] : [];
+            eh_fundador: usuario.eh_fundador === true, perfil_acesso: usuario.perfil_acesso, nome: "Pessoa simulada", email: "pessoa@example.invalid" }] : [];
         return { rows, rowCount: rows.length };
       }
       if (sql === SQL_GLOBAL || sql === SQL_AMBIENTE) {
@@ -176,6 +177,8 @@ function preparar(t) {
   try {
     for (const p of cache.keys()) delete require.cache[p];
     Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cache.has(parent?.filename)) {
@@ -328,7 +331,7 @@ for (const contexto of CONTEXTOS) {
   for (const fonte of ["body", "query", "params"]) {
     test("Exportação " + contexto.nome + ": identidade forjada em " + fonte + " não troca ambiente", async (t) => {
       const ctx = preparar(t);
-      const forjada = { id_usuario: 999, id_ambiente: contexto.outro, perfil_acesso: "ADMINISTRADOR" };
+      const forjada = { id_usuario: 999, id_ambiente: contexto.outro, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
       await verificarIsolamento(ctx, contexto, await ctx.exportar("admin-" + contexto.nome, {
         [fonte]: { ...forjada, usuario: forjada }, usuario: forjada,
       }));
@@ -382,7 +385,7 @@ for (const contexto of CONTEXTOS) {
 for (const [nome, token] of [["JWT ausente", null], ["JWT inválido", "invalido"]]) {
   test("Exportação: " + nome + " recebe 401 sem qualquer consulta", async (t) => {
     const ctx = preparar(t);
-    const { res } = await ctx.exportar(token, { usuario: { id_usuario: 11, id_ambiente: A, perfil_acesso: "ADMINISTRADOR" } });
+    const { res } = await ctx.exportar(token, { usuario: { id_usuario: 11, id_ambiente: A, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" } });
     verificarErro(res, 401);
     assert.equal(ctx.estado.consultas.length, 0);
   });
@@ -444,7 +447,7 @@ test("Exportação: consulta efetivamente produzida exige filtro parametrizado d
 });
 
 for (const contexto of CONTEXTOS) {
-  test("Excel " + contexto.nome + ": engenheiro não recebe locais de outra campanha do mesmo ambiente", async (t) => {
+  test("Excel " + contexto.nome + ": engenheiro recebe locais de todas as campanhas do próprio ambiente", async (t) => {
     const ctx = preparar(t);
     const idCampanha = contexto.local + 500;
     ctx.estado.campanhas.push({ id_campanha: idCampanha, id_ambiente: contexto.ambiente, id_usuario: 999, nome_campanha: "CAMPANHA_NAO_AUTORIZADA" });
@@ -453,35 +456,35 @@ for (const contexto of CONTEXTOS) {
     const resposta = await ctx.exportar("engenheiro-" + contexto.nome);
     const worksheet = await abrir(resposta.res);
     assert.deepEqual(linhas(worksheet), esperado(ctx.juntar(contexto.ambiente, contexto.engenheiro)));
-    assert.equal(worksheet.rowCount, 4);
-    assert.equal(JSON.stringify(linhas(worksheet)).includes("NAO_AUTORIZAD"), false);
+    assert.equal(worksheet.rowCount, 5);
+    assert.equal(JSON.stringify(linhas(worksheet)).includes("NAO_AUTORIZAD"), true);
     const admin = await abrir((await ctx.exportar("admin-" + contexto.nome)).res);
     assert.equal(admin.rowCount, 5);
     assert.equal(JSON.stringify(linhas(admin)).includes("LOCAL_NAO_AUTORIZADO"), true);
   });
-  test("Excel " + contexto.nome + ": revogação da responsabilidade é revalidada na consulta", async (t) => {
+  test("Excel " + contexto.nome + ": troca de responsável não revoga a capacidade de exportação", async (t) => {
     const ctx = preparar(t);
     ctx.estado.antesExportar = () => { ctx.estado.campanhas.find(c => c.id_ambiente === contexto.ambiente).id_usuario = 999; };
     const worksheet = await abrir((await ctx.exportar("engenheiro-" + contexto.nome)).res);
-    assert.equal(worksheet.rowCount, 1);
-    assert.deepEqual(linhas(worksheet), []);
+    assert.equal(worksheet.rowCount, 4);
+    assert.deepEqual(linhas(worksheet), esperado(ctx.juntar(contexto.ambiente, contexto.engenheiro)));
   });
-  test("Excel " + contexto.nome + ": perfil administrativo revogado não exporta campanha alheia", async (t) => {
+  test("Excel " + contexto.nome + ": perfil atual de engenheiro mantém exportação do próprio ambiente", async (t) => {
     const ctx = preparar(t);
     ctx.estado.antesExportar = () => { ctx.estado.usuarios.get(contexto.admin).perfil_acesso = "ENGENHEIRO_SEGURANCA"; };
     const worksheet = await abrir((await ctx.exportar("admin-" + contexto.nome)).res);
-    assert.equal(worksheet.rowCount, 1);
+    assert.equal(worksheet.rowCount, 4);
   });
-  test("Excel " + contexto.nome + ": corpo e query não restauram responsabilidade revogada", async (t) => {
+  test("Excel " + contexto.nome + ": corpo e query não substituem a identidade com acesso ao ambiente", async (t) => {
     const ctx = preparar(t);
     ctx.estado.campanhas.find(c => c.id_ambiente === contexto.ambiente).id_usuario = 999;
-    const forjado = { id_usuario: contexto.admin, id_ambiente: contexto.ambiente, perfil_acesso: "ADMINISTRADOR" };
+    const forjado = { id_usuario: contexto.admin, id_ambiente: contexto.ambiente, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
     const resposta = await ctx.exportar("engenheiro-" + contexto.nome, { body: forjado, query: forjado, params: forjado, usuario: forjado });
     const worksheet = await abrir(resposta.res);
-    assert.equal(worksheet.rowCount, 1);
+    assert.equal(worksheet.rowCount, 4);
     assert.equal(resposta.req.usuario.id_usuario, contexto.engenheiro);
   });
-  test("Excel " + contexto.nome + ": local sem evidências exige responsabilidade igualmente", async (t) => {
+  test("Excel " + contexto.nome + ": local do ambiente sem evidências permanece na exportação", async (t) => {
     const ctx = preparar(t);
     ctx.estado.evidencias = [];
     const worksheet = await abrir((await ctx.exportar("engenheiro-" + contexto.nome)).res);

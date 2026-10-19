@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
@@ -16,6 +17,8 @@ function preparar(t) {
   try {
     for (const p of cache.keys()) delete require.cache[p];
     Module._load = function (r, parent, ...args) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (r === '../utils/permissoes') return politicaRbac723;
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (r === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (parent?.filename === authPath) {
@@ -39,7 +42,7 @@ function preparar(t) {
   async function requisitar(method, url, token = 'valido') {
     let resolver; const fim = new Promise(r => { resolver = r; }); let envios = 0;
     const req = { method, url, headers: token == null ? {} : { authorization: 'Bearer ' + token },
-      body: { id_usuario: 99, id_ambiente: 'FORJADO_CORPO', perfil_acesso: 'ADMINISTRADOR' }, query: { id_ambiente: 'FORJADO_QUERY' } };
+      body: { id_usuario: 99, id_ambiente: 'FORJADO_CORPO', eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' }, query: { id_ambiente: 'FORJADO_QUERY' } };
     const res = { statusCode: 200, headersSent: false, status(c) { this.statusCode = c; return this; }, json(d) { envios++; this.body = d; this.headersSent = true; resolver(); return this; } };
     router.handle(req, res, e => { res.status(e?.statusCode || 500).json({ status: 'error', message: 'Erro simulado.' }); });
     await fim; assert.equal(envios, 1); return res;
@@ -49,7 +52,7 @@ function preparar(t) {
 for (const [method,url,nome] of rotas) {
   test(nome + ': identidade atual do banco e handler correto', async t => {
     const s = preparar(t), res = await s.requisitar(method,url);
-    assert.equal(res.statusCode,200); assert.deepEqual(res.body.data, { id_usuario: 11, id_ambiente: A, perfil_acesso: 'ENGENHEIRO_SEGURANCA' });
+    assert.equal(res.statusCode,200); assert.deepEqual(res.body.data, { id_usuario: 11, id_ambiente: A, eh_fundador: false, perfil_acesso: 'ENGENHEIRO_SEGURANCA' });
     assert.equal(res.body.handler,nome); assert.equal(s.consultas(),1); assert.equal(s.chamadas(),1);
   });
   test(nome + ': inatividade impede chamada ao controller', async t => {

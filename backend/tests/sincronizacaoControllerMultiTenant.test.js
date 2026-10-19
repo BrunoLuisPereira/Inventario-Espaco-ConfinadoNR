@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
@@ -21,7 +22,9 @@ function preparar(t,nomeServico) {
   const service=Object.fromEntries(casos.map(([,nome])=>[nome,async(...args)=>{chamadas.push({nome,args});if(estado.iniciarDurante)res.headersSent=true;if(estado.erro)throw estado.erro;return dados;}]));
   const load=Module._load,cache=require.cache[arquivo];let controller;
   try {
-    delete require.cache[arquivo];Module._load=function(r,parent,...args){if(parent?.filename===arquivo){assert.equal(r,'../services/sincronizacaoMultiTenantService');return service;}return load.call(this,r,parent,...args);};
+    delete require.cache[arquivo];Module._load=function(r,parent,...args){
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (r === '../utils/permissoes') return politicaRbac723;if(parent?.filename===arquivo){assert.equal(r,'../services/sincronizacaoMultiTenantService');return service;}return load.call(this,r,parent,...args);};
     controller=require(arquivo);
   }finally{Module._load=load;if(cache)require.cache[arquivo]=cache;else delete require.cache[arquivo];}
   let envios=0;

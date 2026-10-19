@@ -176,7 +176,7 @@ test("Ignora usuário, ambiente e perfil enviados no corpo da criação", async 
     id_ambiente: AMBIENTE_B,
     idUsuario: 999,
     idAmbiente: AMBIENTE_B,
-    perfil_acesso: "ADMINISTRADOR",
+    eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, USUARIO);
 
   assert.equal(consultas.criarNoAmbiente.mock.callCount(), 1);
@@ -252,7 +252,7 @@ test("Encaminha atualização com identidade autenticada sem usar o perfil do co
     ...DADOS,
     id_usuario: 999,
     id_ambiente: AMBIENTE_B,
-    perfil_acesso: "ADMINISTRADOR",
+    eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, { id_usuario: "10", id_ambiente: AMBIENTE_A });
 
   assert.deepEqual(resultado, CAMPANHA);
@@ -312,7 +312,7 @@ test("Encaminha alteração de status com identidade autenticada sem usar o perf
     status: "CONCLUIDO",
     id_usuario: 999,
     id_ambiente: AMBIENTE_B,
-    perfil_acesso: "ADMINISTRADOR",
+    eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, { id_usuario: "10", id_ambiente: AMBIENTE_A });
 
   assert.deepEqual(resultado, campanhaAtualizada);
@@ -434,7 +434,7 @@ test("Mantém as cinco operações no ambiente B apesar da identidade forjada no
     id_usuario: 10,
     idAmbiente: AMBIENTE_A,
     idUsuario: 10,
-    perfil_acesso: "ADMINISTRADOR",
+    eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   };
 
   assert.deepEqual(

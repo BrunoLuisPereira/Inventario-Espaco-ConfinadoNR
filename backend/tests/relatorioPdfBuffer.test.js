@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
@@ -22,6 +23,8 @@ function preparar(t, falhar = false) {
   }
   const load = Module._load; delete require.cache[fonte];
   Module._load = function (r, parent, ...args) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (r === '../utils/permissoes') return politicaRbac723;
     if (parent?.filename === fonte && r === 'pdfkit') return Documento;
     if (parent?.filename === fonte && r === 'fs') return new Proxy({}, { get(_o, nome) { return () => { fisico.push(nome); throw new Error('FILESYSTEM_PROIBIDO'); }; } });
     return load.call(this, r, parent, ...args);

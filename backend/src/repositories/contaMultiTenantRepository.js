@@ -2,8 +2,8 @@ const pool = require('../config/database');
 const emailLockRepository = require('./emailLockRepository');
 const conviteRepository = require('./conviteRepository');
 
-const colunas = 'u.id_usuario, u.nome, u.email, u.perfil_acesso, u.ativo, u.data_criacao, u.data_atualizacao';
-const perfis = ['ADMINISTRADOR', 'ENGENHEIRO_SEGURANCA'];
+const colunas = 'u.id_usuario, u.nome, u.email, u.perfil_acesso, u.eh_fundador, u.ativo, u.data_criacao, u.data_atualizacao';
+const { perfis, sqlCapacidade } = require('../utils/permissoes');
 function erroConta(message, statusCode) {
   return Object.assign(new Error(message), { statusCode, publicoConta: true });
 }
@@ -81,7 +81,7 @@ async function escrever(usuario, dados, prepararSenha) {
     const atualizado = await client.query(`
       UPDATE usuario AS u SET ${sql}, data_atualizacao = CURRENT_TIMESTAMP
       WHERE u.id_usuario = $1 AND u.id_ambiente = $2 AND u.ativo = TRUE
-        AND u.perfil_acesso IN ('ADMINISTRADOR', 'ENGENHEIRO_SEGURANCA')
+        AND ${sqlCapacidade('u', 'conta.propria')}
         AND EXISTS (SELECT 1 FROM ambiente AS a WHERE a.id_ambiente = u.id_ambiente AND a.ativo = TRUE)
       RETURNING ${colunas}
     `, valores);

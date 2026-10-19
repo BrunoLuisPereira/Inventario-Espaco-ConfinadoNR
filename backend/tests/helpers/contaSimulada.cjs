@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../../src/utils/permissoes');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
 
@@ -12,12 +13,12 @@ const arquivos = [
 
 function preparar(t, opcoes = {}) {
   const usuario = { id_usuario: 1, id_ambiente: A, nome: 'Original', email: 'original@example.invalid',
-    perfil_acesso: 'ADMINISTRADOR', ativo: true, senha_hash: 'hash:antiga123', data_criacao: 'data1', data_atualizacao: 'data2', ...opcoes.usuario };
+    eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', ativo: true, senha_hash: 'hash:antiga123', data_criacao: 'data1', data_atualizacao: 'data2', ...opcoes.usuario };
   const estado = { usuario, ambienteAtivo: true, outroEmail: null, reservado: false, ...opcoes.estado };
   const eventos = [], desconhecidos = [], logs = [], bcryptChamadas = [], errosSimulador = [];
   const publico = u => {
-    const { id_usuario, nome, email, perfil_acesso, ativo, data_criacao, data_atualizacao } = u;
-    return { id_usuario, nome, email, perfil_acesso, ativo, data_criacao, data_atualizacao };
+    const { id_usuario, nome, email, perfil_acesso, eh_fundador, ativo, data_criacao, data_atualizacao } = u;
+    return { id_usuario, nome, email, perfil_acesso, eh_fundador, ativo, data_criacao, data_atualizacao };
   };
   const resultado = (...rows) => ({ rows, rowCount: rows.length });
   const sqlNormal = sql => sql.replace(/\s+/g, ' ').trim();
@@ -124,6 +125,8 @@ function preparar(t, opcoes = {}) {
   try {
     for (const p of arquivos) delete require.cache[p];
     Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../../src/' + p))) return require('../../src/utils/normalizarIdDominio');
       if (parent && arquivos.includes(parent.filename)) {
@@ -153,7 +156,7 @@ function preparar(t, opcoes = {}) {
   async function executar(method, caminho, body, token = 'valido') {
     const layer = router.stack.find(l => l.route?.path === caminho && l.route.methods[method]);
     assert.ok(layer);
-    const req = { body, params: { id_usuario: 999, id_ambiente: B }, query: { id_ambiente: B, perfil_acesso: 'ADMINISTRADOR' },
+    const req = { body, params: { id_usuario: 999, id_ambiente: B }, query: { id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' },
       headers: token === null ? {} : { authorization: 'Bearer ' + token } };
     const handlers = layer.route.stack.map(s => s.handle);
     let indice = 0;
@@ -162,6 +165,6 @@ function preparar(t, opcoes = {}) {
     return { req, res };
   }
   return { estado, eventos, logs, bcryptChamadas, executar, res, service, repository, publico, router,
-    identidade: () => ({ id_usuario: estado.usuario.id_usuario, id_ambiente: estado.usuario.id_ambiente, perfil_acesso: 'ADMINISTRADOR' }) };
+    identidade: () => ({ id_usuario: estado.usuario.id_usuario, id_ambiente: estado.usuario.id_ambiente, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' }) };
 }
 module.exports = { preparar, A, B };

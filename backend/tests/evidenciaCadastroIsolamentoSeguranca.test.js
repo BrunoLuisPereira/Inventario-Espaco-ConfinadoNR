@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
@@ -26,7 +27,7 @@ const CONTEXTOS = [
   { nome: "B", ambiente: B, outro: A, admin: 21, responsavel: 22, engenheiro: 23, criador: 24, campanha: 2, local: 201, evidencia: 601, externa: 501 },
 ];
 const normalizar = (sql) => sql.replace(/\s+/g, " ").trim().replace(/;$/, "");
-const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
+const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
 const SQL_LOCAL = "SELECT l.id_local, l.nome_local, l.setor, l.descricao, l.endereco, l.latitude, l.longitude, l.status, l.id_campanha, c.nome_campanha, l.data_criacao, l.data_atualizacao FROM local l INNER JOIN campanha c ON c.id_campanha = l.id_campanha WHERE l.id_local = $1 LIMIT 1";
 const SQL_CAMPANHA = "SELECT c.id_campanha, c.nome_campanha, c.empresa, c.responsavel, c.data_inicio, c.status, c.id_usuario, u.nome AS usuario_responsavel, c.data_criacao, c.data_atualizacao FROM campanha c INNER JOIN usuario u ON u.id_usuario = c.id_usuario WHERE c.id_campanha = $1 LIMIT 1";
 const SQL_OPERACAO = "SELECT e.*, l.nome_local, u.nome AS usuario_responsavel FROM evidencia e INNER JOIN local l ON l.id_local = e.id_local INNER JOIN usuario u ON u.id_usuario = e.id_usuario WHERE e.id_operacao_cliente = $1";
@@ -35,7 +36,7 @@ const AUTORIZACAO = `AND EXISTS ( SELECT 1 FROM usuario AS solicitante
   INNER JOIN ambiente AS a ON a.id_ambiente = solicitante.id_ambiente
   WHERE solicitante.id_usuario = $2 AND solicitante.id_ambiente = c.id_ambiente
   AND solicitante.ativo = TRUE AND a.ativo = TRUE
-  AND ( solicitante.perfil_acesso = 'ADMINISTRADOR' OR c.id_usuario = solicitante.id_usuario ) )`;
+  AND (solicitante.perfil_acesso IN ('ADMINISTRADOR', 'ENGENHEIRO_SEGURANCA', 'TECNICO_SEGURANCA', 'COORDENADOR', 'SUPERVISOR', 'AUDITOR', 'VISUALIZADOR')) )`;
 const SQL_LOCAL_MT = normalizar(`SELECT l.id_local FROM local AS l
   INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha
   WHERE c.id_ambiente = $1 AND l.id_local = $3 ${AUTORIZACAO} LIMIT 1`);
@@ -49,7 +50,7 @@ const SQL_INSERT = normalizar(`INSERT INTO evidencia ( ${COLUNAS} ) VALUES ( $1,
 const SQL_INSERT_MT = normalizar(`INSERT INTO evidencia AS e ( ${COLUNAS} )
   SELECT l.id_local, $4, $5, $6, $2, $7, $8, $9, $10, $11, $12
   FROM local AS l INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha
-  WHERE c.id_ambiente = $1 AND l.id_local = $3 ${AUTORIZACAO} RETURNING e.*`);
+  WHERE c.id_ambiente = $1 AND l.id_local = $3 ${AUTORIZACAO.replace("'SUPERVISOR', 'AUDITOR', 'VISUALIZADOR'", "").replace(", )", ")")} RETURNING e.*`);
 
 function preparar(t) {
   const estado = {
@@ -63,7 +64,7 @@ function preparar(t) {
   for (const c of CONTEXTOS) {
     for (const [papel, id] of [["admin", c.admin], ["responsavel", c.responsavel], ["engenheiro", c.engenheiro], ["criador", c.criador]]) {
       const perfil = papel === "admin" ? "ADMINISTRADOR" : "ENGENHEIRO_SEGURANCA";
-      estado.usuarios.set(id, { id_usuario: id, id_ambiente: c.ambiente, perfil_acesso: perfil, ativo: true });
+      estado.usuarios.set(id, { id_usuario: id, id_ambiente: c.ambiente, eh_fundador: perfil === "ADMINISTRADOR", perfil_acesso: perfil, ativo: true });
       // O ambiente do JWT é propositalmente desatualizado.
       tokens.set(papel + "-" + c.nome, { sub: String(id), perfil, id_ambiente: c.outro });
     }
@@ -84,7 +85,7 @@ function preparar(t) {
     const usuario = estado.usuarios.get(idUsuario);
     return !!(campanha && usuario && usuario.ativo === true && estado.ambientes.get(ambiente) === true &&
       usuario.id_ambiente === ambiente && campanha.id_ambiente === ambiente &&
-      (usuario.perfil_acesso === "ADMINISTRADOR" || campanha.id_usuario === idUsuario));
+      ["ADMINISTRADOR","ENGENHEIRO_SEGURANCA","TECNICO_SEGURANCA","COORDENADOR"].includes(usuario.perfil_acesso));
   }
   const resultado = (rows) => ({ rows, rowCount: rows.length });
   const conflito = (constraint = "uq_evidencia_id_operacao_cliente") => Object.assign(new Error(SENSIVEL), {
@@ -175,7 +176,33 @@ function preparar(t) {
       estado.inesperadas.push(sql);
       throw new Error("SQL desconhecido ou escrita fora do escopo");
     },
-    connect() { estado.conexoes++; throw new Error("Conexão real proibida"); },
+    async connect() {
+      estado.conexoes++;
+      let aberta = false;
+      const locks = [];
+      return {
+        async query(texto, params = []) {
+          const sql = normalizar(texto);
+          if (sql.startsWith('BEGIN')) { assert.equal(aberta, false); aberta = true; return resultado([]); }
+          if (sql === 'COMMIT' || sql === 'ROLLBACK') { assert.ok(aberta); aberta = false; return resultado([]); }
+          assert.ok(aberta);
+          if (sql.startsWith('SELECT l.id_local FROM ambiente a')) {
+            assert.match(sql, /a\.id_ambiente=\$1/);
+            assert.match(sql, /solicitante\.id_usuario=\$2/);
+            assert.match(sql, /l\.id_local=\$3/);
+            assert.match(sql, /a\.ativo=TRUE AND solicitante\.ativo=TRUE/);
+            assert.match(sql, /solicitante\.perfil_acesso IN \('ADMINISTRADOR', 'ENGENHEIRO_SEGURANCA', 'TECNICO_SEGURANCA', 'COORDENADOR'\)/);
+            const lock = sql.match(/FOR (?:SHARE|UPDATE) OF (a|solicitante|c|l)$/);
+            assert.ok(lock);
+            locks.push(lock[1]);
+            return resultado(permitido(params[2], params[0], params[1]) ? [{ id_local: params[2] }] : []);
+          }
+          assert.deepEqual(locks, ['a', 'solicitante', 'c', 'l']);
+          return pool.query(texto, params);
+        },
+        release() { assert.equal(aberta, false); },
+      };
+    },
   };
   const consulta = pool.query;
   pool.query = async (...args) => {
@@ -221,11 +248,13 @@ function preparar(t) {
     assert.deepEqual(estado.inesperadas, []);
     assert.deepEqual(estado.falhasSimulador, []);
     assert.deepEqual(estado.fisicas, []);
-    assert.equal(estado.conexoes, 0);
+    assert.equal(estado.conexoes, estado.consultas.filter(q => q.sql === SQL_INSERT_MT).length);
   });
   try {
     for (const p of cache.keys()) delete require.cache[p];
     Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cache.has(parent?.filename)) {
@@ -370,11 +399,10 @@ for (const c of CONTEXTOS) {
     assert.deepEqual(ctx.estado.operacoes, [], "Local externo não permite sequer recuperação idempotente");
     semVazamento(res, registro);
   });
-  test(c.nome + ": engenheiro não responsável não cria", async (t) => {
+  test(c.nome + ": engenheiro cria no próprio ambiente sem responsabilidade individual", async (t) => {
     const ctx = preparar(t);
     const { res } = await ctx.solicitar(dados(c), "engenheiro-" + c.nome);
-    semEscrita(ctx);
-    erroPublico(res, 404);
+    sucesso(res, {id_local:c.local,id_usuario:c.engenheiro});
   });
   test(c.nome + ": responsabilidade não atravessa ambientes", async (t) => {
     const ctx = preparar(t);
@@ -397,25 +425,25 @@ for (const c of CONTEXTOS) {
   }
   test(c.nome + ": perfil revogado no banco não conserva privilégio do JWT", async (t) => {
     const ctx = preparar(t);
-    ctx.estado.usuarios.get(c.admin).perfil_acesso = "ENGENHEIRO_SEGURANCA";
+    ctx.estado.usuarios.get(c.admin).perfil_acesso = "AUDITOR";
     const { res, req } = await ctx.solicitar(dados(c), "admin-" + c.nome);
     semEscrita(ctx);
-    erroPublico(res, 404);
-    assert.equal(req.usuario.perfil_acesso, "ENGENHEIRO_SEGURANCA");
+    erroPublico(res, 403);
+    assert.equal(req.usuario.perfil_acesso, "AUDITOR");
   });
   for (const fonte of ["body", "query", "params"]) {
     test(c.nome + ": forja em " + fonte + " não autoriza cadastro externo", async (t) => {
       const ctx = preparar(t);
-      const forjada = { id_usuario: outro.admin, id_ambiente: outro.ambiente, perfil_acesso: "ADMINISTRADOR" };
+      const forjada = { id_usuario: outro.admin, id_ambiente: outro.ambiente, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
       const body = dados(outro, fonte === "body" ? forjada : {});
       const { res } = await ctx.solicitar(body, "admin-" + c.nome, { [fonte]: forjada, usuario: forjada });
       semEscrita(ctx);
       erroPublico(res, 404);
     });
   }
-  test(c.nome + ": criador de evidência não ganha permissão para cadastrar", async (t) => {
+  test(c.nome + ": criador de evidência não ganha permissão para cadastrar em outro ambiente", async (t) => {
     const ctx = preparar(t);
-    const { res } = await ctx.solicitar(dados(c), "criador-" + c.nome);
+    const { res } = await ctx.solicitar(dados(outro), "criador-" + c.nome);
     semEscrita(ctx);
     erroPublico(res, 404);
   });
@@ -476,7 +504,7 @@ test("Cadastro exige identidade atual e SELECT/INSERT autorizados parametrizados
   const ctx = preparar(t);
   const descricao = "Texto literal ' $1 ; -- sem interpolação";
   const { res } = await ctx.solicitar(dados(CONTEXTOS[0], { descricao, id_operacao_cliente: CHAVE,
-    id_usuario: 999, id_ambiente: B, perfil_acesso: "ADMINISTRADOR" }));
+    id_usuario: 999, id_ambiente: B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" }));
   sucesso(res, { id_usuario: 11, id_local: 101, descricao });
   assert.deepEqual(ctx.estado.identidades, [11]);
   assert.deepEqual(ctx.estado.globais, []);

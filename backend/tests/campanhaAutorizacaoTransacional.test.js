@@ -1,3 +1,5 @@
+const { conferir: conferirCapacidadeSql } = require('./helpers/rbacSqlSimulado.cjs');
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
@@ -7,13 +9,13 @@ const dados = { nomeCampanha: "Texto ' $1 -- literal", empresa: 'Empresa', respo
 function preparar(t, opcoes = {}) {
   const estado = { eventos: [], bloqueios: 0, escritas: [], liberacoes: [], inesperadas: [], autorizado: true, modificado: false };
   const registro = { id_campanha: 30, id_ambiente: A, id_usuario: 12, nome_campanha: dados.nomeCampanha };
-  const usuario = { id_usuario: 11, id_ambiente: A, perfil_acesso: 'ADMINISTRADOR' };
+  const usuario = { id_usuario: 11, id_ambiente: A, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' };
   const tecnico = Object.assign(new Error('ERRO_SQL_INTERNO'), { code: 'XX000' });
   const rows = (lista) => ({ rows: lista });
-  function pode(ambiente, id, campanha) {
+  function pode(ambiente, id, campanha, escrita = true) {
     if (opcoes.inativo || opcoes.ambienteInativo || !estado.autorizado || ambiente !== A || ![11, 12, 13].includes(id)) return false;
     const admin = id === 11 && !opcoes.perfilRevogado;
-    return campanha === undefined ? true : campanha === 30 && (admin || id === 12);
+    return campanha === undefined ? true : campanha === 30 && (admin || id === 12 || !escrita && id === 13);
   }
   async function query(sql, params = []) {
     const texto = sql.replace(/\s+/g, ' ').trim();
@@ -29,8 +31,8 @@ function preparar(t, opcoes = {}) {
       if (params.length === 3) {
         assert.match(texto, /c\.id_ambiente = a\.id_ambiente/);
         assert.match(texto, /c\.id_campanha = \$3/);
-        assert.match(texto, /u\.perfil_acesso = 'ADMINISTRADOR' OR c\.id_usuario = u\.id_usuario/);
-      } else assert.match(texto, /u\.perfil_acesso IN \('ADMINISTRADOR', 'ENGENHEIRO_SEGURANCA'\)/);
+        conferirCapacidadeSql(texto, 'u');
+      } else conferirCapacidadeSql(texto, 'u');
       if (opcoes.revogar === estado.bloqueios) estado.autorizado = false;
       return rows(pode(...params) ? [{ id_usuario: params[1], id_campanha: 30 }] : []);
     }
@@ -70,8 +72,8 @@ function preparar(t, opcoes = {}) {
       assert.match(texto, /solicitante\.id_ambiente = c\.id_ambiente/);
       assert.match(texto, /solicitante\.ativo = TRUE AND a\.ativo = TRUE/);
       assert.match(texto, /u\.id_ambiente = c\.id_ambiente/);
-      assert.match(texto, /solicitante\.perfil_acesso = 'ADMINISTRADOR' OR c\.id_usuario = solicitante\.id_usuario/);
-      return rows(pode(params[0], params[1], params.length === 3 ? params[2] : 30) ? [registro] : []);
+      conferirCapacidadeSql(texto, 'solicitante');
+      return rows(pode(params[0], params[1], params.length === 3 ? params[2] : 30, false) ? [registro] : []);
     },
   };
   const alvo = require.resolve('../src/repositories/campanhaMultiTenantRepository');
@@ -81,6 +83,8 @@ function preparar(t, opcoes = {}) {
   try {
     delete require.cache[alvo];
     Module._load = function (request, parent, ...args) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       if (parent?.filename === alvo) { assert.equal(request, '../config/database'); return pool; }
       return load.call(this, request, parent, ...args);
     };
@@ -142,7 +146,7 @@ for (const nome of ['atualizar', 'status']) {
     assert.strictEqual(await ctx.executar(nome, { id_usuario: 12, id_ambiente: A }), ctx.registro);
   });
 }
-for (const [idUsuario, ambiente, permitido] of [[11, A, true], [12, A, true], [13, A, false], [11, B, false]]) {
+for (const [idUsuario, ambiente, permitido] of [[11, A, true], [12, A, true], [13, A, true], [11, B, false]]) {
   test('Leituras usam SQL autorizado para ' + idUsuario + '/' + ambiente, async (t) => {
     const ctx = preparar(t);
     const u = { id_usuario: idUsuario, id_ambiente: ambiente };

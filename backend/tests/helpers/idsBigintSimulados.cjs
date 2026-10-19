@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../../src/utils/permissoes');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
 const path = require('node:path');
@@ -13,8 +14,8 @@ const PDF = Buffer.from('%PDF-1.7\nPDF inteiramente simulado\n%%EOF');
 function preparar(t, opcoes = {}) {
   const inesperados = [], consultas = [], fisico = [], logs = [], liberacoes = [];
   const usuarios = [
-    { id_usuario: opcoes.idA ?? '10', id_ambiente: A, nome: 'Pessoa A', email: 'a@example.invalid', perfil_acesso: 'ADMINISTRADOR', ativo: true, senha_hash: 'hash:antiga123' },
-    { id_usuario: opcoes.idB ?? 20, id_ambiente: B, nome: 'Pessoa B', email: 'b@example.invalid', perfil_acesso: 'ADMINISTRADOR', ativo: true, senha_hash: 'hash:antiga123' },
+    { id_usuario: opcoes.idA ?? '10', id_ambiente: A, nome: 'Pessoa A', email: 'a@example.invalid', eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', ativo: true, senha_hash: 'hash:antiga123' },
+    { id_usuario: opcoes.idB ?? 20, id_ambiente: B, nome: 'Pessoa B', email: 'b@example.invalid', eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', ativo: true, senha_hash: 'hash:antiga123' },
   ];
   const ativo = { [A]: true, [B]: true };
   const relatorios = [A, B].map((env, i) => ({ id_relatorio: i ? 8 : opcoes.idRelatorio ?? '7',
@@ -135,6 +136,8 @@ function preparar(t, opcoes = {}) {
   const dependencias = new Map();
   const load = Module._load;
   t.mock.method(Module, '_load', function (r, parent, ...args) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (r === '../utils/permissoes') return politicaRbac723;
     const deps = dependencias.get(parent?.filename);
     if (deps) return Object.hasOwn(deps, r) ? deps[r] : proibido('import ' + r);
     return load.call(this, r, parent, ...args);

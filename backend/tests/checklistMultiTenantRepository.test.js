@@ -1,3 +1,4 @@
+const { conferir: conferirCapacidadeSql } = require('./helpers/rbacSqlSimulado.cjs');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const pool = require("../src/config/database");
@@ -66,7 +67,7 @@ function verificarAutorizacao(sql) {
   assert.match(sql, /AND\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+usuario\s+AS\s+u/i);
   assert.match(sql, /u\.id_usuario\s*=\s*\$3/i);
   assert.match(sql, /u\.id_ambiente\s*=\s*c\.id_ambiente/i);
-  assert.match(sql, /AND\s*\(\s*u\.perfil_acesso\s*=\s*'ADMINISTRADOR'\s+OR\s+c\.id_usuario\s*=\s*u\.id_usuario\s*\)/i);
+  conferirCapacidadeSql(sql, 'u');
 }
 
 test("Recusa UUID de ambiente inválido nas seis funções sem consultar", async (t) => {
@@ -187,7 +188,7 @@ test("Cria com INSERT SELECT parametrizado e filtro pelo local e ambiente", asyn
 test("Usa o usuário autenticado como criador sem aceitar identidade do corpo", async (t) => {
   const { consulta } = simularBanco(t);
   await repository.criarNoAmbiente({
-    ...DADOS, id_usuario: 999, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR",
+    ...DADOS, id_usuario: 999, id_ambiente: AMBIENTE_B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, USUARIO_A);
   const [sql, parametros] = unica(consulta);
   assert.match(sql, /NULLIF\(\$11::text,\s*''\),\s*\$12,\s*\$3\s+FROM/i);
@@ -309,7 +310,7 @@ test("UPDATE de respostas não altera id_local, id_usuario, status ou identidade
   const { consulta } = simularBanco(t);
   await repository.atualizarNoAmbiente(50, {
     criterio_a: "NAO", id_local: 999, id_usuario: 999, status: "CONCLUIDO",
-    id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR",
+    id_ambiente: AMBIENTE_B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, USUARIO_A);
   const [sql, parametros] = unica(consulta);
   const set = sql.match(/\bSET\b([\s\S]*?)\bFROM\b/i)[1];
@@ -404,7 +405,7 @@ test("Encaminha ambientes A e B e ignora identidade forjada nas três escritas",
   const { consulta } = simularBanco(t);
   for (const [indice, usuario] of [USUARIO_A, USUARIO_B].entries()) {
     const outroAmbiente = indice === 0 ? AMBIENTE_B : AMBIENTE_A;
-    const dados = { ...DADOS, id_usuario: 999, id_ambiente: outroAmbiente, perfil_acesso: "ADMINISTRADOR" };
+    const dados = { ...DADOS, id_usuario: 999, id_ambiente: outroAmbiente, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
     for (const executar of escritas(usuario, dados)) await executar();
     await repository.listarPorAmbiente(usuario.id_ambiente);
     await repository.buscarPorIdEAmbiente(50, usuario.id_ambiente);

@@ -6,8 +6,15 @@ import { listarUsuarios } from '../services/api'
 import { filtrarUsuarios, indicadoresUsuarios, nomePerfil } from '../services/usuarios'
 import '../styles/Dashboard.css'
 import '../styles/Usuarios.css'
+import EditarPermissoes from '../components/EditarPermissoes'
+import AuditoriaPermissoes from '../components/AuditoriaPermissoes'
+import { useAuth } from '../hooks/useAuth'
+import { pode } from '../services/permissoes'
 
 export default function Usuarios() {
+  const { usuario: autenticado } = useAuth()
+  const [editando, setEditando] = useState(null)
+  const [mensagem, setMensagem] = useState('')
   const [estado, setEstado] = useState({ carregando: true, dados: [], erro: '' })
   const [busca, setBusca] = useState('')
   const [tentativa, setTentativa] = useState(0)
@@ -33,6 +40,11 @@ export default function Usuarios() {
     <div className="dashboard-content">
       <Header titulo="Usuários" subtitulo="Gerencie os integrantes do seu ambiente" />
       <main className="usuarios-main">
+        {mensagem && <p role="status">{mensagem}</p>}
+        {editando && <EditarPermissoes key={editando.id_usuario} usuario={editando} aoCancelar={() => setEditando(null)} aoSalvar={atualizado => {
+          setEstado(s => ({ ...s, dados: s.dados.map(u => String(u.id_usuario) === String(atualizado.id_usuario) ? atualizado : u) }))
+          setEditando(null); setMensagem('Permissões atualizadas com sucesso.')
+        }} />}
         <div className="usuarios-actions">
           <Link className="usuarios-convidar" to="/convites"><span aria-hidden="true">＋</span> Convidar usuário</Link>
         </div>
@@ -54,16 +66,18 @@ export default function Usuarios() {
             <p className="usuarios-resultados" role="status">{usuarios.length} de {estado.dados.length} usuários</p>
             <table className="usuarios-tabela">
               <caption className="usuarios-sr-only">Integrantes do seu ambiente</caption>
-              <thead><tr><th scope="col">Usuário</th><th scope="col">E-mail</th><th scope="col">Perfil</th><th scope="col">Status</th></tr></thead>
+              <thead><tr><th scope="col">Usuário</th><th scope="col">E-mail</th><th scope="col">Perfil</th><th scope="col">Status</th><th scope="col">Ações</th></tr></thead>
               <tbody>{usuarios.map(usuario => <tr key={usuario.id_usuario}>
                 <td><div className="usuarios-identidade"><span className="usuarios-avatar" aria-hidden="true">{usuario.nome?.trim().charAt(0).toLocaleUpperCase('pt-BR') || '?'}</span><strong>{usuario.nome}</strong></div></td>
                 <td data-label="E-mail" className="usuarios-email">{usuario.email}</td>
                 <td data-label="Perfil"><span className={`usuarios-perfil ${usuario.perfil_acesso === 'ADMINISTRADOR' ? 'usuarios-perfil-admin' : ''}`}>{nomePerfil(usuario.perfil_acesso)}</span></td>
                 <td data-label="Status"><span className={`usuarios-status ${usuario.ativo ? 'usuarios-ativo' : 'usuarios-inativo'}`}><span aria-hidden="true">●</span> {usuario.ativo ? 'Ativo' : 'Inativo'}</span></td>
+                <td data-label="Ações">{usuario.eh_fundador ? <span>Fundador</span> : pode(autenticado, 'usuarios.permissoes.alterar') && usuario.id_convite_origem ? <button className="usuarios-editar" type="button" onClick={() => { setMensagem(''); setEditando(usuario) }}>Editar permissões</button> : <span>Origem não comprovada</span>}</td>
               </tr>)}</tbody>
             </table>
           </> : <p className="usuarios-mensagem" role="status">{estado.dados.length ? 'Nenhum usuário encontrado para esta busca.' : 'Nenhum usuário cadastrado neste ambiente.'}</p>)}
         </section>
+        {pronto && pode(autenticado, 'usuarios.auditoria.consultar') && <AuditoriaPermissoes usuarios={estado.dados} />}
       </main>
     </div>
   </div>

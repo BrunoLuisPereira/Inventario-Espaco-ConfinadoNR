@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
@@ -19,10 +20,10 @@ const AMBIENTE_B = "22222222-2222-4222-8222-222222222222";
 const SEGREDO_SIMULADO = "SEGREDO_FICTICIO_EXCLUSIVO_DO_TESTE";
 const TECNICO = "SQL_CREDENCIAL_TOKEN_CAMINHO_SIMULADOS_NAO_PUBLICAR";
 const COLUNAS_PUBLICAS = [
-  "id_usuario", "nome", "email", "perfil_acesso", "ativo", "data_criacao", "data_atualizacao",
+  "id_usuario", "nome", "email", "perfil_acesso", "eh_fundador", "id_convite_origem", "ativo", "data_criacao", "data_atualizacao",
 ];
 const SELECAO_PUBLICA = "SELECT " + COLUNAS_PUBLICAS.join(", ") + " FROM usuario";
-const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
+const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
 const CONTEXTOS = [
   { nome: "A", ambiente: AMBIENTE_A, outroAmbiente: AMBIENTE_B, admin: 11, outroAdmin: 22, alvo: 101, externo: 202, token: "admin-a" },
   { nome: "B", ambiente: AMBIENTE_B, outroAmbiente: AMBIENTE_A, admin: 22, outroAdmin: 11, alvo: 202, externo: 101, token: "admin-b" },
@@ -47,7 +48,7 @@ function preparar(t) {
     [101, "Usuário A", AMBIENTE_A, "ENGENHEIRO_SEGURANCA"],
     [202, "Usuário B", AMBIENTE_B, "ENGENHEIRO_SEGURANCA"],
   ].map(([id_usuario, nome, id_ambiente, perfil_acesso]) => ({
-    id_usuario, nome, id_ambiente, perfil_acesso, ativo: true,
+    id_usuario, nome, id_ambiente, perfil_acesso, eh_fundador: perfil_acesso === "ADMINISTRADOR", id_convite_origem: null, ativo: true,
     email: "usuario" + id_usuario + "@example.invalid",
     data_criacao: "2026-01-01T00:00:00.000Z", data_atualizacao: "2026-01-01T00:00:00.000Z",
   }));
@@ -88,7 +89,7 @@ function preparar(t) {
         const usuario = usuarios.find((u) => u.id_usuario === params[0]);
         const rows = usuario?.ativo === true && ambientes.get(usuario.id_ambiente)?.ativo === true
           ? [{ id_usuario: usuario.id_usuario, id_ambiente: usuario.id_ambiente,
-            nome: usuario.nome, email: usuario.email, perfil_acesso: usuario.perfil_acesso }]
+            nome: usuario.nome, email: usuario.email, eh_fundador: usuario.eh_fundador === true, perfil_acesso: usuario.perfil_acesso }]
           : [];
         return { rows, rowCount: rows.length };
       }
@@ -186,6 +187,9 @@ function preparar(t) {
   try {
     for (const caminho of cacheAnterior.keys()) delete require.cache[caminho];
     Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
+      if (request === '../controllers/usuarioPermissoesController') return new Proxy({}, { get(_t,k) { return () => { estado.inesperadas.push('permissoes.'+String(k)); throw new Error('Operacao fora do escopo deste teste'); }; } });
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cacheAnterior.has(parent?.filename)) {
@@ -301,7 +305,7 @@ for (const contexto of CONTEXTOS) {
 
   test("[identidade] administrador " + contexto.nome + ": corpo, query, params e contexto forjados não mudam listagem", async (t) => {
     const { consultar, estado } = preparar(t);
-    const forjada = { id_usuario: contexto.outroAdmin, id_ambiente: contexto.outroAmbiente, perfil_acesso: "ADMINISTRADOR" };
+    const forjada = { id_usuario: contexto.outroAdmin, id_ambiente: contexto.outroAmbiente, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
     const { res, req } = await consultar("/", contexto.token, {
       body: { ...forjada, usuario: forjada }, query: { ...forjada }, params: { ...forjada }, usuario: forjada,
     });
@@ -313,7 +317,7 @@ for (const contexto of CONTEXTOS) {
 
   test("[identidade] administrador " + contexto.nome + ": ambiente forjado não autoriza busca externa", async (t) => {
     const { consultar } = preparar(t);
-    const forjada = { id_usuario: contexto.outroAdmin, id_ambiente: contexto.outroAmbiente, perfil_acesso: "ADMINISTRADOR" };
+    const forjada = { id_usuario: contexto.outroAdmin, id_ambiente: contexto.outroAmbiente, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
     const { res, req } = await consultar("/" + contexto.externo, contexto.token, {
       body: forjada, query: forjada, params: forjada, usuario: forjada,
     });
@@ -335,7 +339,7 @@ for (const contexto of CONTEXTOS) {
 for (const endpoint of ENDPOINTS) {
   test(endpoint.nome + ": ausência de JWT retorna 401 mesmo com identidade forjada", async (t) => {
     const { consultar, estado } = preparar(t);
-    const forjada = { id_usuario: 11, id_ambiente: AMBIENTE_A, perfil_acesso: "ADMINISTRADOR" };
+    const forjada = { id_usuario: 11, id_ambiente: AMBIENTE_A, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
     const { res } = await consultar(endpoint.caminho, null, { body: forjada, query: forjada, usuario: forjada });
     verificarErro(res, 401);
     assert.equal(estado.consultas.length, 0);
@@ -350,7 +354,7 @@ for (const endpoint of ENDPOINTS) {
 
   test(endpoint.nome + ": perfil administrativo no cliente não promove engenheiro ativo", async (t) => {
     const { consultar, estado } = preparar(t);
-    const forjada = { id_usuario: 11, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR" };
+    const forjada = { id_usuario: 11, id_ambiente: AMBIENTE_B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
     const { res } = await consultar(endpoint.caminho, "engenheiro-a", { body: forjada, query: forjada, params: forjada, usuario: forjada });
     verificarErro(res, 403);
     assert.equal(estado.leituras.length, 0);

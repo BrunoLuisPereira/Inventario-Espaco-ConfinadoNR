@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
@@ -7,10 +8,10 @@ const express = require("express");
 const AMBIENTE_A = "11111111-1111-4111-8111-111111111111";
 const AMBIENTE_B = "22222222-2222-4222-8222-222222222222";
 const USUARIO_A = Object.freeze({
-  id_usuario: 10, id_ambiente: AMBIENTE_A, perfil_acesso: "ENGENHEIRO_SEGURANCA",
+  id_usuario: 10, id_ambiente: AMBIENTE_A, eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA",
 });
 const USUARIO_B = Object.freeze({
-  id_usuario: 20, id_ambiente: AMBIENTE_B, perfil_acesso: "ENGENHEIRO_SEGURANCA",
+  id_usuario: 20, id_ambiente: AMBIENTE_B, eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA",
 });
 const ROTAS = [
   { metodo: "POST", caminho: "/", url: "/", handler: "criar", codigo: 201 },
@@ -41,6 +42,8 @@ function carregarIsolado(caminho, substituicoes, imports) {
   try {
     delete require.cache[caminho];
     Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       if (parent && parent.filename === caminho) {
         imports.push(request);
         if (!Object.hasOwn(substituicoes, request)) {
@@ -157,7 +160,7 @@ async function preparar(t, cenario = {}) {
   app.use(express.json());
   app.use((req, res, next) => {
     // Simula contexto anterior não confiável; autenticação deve substituí-lo.
-    const forjada = { id_usuario: 999, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR" };
+    const forjada = { id_usuario: 999, id_ambiente: AMBIENTE_B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
     req.usuario = { ...forjada };
     req.params = { ...forjada };
     const json = res.json;
@@ -191,8 +194,8 @@ async function preparar(t, cenario = {}) {
   async function requisitar(metodo, url, opcoes = {}) {
     const outroAmbiente = cenario.usuario.id_ambiente === AMBIENTE_A ? AMBIENTE_B : AMBIENTE_A;
     const body = {
-      id_usuario: 999, id_ambiente: outroAmbiente, perfil_acesso: "ADMINISTRADOR",
-      usuario: { id_usuario: 999, id_ambiente: outroAmbiente, perfil_acesso: "ADMINISTRADOR" },
+      id_usuario: 999, id_ambiente: outroAmbiente, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
+      usuario: { id_usuario: 999, id_ambiente: outroAmbiente, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" },
       id: "999", idLocal: "999", tipo: "TEXTO", descricao: "Corpo simulado",
     };
     const texto = JSON.stringify(body);
@@ -200,7 +203,7 @@ async function preparar(t, cenario = {}) {
     if (!cenario.semToken) headers.Authorization = opcoes.authorization || "Bearer jwt-ficticio";
     const query = new URLSearchParams({
       id: "999", idLocal: "999", id_usuario: "999", id_ambiente: outroAmbiente,
-      perfil_acesso: "ADMINISTRADOR",
+      eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
     });
     const resposta = await new Promise((resolve, reject) => {
       // http.request permite exercitar JSON também em GET sem alterar o router.

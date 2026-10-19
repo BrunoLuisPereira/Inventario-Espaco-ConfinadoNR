@@ -1,3 +1,4 @@
+const { conferir: conferirCapacidadeSql } = require('./helpers/rbacSqlSimulado.cjs');
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -512,7 +513,7 @@ test(
     assert.match(sql, /INNER\s+JOIN\s+ambiente\s+AS\s+a\s+ON\s+a\.id_ambiente\s*=\s*u\.id_ambiente/i);
     assert.match(sql, /WHERE\s+u\.id_usuario\s*=\s*\$7\s+AND\s+u\.id_ambiente\s*=\s*c\.id_ambiente/i);
     assert.match(sql, /AND\s+u\.ativo\s*=\s*TRUE\s+AND\s+a\.ativo\s*=\s*TRUE/i);
-    assert.match(sql, /AND\s*\(\s*u\.perfil_acesso\s*=\s*'ADMINISTRADOR'\s+OR\s+c\.id_usuario\s*=\s*u\.id_usuario\s*\)/i);
+    conferirCapacidadeSql(sql, 'u');
   }
 );
 
@@ -750,7 +751,7 @@ test(
     assert.match(sql, /INNER\s+JOIN\s+ambiente\s+AS\s+a\s+ON\s+a\.id_ambiente\s*=\s*u\.id_ambiente/i);
     assert.match(sql, /WHERE\s+u\.id_usuario\s*=\s*\$4\s+AND\s+u\.id_ambiente\s*=\s*c\.id_ambiente/i);
     assert.match(sql, /AND\s+u\.ativo\s*=\s*TRUE\s+AND\s+a\.ativo\s*=\s*TRUE/i);
-    assert.match(sql, /AND\s*\(\s*u\.perfil_acesso\s*=\s*'ADMINISTRADOR'\s+OR\s+c\.id_usuario\s*=\s*u\.id_usuario\s*\)/i);
+    conferirCapacidadeSql(sql, 'u');
   }
 );
 

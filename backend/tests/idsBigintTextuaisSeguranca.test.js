@@ -14,7 +14,7 @@ const { preparar, A, B, UUID, PDF } = require('./helpers/idsBigintSimulados.cjs'
 // Controles numéricos, snapshots, UUIDs/NULL e limites já protegidos passam.
 const perfil = { nome: 'Nome atualizado' };
 const senha = { senhaAtual: 'antiga123', novaSenha: 'novaSenha123', confirmarSenha: 'novaSenha123' };
-const escritaAdmin = { nome: 'Administrador atualizado', email: 'atualizado@example.invalid', perfil_acesso: 'ADMINISTRADOR' };
+const escritaAdmin = { nome: 'Administrador atualizado', email: 'atualizado@example.invalid', eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' };
 
 for (const ids of [[10, 10], ['10', '10'], [10, '10'], ['10', 10]]) {
   test(`[login] leituras ${JSON.stringify(ids)} representam a mesma conta`, async t => {
@@ -114,7 +114,7 @@ for (const env of [A, B]) for (const texto of [false, true]) for (const operacao
     const c = preparar(t, { idRelatorio: texto ? '7' : 7, idLocal: texto ? '40' : 40 });
     const registro = c.relatorios.find(r => r.id_ambiente === env);
     if (env === B && texto) { registro.id_relatorio = '8'; registro.id_local = '50'; }
-    const usuario = { id_usuario: env === A ? 10 : 20, id_ambiente: env, perfil_acesso: 'ADMINISTRADOR' };
+    const usuario = { id_usuario: env === A ? 10 : 20, id_ambiente: env, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' };
     const resultado = operacao === 'gerar'
       ? await c.relatorio.gerarPdfRelatorio(String(registro.id_relatorio), usuario)
       : await c.relatorio.obterPdfParaDownload(String(registro.id_relatorio), usuario);

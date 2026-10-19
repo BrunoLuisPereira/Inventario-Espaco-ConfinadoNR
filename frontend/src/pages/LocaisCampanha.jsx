@@ -1,3 +1,4 @@
+import { useCapacidade } from '../hooks/useCapacidade'
 import { useEffect, useState } from 'react'
 import {
   Link,
@@ -15,6 +16,7 @@ import {
 import '../styles/Locais.css'
 
 function LocaisCampanha() {
+  const podeEditar = useCapacidade('locais.editar')
   const { idCampanha } = useParams()
   const navigate = useNavigate()
 
@@ -188,7 +190,7 @@ function LocaisCampanha() {
                   type="button"
                   className="local-button-primary"
                   onClick={abrirFormularioNovo}
-                  disabled={mostrarFormulario}
+                  disabled={!podeEditar || (mostrarFormulario)}
                 >
                   + Novo local
                 </button>
@@ -266,9 +268,9 @@ function LocaisCampanha() {
                                 )
                               }
                               disabled={
-                                mostrarFormulario ||
+                                !podeEditar || (mostrarFormulario ||
                                 statusAlterando ===
-                                  local.id_local
+                                  local.id_local)
                               }
                               aria-label={`Status de ${local.nome_local}`}
                             >
@@ -292,9 +294,9 @@ function LocaisCampanha() {
                                   )
                                 }
                                 disabled={
-                                  mostrarFormulario ||
+                                  !podeEditar || (mostrarFormulario ||
                                   statusAlterando ===
-                                    local.id_local
+                                    local.id_local)
                                 }
                               >
                                 Editar

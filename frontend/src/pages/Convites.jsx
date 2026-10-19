@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Painel from '../components/layout/Painel'
 import { emitirConvite } from '../services/api'
 import { linkConvite } from '../services/conta'
+import { perfisConvite, nomesPerfis, descricoesPerfis } from '../services/permissoes'
 export default function Convites() {
   const [email, setEmail] = useState('')
   const [perfilAcesso, setPerfil] = useState('ENGENHEIRO_SEGURANCA')
@@ -18,7 +19,8 @@ export default function Convites() {
   return <Painel titulo="Convites"><p>Convide uma pessoa para seu ambiente. Nenhum e-mail será enviado automaticamente.</p>
     <form onSubmit={enviar} className="conta-form">
       <label htmlFor="convite-email">E-mail do convidado</label><input id="convite-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-      <label htmlFor="convite-perfil">Perfil</label><select id="convite-perfil" value={perfilAcesso} onChange={e => setPerfil(e.target.value)}><option value="ENGENHEIRO_SEGURANCA">Engenheiro de segurança</option><option value="ADMINISTRADOR">Administrador</option></select>
+      <label htmlFor="convite-perfil">Perfil</label><select id="convite-perfil" value={perfilAcesso} onChange={e => setPerfil(e.target.value)} aria-describedby="convite-permissoes">{perfisConvite.map(perfil => <option key={perfil} value={perfil}>{nomesPerfis[perfil]}</option>)}</select>
+      <p id="convite-permissoes">{descricoesPerfis[perfilAcesso]}</p>
       <button disabled={ocupado}>{ocupado ? 'Criando...' : 'Criar convite'}</button>
     </form>
     {erro && <p role="alert">{erro}</p>}

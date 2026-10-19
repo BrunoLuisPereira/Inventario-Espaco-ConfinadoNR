@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -18,6 +19,8 @@ let conviteController;
 try {
   delete require.cache[CAMINHO_CONTROLLER];
   Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
     if (parent && parent.filename === CAMINHO_CONTROLLER) {
       importsController.push(request);
       if (request !== "../services/conviteService") {
@@ -86,7 +89,7 @@ test(
       usuario: {
         id_usuario: 10,
         id_ambiente: ID_AMBIENTE,
-        perfil_acesso: "ADMINISTRADOR",
+        eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
       },
       body: dados,
     };
@@ -167,7 +170,7 @@ test(
       usuario: {
         id_usuario: 10,
         id_ambiente: ID_AMBIENTE,
-        perfil_acesso: "ADMINISTRADOR",
+        eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
       },
       body: {
         email: "teste@exemplo.com",
@@ -205,7 +208,7 @@ test(
       usuario: {
         id_usuario: 20,
         id_ambiente: ID_AMBIENTE,
-        perfil_acesso: "ENGENHEIRO_SEGURANCA",
+        eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA",
       },
       convite: {
         id_convite:
@@ -351,7 +354,7 @@ const SENSIVEIS = Object.freeze([
   "DADOS_SIMULADOS_DE_OUTRO_AMBIENTE",
 ]);
 const ADMINISTRADOR = Object.freeze({
-  id_usuario: 10, id_ambiente: ID_AMBIENTE, perfil_acesso: "ADMINISTRADOR",
+  id_usuario: 10, id_ambiente: ID_AMBIENTE, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
 });
 const DADOS_EMISSAO = Object.freeze({
   email: "convidado@example.invalid", perfilAcesso: "ENGENHEIRO_SEGURANCA",
@@ -360,7 +363,7 @@ const DADOS_EMISSAO = Object.freeze({
 const DADOS_ACEITE = Object.freeze({
   token: "TOKEN_FICTICIO_DE_ENTRADA",
   nome: "Convidado simulado", senha: "SENHA_FICTICIA_DE_ENTRADA",
-  id_usuario: 999, perfil_acesso: "ADMINISTRADOR",
+  id_usuario: 999, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
 });
 const RESULTADO_EMISSAO = Object.freeze({
   convite: Object.freeze({ id_convite: "22222222-2222-4222-8222-222222222222", id_ambiente: ID_AMBIENTE }),
@@ -397,6 +400,8 @@ function prepararSeguranca(t, operacao, implementacao) {
   }
   const carregar = Module._load;
   t.mock.method(Module, "_load", function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
     if (parent && parent.filename === CAMINHO_CONTROLLER) {
       if (request === "../services/conviteService") return conviteService;
       proibidos.push(request);

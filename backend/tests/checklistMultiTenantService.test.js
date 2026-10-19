@@ -242,7 +242,7 @@ test("Ignora usuário, ambiente e perfil forjados no corpo das três escritas", 
   });
   const dados = {
     ...DADOS, status: "CONCLUIDO", id_usuario: 999, id_ambiente: AMBIENTE_B,
-    perfil_acesso: "ADMINISTRADOR", idUsuario: 999, idAmbiente: AMBIENTE_B,
+    eh_fundador: true, perfil_acesso: "ADMINISTRADOR", idUsuario: 999, idAmbiente: AMBIENTE_B,
   };
   await service.criarChecklist(dados, USUARIO_A);
   await service.atualizarChecklist(50, dados, USUARIO_A);
@@ -303,7 +303,7 @@ test("PUT de respostas não encaminha alteração de id_local, id_usuario ou sta
   const mocks = simularRepositorio(t, { atualizarNoAmbiente: CHECKLIST });
   await service.atualizarChecklist("50", {
     criterio_a: "NAO", id_local: 999, id_usuario: 999, status: "CONCLUIDO",
-    id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR",
+    id_ambiente: AMBIENTE_B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, USUARIO_A);
   assert.deepEqual(unica(mocks.atualizarNoAmbiente), [50, { criterio_a: "NAO" }, USUARIO_A, { bloquearAutorizacao: true }]);
   assert.equal(mocks.atualizarStatusNoAmbiente.mock.callCount(), 0);
@@ -372,7 +372,7 @@ test("Encaminha parâmetros dos ambientes A e B sem usar identidade forjada", as
   for (const [indice, usuario] of [USUARIO_A, USUARIO_B].entries()) {
     const dados = {
       ...DADOS, id_usuario: 999, id_ambiente: indice === 0 ? AMBIENTE_B : AMBIENTE_A,
-      perfil_acesso: "ADMINISTRADOR",
+      eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
     };
     await service.criarChecklist(dados, usuario);
     await service.listarChecklists(usuario);

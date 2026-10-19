@@ -1,3 +1,4 @@
+import { useCapacidade } from '../hooks/useCapacidade'
 import { useEffect, useRef, useState } from 'react'
 
 import { Link, useParams } from 'react-router-dom'
@@ -79,6 +80,8 @@ const TIPOS_PERMITIDOS = [
 ]
 
 function EvidenciasLocal() {
+  const podeEditar = useCapacidade('evidencias.editar')
+  const podeExcluir = useCapacidade('evidencias.excluir')
 
   const { idLocal } = useParams()
 
@@ -1123,6 +1126,8 @@ function EvidenciasLocal() {
                 onSubmit={enviar}
 
               >
+        {!podeEditar && <p role="status">Seu perfil permite somente consulta nesta tela.</p>}
+        <fieldset disabled={!podeEditar} style={{border:0,padding:0,margin:0,minWidth:0}}>
 
                 <div className="evidencias-form-header">
 
@@ -1425,7 +1430,8 @@ function EvidenciasLocal() {
 
                 </div>
 
-              </form>
+              </fieldset>
+</form>
 
               <div className="evidencias-list-section">
 
@@ -1831,7 +1837,7 @@ function EvidenciasLocal() {
 
                                 disabled={
 
-                                  salvandoEdicao ||
+                                  !podeEditar || (salvandoEdicao ||
 
                                   editandoId !==
 
@@ -1839,7 +1845,7 @@ function EvidenciasLocal() {
 
                                   excluindoId !==
 
-                                    null
+                                    null)
 
                                 }
 
@@ -1873,7 +1879,7 @@ function EvidenciasLocal() {
 
                                 disabled={
 
-                                  excluindoId ===
+                                  !podeExcluir || (excluindoId ===
 
                                     evidencia.id_evidencia ||
 
@@ -1885,7 +1891,7 @@ function EvidenciasLocal() {
 
                                   acaoArquivo.id ===
 
-                                    evidencia.id_evidencia
+                                    evidencia.id_evidencia)
 
                                 }
 

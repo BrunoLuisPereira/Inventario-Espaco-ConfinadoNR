@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
@@ -20,6 +21,8 @@ let controller;
 try {
   delete require.cache[caminhoController];
   Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
     if (parent && parent.filename === caminhoController) {
       dependencias.push(request);
       if (request !== "../services/evidenciaMultiTenantService") {
@@ -39,8 +42,8 @@ try {
 const AMBIENTE_A = "11111111-1111-4111-8111-111111111111";
 const AMBIENTE_B = "22222222-2222-4222-8222-222222222222";
 const IDENTIDADES = [
-  Object.freeze({ id_usuario: 10, id_ambiente: AMBIENTE_A, perfil_acesso: "ENGENHEIRO_SEGURANCA" }),
-  Object.freeze({ id_usuario: 20, id_ambiente: AMBIENTE_B, perfil_acesso: "ENGENHEIRO_SEGURANCA" }),
+  Object.freeze({ id_usuario: 10, id_ambiente: AMBIENTE_A, eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA" }),
+  Object.freeze({ id_usuario: 20, id_ambiente: AMBIENTE_B, eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA" }),
 ];
 const EVIDENCIA = Object.freeze({
   id_evidencia: 50, id_local: 40, id_usuario: 10, tipo: "FOTO",
@@ -101,7 +104,7 @@ function simularReq(usuario = IDENTIDADES[0]) {
   const forjada = {
     id_usuario: 999,
     id_ambiente: usuario.id_ambiente === AMBIENTE_A ? AMBIENTE_B : AMBIENTE_A,
-    perfil_acesso: "ADMINISTRADOR",
+    eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   };
   return {
     usuario,
@@ -128,6 +131,8 @@ function simularServico(t, operacao, implementacao) {
   const proibidos = [];
   const carregar = Module._load;
   t.mock.method(Module, "_load", function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
     if (parent && parent.filename === caminhoController) {
       if (request === "../services/evidenciaMultiTenantService") return service;
       proibidos.push(request);
@@ -410,6 +415,8 @@ test("As seis operações não manipulam arquivos nem carregam dependências de 
   const proibidos = [];
   const carregar = Module._load;
   t.mock.method(Module, "_load", function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
     if (parent && parent.filename === caminhoController) {
       if (request === "../services/evidenciaMultiTenantService") return service;
       proibidos.push(request);

@@ -16,7 +16,8 @@ test('convite dispensa empresa e email, mas exige token valido', () => {
   assert.notEqual(validarCadastro({ ...entrada, token: 'invalido' }, true), '')
 })
 test('menus administrativos exigem perfil administrativo atual', () => {
-  assert.equal(podeAdministrar({ perfil_acesso: 'ADMINISTRADOR' }), true)
+  assert.equal(podeAdministrar({ perfil_acesso: 'ADMINISTRADOR', eh_fundador: true }), true)
+  assert.equal(podeAdministrar({ perfil_acesso: 'ADMINISTRADOR', eh_fundador: false }), false)
   for (const u of [null, {}, { perfil_acesso: 'ENGENHEIRO_SEGURANCA' }, { perfil_acesso: 'MASTER' }]) assert.equal(podeAdministrar(u), false)
 })
 test('token de convite permanece no fragmento, fora do caminho e query HTTP', () => {

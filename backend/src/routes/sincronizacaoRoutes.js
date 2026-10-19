@@ -1,3 +1,4 @@
+const { autorizarModulo } = require('../utils/permissoes');
 const express = require("express");
 
 const sincronizacaoController = require(
@@ -16,6 +17,7 @@ const router = express.Router();
 // ======================================================
 
 router.use(autenticarMultiTenant);
+router.use(autorizarModulo('sincronizacao'));
 
 
 // ======================================================

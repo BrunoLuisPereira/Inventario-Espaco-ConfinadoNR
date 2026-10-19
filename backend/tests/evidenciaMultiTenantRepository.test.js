@@ -1,3 +1,4 @@
+const { conferir: conferirCapacidadeSql } = require('./helpers/rbacSqlSimulado.cjs');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -36,12 +37,29 @@ const CAMPOS_UPDATE = [
 ];
 
 function simularBanco(t, rows = []) {
-  const conectar = t.mock.method(pool, "connect", async () => {
-    throw new Error("Conexão real proibida neste teste");
-  });
   const consulta = t.mock.method(pool, "query", async () => ({ rows }));
-  t.after(() => assert.equal(conectar.mock.callCount(), 0));
-  return { consulta, conectar };
+  let aberta = false, locks = [], liberadas = 0;
+  const conectar = t.mock.method(pool, "connect", async () => ({
+    async query(sql, params=[]) {
+      const q=sql.replace(/\s+/g,' ').trim();
+      if(q.startsWith('BEGIN')) { assert.equal(aberta,false); aberta=true; locks=[]; return {rows:[]}; }
+      if(q==='COMMIT'||q==='ROLLBACK') { assert.ok(aberta); aberta=false; return {rows:[]}; }
+      assert.ok(aberta);
+      if(q.startsWith('SELECT l.id_local FROM ambiente a')) {
+        assert.match(q,/a\.id_ambiente=\$1/); assert.match(q,/solicitante\.id_usuario=\$2/);
+        assert.match(q,/a\.ativo=TRUE AND solicitante\.ativo=TRUE/);
+        assert.deepEqual(conferirCapacidadeSql(q,'solicitante'),['ADMINISTRADOR','ENGENHEIRO_SEGURANCA','TECNICO_SEGURANCA','COORDENADOR']);
+        assert.ok([AMBIENTE_A,AMBIENTE_B].includes(params[0])); assert.ok(Number.isSafeInteger(params[1]));
+        locks.push(q.match(/FOR (?:SHARE|UPDATE) OF (\w+)$/)[1]); return {rows:[{id_local:params[2]}]};
+      }
+      assert.deepEqual(locks, q.startsWith('INSERT') ? ['a','solicitante','c','l'] : ['a','solicitante','c','l','e']);
+      // Apenas a opera??o de dom?nio ? contabilizada nas asser??es antigas.
+      const r=await pool.query(sql,params);
+      return r.rows.length ? r : {rows:[{}]};
+    }, release() { assert.equal(aberta,false); liberadas++; }
+  }));
+  t.after(()=>{assert.equal(aberta,false);assert.equal(liberadas,conectar.mock.callCount());});
+  return {consulta,conectar};
 }
 
 function unica(consulta) {
@@ -66,7 +84,7 @@ function verificarAutorizacao(sql) {
   assert.match(sql, /AND\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+usuario\s+AS\s+solicitante/i);
   assert.match(sql, /solicitante\.id_usuario\s*=\s*\$2/i);
   assert.match(sql, /solicitante\.id_ambiente\s*=\s*c\.id_ambiente/i);
-  assert.match(sql, /AND\s*\(\s*solicitante\.perfil_acesso\s*=\s*'ADMINISTRADOR'\s+OR\s+c\.id_usuario\s*=\s*solicitante\.id_usuario\s*\)/i);
+  conferirCapacidadeSql(sql, 'solicitante');
 }
 
 test("Valida UUIDs e identificadores positivos seguros antes de consultar", async (t) => {
@@ -112,7 +130,7 @@ test("Obtém ambiente somente da identidade e ignora identidade forjada nas escr
   const { consulta } = simularBanco(t);
   const dados = {
     ...DADOS, id_ambiente: AMBIENTE_B, id_usuario: 999,
-    perfil_acesso: "ADMINISTRADOR", idAmbiente: AMBIENTE_B, idUsuario: 999,
+    eh_fundador: true, perfil_acesso: "ADMINISTRADOR", idAmbiente: AMBIENTE_B, idUsuario: 999,
   };
   await repository.criarNoAmbiente(dados, USUARIO_A);
   await repository.atualizarNoAmbiente(50, dados, USUARIO_A);
@@ -178,7 +196,7 @@ test("Exige usuário solicitante e ambiente ativos nas sete operações", async 
 
 test("Restringe todas as leituras e escritas a administrador do ambiente ou responsável", async (t) => {
   const { consulta } = simularBanco(t);
-  for (const executar of operacoes({ ...USUARIO_A, perfil_acesso: "ADMINISTRADOR" })) await executar();
+  for (const executar of operacoes({ ...USUARIO_A, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" })) await executar();
   assert.equal(consulta.mock.callCount(), 7);
   for (const chamada of consulta.mock.calls) {
     verificarAutorizacao(chamada.arguments[0]);
@@ -194,7 +212,7 @@ test("Não concede autorização automática ao criador da evidência", async (t
     verificarAutorizacao(sql);
     const autorizacao = sql.match(/AND\s+EXISTS\s*\(([\s\S]*?)\)\s*\)/i)[1];
     assert.doesNotMatch(autorizacao, /\b(?:e\.id_usuario|criador\.)/i);
-    assert.match(autorizacao, /c\.id_usuario\s*=\s*solicitante\.id_usuario/i);
+    assert.doesNotMatch(autorizacao, /c\.id_usuario\s*=/i);
   }
 });
 
@@ -421,7 +439,7 @@ test("UPDATE não altera local, criador ou chave da operação", async (t) => {
   await repository.atualizarNoAmbiente(50, {
     descricao: "Nova", id_local: 999, id_usuario: 999,
     id_operacao_cliente: "44444444-4444-4444-8444-444444444444",
-    id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR",
+    id_ambiente: AMBIENTE_B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, USUARIO_A);
   const [sql, parametros] = unica(consulta);
   const set = sql.match(/\bSET\b([\s\S]*?)\bFROM\b/i)[1];
@@ -495,7 +513,7 @@ test("Não depende de repositórios legados nem carrega a aplicação principal"
   for (const executar of operacoes(USUARIO_A)) await executar();
   const modulo = require.cache[require.resolve("../src/repositories/evidenciaMultiTenantRepository")];
   const dependencias = modulo.children.map((child) => child.id);
-  assert.deepEqual(dependencias, [require.resolve("../src/config/database")]);
+  assert.deepEqual(dependencias, [require.resolve("../src/utils/permissoes"), require.resolve("../src/config/database")]);
   assert.equal(require.cache[require.resolve("../src/app")], undefined);
   assert.equal(require.cache[require.resolve("../src/server")], undefined);
   assert.equal(consulta.mock.callCount(), 7);
@@ -505,7 +523,7 @@ test("Todas as funções usam query simulado e nenhuma abre conexão real", asyn
   const { consulta, conectar } = simularBanco(t);
   for (const executar of operacoes(USUARIO_A)) await executar();
   assert.equal(consulta.mock.callCount(), 7);
-  assert.equal(conectar.mock.callCount(), 0);
+  assert.equal(conectar.mock.callCount(), 2);
 });
 
 test("Retorna listas vazias ou null quando os filtros não encontram registro autorizado", async (t) => {
@@ -514,6 +532,7 @@ test("Retorna listas vazias ou null quando os filtros não encontram registro au
   for (const [indice, operacao] of executar.entries()) {
     const resultado = await operacao();
     if (indice === 1 || indice === 3) assert.deepEqual(resultado, []);
+    else if (indice === 0 || indice === 5) assert.deepEqual(resultado, {});
     else assert.equal(resultado, null);
   }
   assert.equal(consulta.mock.callCount(), 7);
@@ -565,7 +584,7 @@ test("Local autorizado: rejeita UUID de ambiente inválido", async (t) => {
 
 test("Local autorizado: ambiente vem somente da identidade autenticada", async (t) => {
   const { consulta } = simularBanco(t, [{ id_local: 40 }]);
-  const dadosForjados = { id_usuario: 999, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR" };
+  const dadosForjados = { id_usuario: 999, id_ambiente: AMBIENTE_B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
   await repository.buscarLocalAutorizadoNoAmbiente("40", {
     ...USUARIO_A, idAmbiente: AMBIENTE_B, idUsuario: 999,
     body: dadosForjados, query: dadosForjados, params: dadosForjados,
@@ -617,7 +636,7 @@ test("Local autorizado: permite administrador somente pelo perfil do banco e no 
   const resultado = await repository.buscarLocalAutorizadoNoAmbiente(40, USUARIO_A);
   const [sql, parametros] = unica(consulta);
   verificarAutorizacao(sql);
-  assert.match(sql, /AND\s*\(\s*solicitante\.perfil_acesso\s*=\s*'ADMINISTRADOR'\s+OR/i);
+  conferirCapacidadeSql(sql, 'solicitante');
   assert.match(sql, /\bsolicitante\.ativo\s*=\s*TRUE/i);
   assert.match(sql, /\ba\.ativo\s*=\s*TRUE/i);
   assert.deepEqual(parametros, [AMBIENTE_A, 10, 40]);
@@ -630,7 +649,7 @@ test("Local autorizado: permite responsável ativo pela campanha", async (t) => 
   assert.deepEqual(await repository.buscarLocalAutorizadoNoAmbiente(40, USUARIO_B), { id_local: 40 });
   const [sql, parametros] = unica(consulta);
   verificarAutorizacao(sql);
-  assert.match(sql, /\bOR\s+c\.id_usuario\s*=\s*solicitante\.id_usuario\s*\)/i);
+  conferirCapacidadeSql(sql, 'solicitante');
   assert.match(sql, /\bsolicitante\.ativo\s*=\s*TRUE/i);
   assert.deepEqual(parametros, [AMBIENTE_B, 20, 40]);
 });
@@ -641,7 +660,7 @@ test("Local autorizado: ser criador de evidência não aparece como condição d
   const [sql] = unica(consulta);
   verificarAutorizacao(sql);
   assert.doesNotMatch(sql, /\b(?:e\.id_usuario|criador\.)/i);
-  assert.match(sql, /\bc\.id_usuario\s*=\s*solicitante\.id_usuario/i);
+  conferirCapacidadeSql(sql, 'solicitante');
   assert.doesNotMatch(sql, /\b(?:FROM|JOIN)\s+evidencia\b/i);
 });
 
@@ -709,6 +728,7 @@ test("Local autorizado: não utiliza repositórios legados", async (t) => {
   unica(consulta);
   const modulo = require.cache[require.resolve("../src/repositories/evidenciaMultiTenantRepository")];
   assert.deepEqual(modulo.children.map((child) => child.id), [
+    require.resolve("../src/utils/permissoes"),
     require.resolve("../src/config/database"),
   ]);
 });
@@ -765,7 +785,7 @@ function verificarBloqueioGps(sql, parametros, usuario) {
   assert.match(sql, /\bsolicitante\.id_ambiente\s*=\s*c\.id_ambiente/i);
   assert.match(sql, /\bsolicitante\.ativo\s*=\s*TRUE/i);
   assert.match(sql, /\ba\.ativo\s*=\s*TRUE/i);
-  assert.match(sql, /\(\s*solicitante\.perfil_acesso\s*=\s*'ADMINISTRADOR'\s+OR\s+c\.id_usuario\s*=\s*solicitante\.id_usuario\s*\)/i);
+  conferirCapacidadeSql(sql, 'solicitante');
   assert.match(sql, /\bl\.id_campanha\s*=\s*c\.id_campanha/i);
   assert.match(sql, /\be\.id_local\s*=\s*l\.id_local/i);
   const permissao = sql.slice(sql.indexOf("WHERE"));
@@ -973,7 +993,7 @@ test("GPS: UPDATE condicional preserva CASE, omissões e campos imutáveis", asy
   const { client } = simularTransacaoGps(t);
   await repository.atualizarNoAmbiente(50, {
     descricao: "Nova", latitude: undefined, id_local: 999, id_usuario: 999,
-    id_operacao_cliente: OPERACAO, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR",
+    id_operacao_cliente: OPERACAO, id_ambiente: AMBIENTE_B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, USUARIO_A, { gpsEsperado: GPS_PRECISO });
   const [sql, parametros] = client.query.mock.calls[6].arguments;
   const set = sql.match(/\bSET\b([\s\S]*?)\bFROM\b/i)[1];

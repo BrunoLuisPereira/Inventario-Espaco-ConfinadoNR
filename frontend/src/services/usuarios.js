@@ -14,5 +14,6 @@ export function filtrarUsuarios(usuarios, busca) {
 }
 
 export function nomePerfil(perfil) {
-  return { ADMINISTRADOR: 'Administrador', ENGENHEIRO_SEGURANCA: 'Engenheiro de segurança' }[perfil] || perfil || 'Não informado'
+  return nomesPerfis[perfil] || perfil || 'Não informado'
 }
+import { nomesPerfis } from './permissoes.js'

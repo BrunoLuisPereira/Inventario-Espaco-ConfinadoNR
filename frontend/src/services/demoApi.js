@@ -1,4 +1,5 @@
 // Simulação explícita de interface. Não é autenticação ou persistência PostgreSQL.
+import { pode } from './permissoes.js'
 export const senhaDemo = 'Demonstracao123!'
 export const contasDemo = ['admin.a@demo.invalid', 'admin.b@demo.invalid', 'engenheiro.a@demo.invalid']
 const chave = 'nr33-demo:dados-v1'
@@ -26,10 +27,13 @@ export function criarDemo(storage) {
   let estado
   try { estado = JSON.parse(storage.getItem(chave)) } catch { /* Reinicializa apenas dados de demonstração. */ }
   if (!estado || !Array.isArray(estado.usuarios) || !Array.isArray(estado.campanhas) || !Array.isArray(estado.locais) || !estado.sessoes) estado = inicial()
+  // Mapeamento explícito apenas das duas contas sintéticas da demonstração.
+  // Não classifica usuários reais nem consulta o backend.
+  for (const u of estado.usuarios) u.eh_fundador = (u.id_usuario === '10' && u.id_ambiente === A) || (u.id_usuario === '20' && u.id_ambiente === B)
   const salvar = () => storage.setItem(chave, JSON.stringify(estado))
   const sucesso = data => ({ status: 'success', data: structuredClone(data), ...(Array.isArray(data) ? { total: data.length } : {}) })
   function campanhaPermitida(c, u) {
-    return c && c.id_ambiente === u.id_ambiente && (u.perfil_acesso === 'ADMINISTRADOR' || c.id_usuario === u.id_usuario)
+    return c && c.id_ambiente === u.id_ambiente && pode(u, 'campanhas.consultar')
   }
   function campanha(idCampanha, u) {
     if (!id(String(idCampanha))) throw erro(400, 'ID da campanha inválido.')

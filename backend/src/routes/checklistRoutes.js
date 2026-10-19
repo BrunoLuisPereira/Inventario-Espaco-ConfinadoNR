@@ -1,3 +1,4 @@
+const { autorizarModulo } = require('../utils/permissoes');
 const express = require("express");
 
 const checklistController = require("../controllers/checklistController");
@@ -6,6 +7,7 @@ const { autenticarMultiTenant } = require("../middlewares/autenticacaoMiddleware
 const router = express.Router();
 
 router.use(autenticarMultiTenant);
+router.use(autorizarModulo('checklists'));
 
 router.post("/", checklistController.criar);
 router.get("/", checklistController.listar);

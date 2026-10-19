@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
@@ -10,12 +11,28 @@ const hash = crypto.createHash('sha256').update(token).digest('hex');
 const dados = { nome: 'Pessoa', email: ' NOVA@example.invalid ', senha: 'senha-simulada' };
 const conviteDados = { email: ' NOVA@example.invalid ', perfilAcesso: 'ENGENHEIRO_SEGURANCA' };
 
+test('RBAC: convite administrativo novo é recusado antes de conectar',async t=>{
+  const c=preparar(t);
+  await assert.rejects(c.convites.emitirConvite(10,{...conviteDados,perfilAcesso:'ADMINISTRADOR'}),{statusCode:400});
+  assert.deepEqual(c.eventos,[]);
+});
+test('RBAC: convite administrativo histórico não é aceito nem cancelado automaticamente',async t=>{
+  const c=preparar(t,{comConvite:true,convite:{perfil_acesso:'ADMINISTRADOR'}});
+  const antes=structuredClone(c.estado.convites);
+  await assert.rejects(c.convites.aceitarConvite(token,dados),{statusCode:409});
+  assert.deepEqual(c.estado.convites,antes);assert.deepEqual(c.estado.usuarios,[]);
+  assert.equal(c.eventos.some(e=>/^INSERT|^UPDATE/.test(e.sql||'')),false);
+});
+
 test('cadastro publico preserva nome da empresa e gera UUID pelo repositorio, sem aceitar ambiente forjado', async t => {
   const c=preparar(t);
   const r=await c.cadastro.cadastrarAmbiente({...dados,nome_ambiente:' Empresa sintetica A ',id_ambiente:A,perfil_acesso:'MASTER'});
   assert.equal(r.ambiente.nome,'Empresa sintetica A');
   assert.equal(r.ambiente.id_ambiente,B);
   assert.equal(r.usuario.perfil_acesso,'ADMINISTRADOR');
+  const inserir=c.eventos.find(e=>e.sql?.startsWith('INSERT INTO usuario'));
+  assert.match(inserir.sql,/perfil_acesso, eh_fundador/);
+  assert.match(inserir.sql,/'ADMINISTRADOR', TRUE/);
 });
 for(const nome of ['', ' ', 'x'.repeat(181), null, {}]) test('cadastro recusa nome de ambiente invalido: '+String(nome),async t=>{
   const c=preparar(t);
@@ -40,10 +57,10 @@ for (const operacao of ['cadastro', 'aceitar']) for (const tamanho of [120, 121]
 }
 
 function preparar(t, opcoes = {}) {
-  const estado = { administrador: { id_usuario: 10, id_ambiente: A, perfil_acesso: 'ADMINISTRADOR', ativo: true },
+  const estado = { administrador: { id_usuario: 10, id_ambiente: A, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', ativo: true },
     ambienteAtivo: true, usuarios: [], ambientes: [], convites: [], ...opcoes.estado };
   const originalConvite = { id_convite: C, id_ambiente: A, email: 'nova@example.invalid',
-    perfil_acesso: 'ENGENHEIRO_SEGURANCA', token_hash: hash, data_aceite: null, data_cancelamento: null,
+    eh_fundador: false, perfil_acesso: 'ENGENHEIRO_SEGURANCA', token_hash: hash, data_aceite: null, data_cancelamento: null,
     nao_expirado: true, data_expiracao: 'data-simulada', ...opcoes.convite };
   if (opcoes.comConvite) estado.convites.push(originalConvite);
   const eventos = [], logs = [], desconhecidos = [], falhasSimulador = [];
@@ -156,6 +173,8 @@ function preparar(t, opcoes = {}) {
   try {
     for (const p of caminhos) delete require.cache[p];
     Module._load = function (request, parent, ...args) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       if (caminhos.includes(parent?.filename)) {
         if (request === '../config/database') return pool;
         if (request === 'bcryptjs') return { hash: async (senha, rounds) => { assert.equal(rounds, 12); return 'hash-simulado'; } };
@@ -236,9 +255,9 @@ for (const tipo of ['usuario', 'convite', 'usuarioConcorrente', 'conviteConcorre
     assert.deepEqual(comandos(c), ['BEGIN', 'ROLLBACK']);
   });
 }
-for (const idAmbiente of [A, B]) for (const papel of ['ADMINISTRADOR', 'ENGENHEIRO_SEGURANCA']) {
+for (const idAmbiente of [A, B]) for (const papel of ['ENGENHEIRO_SEGURANCA', 'TECNICO_SEGURANCA', 'COORDENADOR', 'SUPERVISOR', 'AUDITOR', 'VISUALIZADOR']) {
   test(`emissão legítima em ${idAmbiente} para ${papel} ignora ambiente do corpo`, async t => {
-    const c = preparar(t, { estado: { administrador: { id_usuario: 10, id_ambiente: idAmbiente, perfil_acesso: 'ADMINISTRADOR', ativo: true } } });
+    const c = preparar(t, { estado: { administrador: { id_usuario: 10, id_ambiente: idAmbiente, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', ativo: true } } });
     const resultado = await c.convites.emitirConvite(10, { ...conviteDados, perfilAcesso: papel, id_ambiente: idAmbiente === A ? B : A, id_usuario: 999 });
     assert.equal(resultado.convite.id_ambiente, idAmbiente); assert.equal(resultado.convite.perfil_acesso, papel);
     assert.equal(resultado.convite.id_usuario_convite, 10); assert.match(resultado.token, /^[a-f0-9]{64}$/);
@@ -256,14 +275,14 @@ for (const idAmbiente of [A, B]) for (const papel of ['ADMINISTRADOR', 'ENGENHEI
 for (const tipo of ['engenheiro', 'inativo', 'ambienteInativo', 'revogado', 'revogadoUsuario', 'revogadoAmbiente']) {
   test('emissão recusada sem INSERT: ' + tipo, async t => {
     const c = preparar(t, {
-      ...(tipo === 'engenheiro' ? { estado: { administrador: { id_usuario: 10, id_ambiente: A, perfil_acesso: 'ENGENHEIRO_SEGURANCA', ativo: true } } } : {}),
-      ...(tipo === 'inativo' ? { estado: { administrador: { id_usuario: 10, id_ambiente: A, perfil_acesso: 'ADMINISTRADOR', ativo: false } } } : {}),
+      ...(tipo === 'engenheiro' ? { estado: { administrador: { id_usuario: 10, id_ambiente: A, eh_fundador: false, perfil_acesso: 'ENGENHEIRO_SEGURANCA', ativo: true } } } : {}),
+      ...(tipo === 'inativo' ? { estado: { administrador: { id_usuario: 10, id_ambiente: A, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', ativo: false } } } : {}),
       ...(tipo === 'ambienteInativo' ? { estado: { ambienteAtivo: false } } : {}),
       ...(tipo === 'revogado' ? { antesUsuarioLock: s => { s.administrador.perfil_acesso = 'ENGENHEIRO_SEGURANCA'; } } : {}),
       ...(tipo === 'revogadoUsuario' ? { antesUsuarioLock: s => { s.administrador.ativo = false; } } : {}),
       ...(tipo === 'revogadoAmbiente' ? { antesAmbienteLock: s => { s.ambienteAtivo = false; } } : {}),
     });
-    await assert.rejects(c.convites.emitirConvite(10, { ...conviteDados, perfil_acesso: 'ADMINISTRADOR', id_ambiente: B }), { statusCode: 403 });
+    await assert.rejects(c.convites.emitirConvite(10, { ...conviteDados, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', id_ambiente: B }), { statusCode: 403 });
     assert.equal(escritas(c).length, 0); assert.deepEqual(comandos(c), ['BEGIN', 'ROLLBACK']);
   });
 }
@@ -281,7 +300,7 @@ for (const tipo of ['usuario', 'reserva']) {
 }
 test('aceite deriva usuário, ambiente e perfil somente do convite', async t => {
   const c = preparar(t, { comConvite: true });
-  const resultado = await c.convites.aceitarConvite(token, { ...dados, id_ambiente: B, perfilAcesso: 'ADMINISTRADOR', perfil_acesso: 'ADMINISTRADOR', email: 'forjado@example.invalid' });
+  const resultado = await c.convites.aceitarConvite(token, { ...dados, id_ambiente: B, perfilAcesso: 'ADMINISTRADOR', eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', email: 'forjado@example.invalid' });
   assert.equal(resultado.usuario.id_ambiente, A); assert.equal(resultado.usuario.perfil_acesso, 'ENGENHEIRO_SEGURANCA');
   assert.equal(resultado.usuario.email, 'nova@example.invalid'); assert.equal(resultado.usuario.senha_hash, undefined);
   assert.equal(resultado.convite.data_aceite, 'aceite-simulado'); assert.deepEqual(comandos(c), ['BEGIN', 'COMMIT']);
@@ -292,7 +311,7 @@ test('aceite deriva usuário, ambiente e perfil somente do convite', async t => 
 });
 test('aceite legítimo em B ignora ambiente A do cliente', async t => {
   const c = preparar(t, { comConvite: true, convite: { id_ambiente: B },
-    estado: { administrador: { id_usuario: 10, id_ambiente: B, perfil_acesso: 'ADMINISTRADOR', ativo: true } } });
+    estado: { administrador: { id_usuario: 10, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', ativo: true } } });
   const resultado = await c.convites.aceitarConvite(token, { ...dados, id_ambiente: A });
   assert.equal(resultado.usuario.id_ambiente, B); assert.equal(c.estado.usuarios[0].id_ambiente, B);
 });

@@ -1,3 +1,4 @@
+const { perfis, exigir, sqlCapacidade } = require('../utils/permissoes');
 const pool = require('../config/database');
 const erro = (message, statusCode) => Object.assign(new Error(message), { statusCode });
 const ausente = () => erro('Registro de sincronização ou entidade não encontrado.', 404);
@@ -27,12 +28,13 @@ function contexto(e) {
     permissao: `${campanha}.id_ambiente = $1 AND EXISTS (
       SELECT 1 FROM usuario solicitante JOIN ambiente a ON a.id_ambiente = solicitante.id_ambiente
       WHERE solicitante.id_usuario = $2 AND solicitante.id_ambiente = $1 AND solicitante.ativo = TRUE AND a.ativo = TRUE
-      AND (solicitante.perfil_acesso = 'ADMINISTRADOR' OR ${campanha}.id_usuario = solicitante.id_usuario))` };
+      AND ${sqlCapacidade('solicitante', 'campanhas.consultar')})` };
 }
 const PERMISSAO_SYNC = `s.id_ambiente = $1 AND EXISTS (
   SELECT 1 FROM usuario solicitante JOIN ambiente a ON a.id_ambiente = solicitante.id_ambiente
   WHERE solicitante.id_usuario = $2 AND solicitante.id_ambiente = s.id_ambiente
     AND solicitante.ativo = TRUE AND a.ativo = TRUE
+    AND ${sqlCapacidade('solicitante', 'sincronizacao.consultar')}
     AND (solicitante.perfil_acesso = 'ADMINISTRADOR' OR s.id_usuario = solicitante.id_usuario))`;
 // Snapshots de servidor não são visíveis após perder acesso ao recurso.
 const VISIBILIDADE = `(s.operacao = 'CRIAR' AND s.id_entidade IS NULL OR ${Object.keys(ESPECIFICACOES).map(e => {
@@ -50,7 +52,7 @@ async function transacao(usuario, executar) {
       const r = await client.query(`SELECT u.id_usuario, u.perfil_acesso FROM ambiente a JOIN usuario u ON u.id_ambiente = a.id_ambiente
         WHERE a.id_ambiente = $1 AND u.id_usuario = $2 AND u.ativo = TRUE AND a.ativo = TRUE FOR SHARE OF ${alias}`, [u.id_ambiente, u.id_usuario]);
       if (!r.rows[0]) throw erro('Usuário ou ambiente inválido ou desativado.', 401);
-      if (!['ADMINISTRADOR', 'ENGENHEIRO_SEGURANCA'].includes(r.rows[0].perfil_acesso)) throw erro('Usuário não autorizado.', 403);
+      exigir(r.rows[0], 'sincronizacao.executar');
       u.perfil_acesso = r.rows[0].perfil_acesso;
     }
     const resultado = await executar(client, u);
@@ -84,7 +86,13 @@ async function carregar(client, valor, u, bloquear = false) {
     ${bloquear ? 'FOR UPDATE OF s' : `AND ${VISIBILIDADE}`}`, [u.id_ambiente, u.id_usuario, id(valor)]);
   if (!r.rows[0]) throw ausente(); return r.rows[0];
 }
+function autorizarOperacao(s, u) {
+  const modulo = {CAMPANHA:'campanhas',LOCAL:'locais',CHECKLIST_NR33:'checklists',DADOS_TECNICOS:'dados_tecnicos',EVIDENCIA:'evidencias'}[s.entidade];
+  exigir(u, 'sincronizacao.executar');
+  exigir(u, modulo + '.' + ({CRIAR:'criar',ATUALIZAR:'editar',EXCLUIR:'excluir'}[s.operacao]));
+}
 async function contextoRegistro(client, s, u) {
+  autorizarOperacao(s, u);
   if (s.operacao === 'CRIAR' && s.id_entidade == null) return resolverPai(client, s.entidade, s.dados_cliente, u, false, s.id_usuario);
   // Não se infere responsabilidade a partir de tombstone sem ancestralidade.
   // Somente administrador do ambiente pode confirmar uma exclusão já consumada.
@@ -141,6 +149,7 @@ async function registrar(d, usuario) {
   if (d.operacao === 'CRIAR' && !d.id_registro_cliente) throw erro('ID do registro do cliente obrigatório.', 400);
   try {
     return await transacao(usuario, async (client, u) => {
+      autorizarOperacao(d, u);
       let v = { versao: 1 }, servidor = null;
       if (d.operacao === 'CRIAR') await resolverPai(client, d.entidade, d.dados_cliente, u, false);
       else { servidor = await contextoRegistro(client, d, u); v = await versao(client, d.entidade, d.id_entidade, u, true); }
@@ -224,6 +233,7 @@ function campos(e, dados, criar) {
   return r;
 }
 async function aplicar(client, s, dados, u) {
+  autorizarOperacao(s, u);
   const c = contexto(s.entidade), criar = s.operacao === 'CRIAR';
   if (s.entidade === 'EVIDENCIA') throw erro('Processamento automático ainda não implementado para esta entidade.', 400);
   if (criar) {

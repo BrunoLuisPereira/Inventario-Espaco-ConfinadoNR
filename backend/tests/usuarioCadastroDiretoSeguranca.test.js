@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
@@ -29,7 +30,7 @@ const ENDPOINTS = [
   { metodo: "PATCH", caminho: "/101/status", controller: "alterarStatus", service: "alterarStatusUsuario",
     mensagem: "Usuário desativado com sucesso." },
 ];
-const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
+const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
 const SQL_EMAIL = "SELECT id_usuario, nome, email, senha_hash, perfil_acesso, ativo, data_criacao, data_atualizacao FROM usuario WHERE LOWER(email) = LOWER($1) LIMIT 1";
 
 function preparar(t) {
@@ -37,9 +38,9 @@ function preparar(t) {
     escritas: [], conexoes: 0, inesperadas: [], proibidas: [], externas: [],
     autenticacoes: [], consultas: [], servicos: [], controllers: [], logs: [] };
   const usuarios = new Map([
-    [11, { id_usuario: 11, id_ambiente: A, perfil_acesso: "ADMINISTRADOR", ativo: true }],
-    [22, { id_usuario: 22, id_ambiente: B, perfil_acesso: "ADMINISTRADOR", ativo: true }],
-    [33, { id_usuario: 33, id_ambiente: A, perfil_acesso: "ENGENHEIRO_SEGURANCA", ativo: true }],
+    [11, { id_usuario: 11, id_ambiente: A, eh_fundador: true, perfil_acesso: "ADMINISTRADOR", ativo: true }],
+    [22, { id_usuario: 22, id_ambiente: B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR", ativo: true }],
+    [33, { id_usuario: 33, id_ambiente: A, eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA", ativo: true }],
   ]);
   const ambientes = new Map([[A, true], [B, true]]);
   const tokens = new Map([
@@ -74,7 +75,7 @@ function preparar(t) {
         const usuario = usuarios.get(parametros[0]);
         const rows = usuario?.ativo === true && ambientes.get(usuario.id_ambiente) === true
           ? [{ id_usuario: usuario.id_usuario, id_ambiente: usuario.id_ambiente,
-            perfil_acesso: usuario.perfil_acesso, nome: "Administrador simulado", email: "admin@example.invalid" }]
+            eh_fundador: usuario.eh_fundador === true, perfil_acesso: usuario.perfil_acesso, nome: "Administrador simulado", email: "admin@example.invalid" }]
           : [];
         return { rows, rowCount: rows.length };
       }
@@ -120,6 +121,9 @@ function preparar(t) {
   try {
     for (const p of cache.keys()) delete require.cache[p];
     Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
+      if (request === '../controllers/usuarioPermissoesController') return new Proxy({}, { get(_t,k) { return () => { estado.inesperadas.push('permissoes.'+String(k)); throw new Error('Operacao fora do escopo deste teste'); }; } });
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cache.has(parent?.filename)) {
@@ -191,7 +195,7 @@ function preparar(t) {
   async function requisitar({ metodo = "POST", caminho = "/", token = "admin-a", body,
     query = {}, params = {}, usuario, iniciada = false } = {}) {
     const corpoPadrao = metodo === "PATCH" ? { ativo: false } : metodo === "GET" ? {} : {
-      nome: "Pessoa simulada", email: "novo@example.invalid", perfil_acesso: "ENGENHEIRO_SEGURANCA",
+      nome: "Pessoa simulada", email: "novo@example.invalid", eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA",
       ...(metodo === "POST" ? { senha: SENSIVEL } : {}),
     };
     const req = { method: metodo, url: caminho, originalUrl: "/api/usuarios" + caminho,
@@ -249,7 +253,7 @@ for (const contexto of CONTEXTOS) {
     test("POST: administrador " + contexto.nome + " não cadastra diretamente perfil " + perfil, async (t) => {
       const ctx = preparar(t);
       const { res } = await ctx.requisitar({ token: contexto.token, body: {
-        nome: "Pessoa simulada", email: "novo@example.invalid", senha: SENSIVEL, perfil_acesso: perfil,
+        nome: "Pessoa simulada", email: "novo@example.invalid", senha: SENSIVEL, eh_fundador: perfil === "ADMINISTRADOR", perfil_acesso: perfil,
       } });
       verificarBloqueio(res);
     });
@@ -257,9 +261,9 @@ for (const contexto of CONTEXTOS) {
   for (const modo of ["corpo", "query/params/contexto", "token de convite"]) {
     test("POST: " + contexto.nome + " permanece bloqueado com " + modo + " forjado", async (t) => {
       const ctx = preparar(t);
-      const forjada = { id_usuario: 777, id_ambiente: contexto.outro, perfil_acesso: "ADMINISTRADOR" };
+      const forjada = { id_usuario: 777, id_ambiente: contexto.outro, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
       const body = { nome: "Pessoa simulada", email: "novo@example.invalid", senha: SENSIVEL,
-        perfil_acesso: "ENGENHEIRO_SEGURANCA" };
+        eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA" };
       const entradas = { token: contexto.token, body };
       if (modo === "corpo") Object.assign(body, forjada, { usuario: forjada });
       if (modo === "query/params/contexto") Object.assign(entradas, { query: forjada, params: forjada, usuario: forjada });
@@ -274,7 +278,7 @@ for (const contexto of CONTEXTOS) {
     const ctx = preparar(t);
     const { res } = await ctx.requisitar({ token: contexto.token, body: {
       nome: SENSIVEL, email: "sensivel@example.invalid", senha: SENSIVEL,
-      perfil_acesso: "ADMINISTRADOR", message: SENSIVEL, token: SENSIVEL,
+      eh_fundador: true, perfil_acesso: "ADMINISTRADOR", message: SENSIVEL, token: SENSIVEL,
     } });
     verificarBloqueio(res);
     for (const args of ctx.estado.logs) assert.equal(JSON.stringify(args).includes(SENSIVEL), false);
@@ -290,7 +294,7 @@ for (const [nome, token, codigo] of [
 ]) {
   test("POST: " + nome + " continua rejeitado sem alcançar criação", async (t) => {
     const ctx = preparar(t);
-    const { res } = await ctx.requisitar({ token, usuario: { id_usuario: 11, perfil_acesso: "ADMINISTRADOR", id_ambiente: A } });
+    const { res } = await ctx.requisitar({ token, usuario: { id_usuario: 11, eh_fundador: true, perfil_acesso: "ADMINISTRADOR", id_ambiente: A } });
     assert.equal(res.statusCode, codigo);
     assert.deepEqual(Object.keys(res.body).sort(), ["message", "status"]);
     assert.equal(res.body.status, "error");
@@ -351,6 +355,7 @@ test("Router de usuários mantém somente os cinco endpoints sem incorporar cada
     caminho: route.path, metodos: Object.keys(route.methods).filter((m) => route.methods[m]),
   }));
   assert.deepEqual(rotas, [
+    { caminho: "/auditoria/entidades", metodos: ["get"] }, { caminho: "/auditoria/perfis", metodos: ["get"] }, { caminho: "/:id/permissoes", metodos: ["patch"] },
     { caminho: "/", metodos: ["get"] }, { caminho: "/:id", metodos: ["get"] },
     { caminho: "/:id", metodos: ["put"] }, { caminho: "/:id/status", metodos: ["patch"] },
     { caminho: "/", metodos: ["post"] },

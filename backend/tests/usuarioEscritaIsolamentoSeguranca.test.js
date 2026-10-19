@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
@@ -15,8 +16,8 @@ const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
 const SEGREDO = "SEGREDO_FICTICIO_EXCLUSIVO_DO_TESTE";
 const SENSIVEL = "SQL_STACK_TOKEN_CREDENCIAL_FICTICIOS_NAO_PUBLICAR";
-const COLUNAS = "id_usuario, nome, email, perfil_acesso, ativo, data_criacao, data_atualizacao";
-const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
+const COLUNAS = "id_usuario, nome, email, perfil_acesso, eh_fundador, id_convite_origem, ativo, data_criacao, data_atualizacao";
+const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
 const CONTEXTOS = [
   { nome: "A", ambiente: A, outro: B, admin: 11, alvo: 101, externo: 202, token: "admin-a" },
   { nome: "B", ambiente: B, outro: A, admin: 22, alvo: 202, externo: 101, token: "admin-b" },
@@ -35,7 +36,7 @@ function preparar(t) {
     [11, A, "ADMINISTRADOR"], [22, B, "ADMINISTRADOR"],
     [33, A, "ENGENHEIRO_SEGURANCA"], [101, A, "ENGENHEIRO_SEGURANCA"], [202, B, "ENGENHEIRO_SEGURANCA"],
   ].map(([id_usuario, id_ambiente, perfil_acesso]) => ({
-    id_usuario, id_ambiente, perfil_acesso, ativo: true, nome: "Usuário " + id_usuario,
+    id_usuario, id_ambiente, perfil_acesso, eh_fundador: perfil_acesso === "ADMINISTRADOR", id_convite_origem: null, ativo: true, nome: "Usuário " + id_usuario,
     email: "usuario" + id_usuario + "@example.invalid",
     data_criacao: "2026-01-01T00:00:00.000Z", data_atualizacao: "2026-01-01T00:00:00.000Z",
   }));
@@ -117,14 +118,14 @@ function preparar(t) {
         const atual = usuario(params[0]);
         const rows = atual?.ativo === true && ambientes.get(atual.id_ambiente)?.ativo === true
           ? [{ id_usuario: atual.id_usuario, id_ambiente: atual.id_ambiente,
-            nome: atual.nome, email: atual.email, perfil_acesso: atual.perfil_acesso }] : [];
+            nome: atual.nome, email: atual.email, eh_fundador: atual.eh_fundador, perfil_acesso: atual.perfil_acesso }] : [];
         return { rows, rowCount: rows.length };
       }
       const sqlEmailLock = "SELECT pg_advisory_xact_lock( hashtextextended($1::text, 0) )";
       const sqlAmbiente = "SELECT id_ambiente FROM ambiente WHERE id_ambiente = $1 AND ativo = TRUE FOR SHARE";
-      const sqlUsuarios = "SELECT id_usuario, id_ambiente, perfil_acesso, ativo, email FROM usuario WHERE id_usuario = $1 OR (id_usuario = $2 AND id_ambiente = $3) ORDER BY id_usuario FOR UPDATE";
+      const sqlUsuarios = "SELECT id_usuario, id_ambiente, perfil_acesso, eh_fundador, id_convite_origem, ativo, email FROM usuario WHERE id_usuario = $1 OR (id_usuario = $2 AND id_ambiente = $3) ORDER BY id_usuario FOR UPDATE";
       const sqlEmail = "SELECT 1 FROM usuario WHERE LOWER(BTRIM(email)) = LOWER(BTRIM($1)) AND id_usuario <> $2 LIMIT 1";
-      const autorizacao = "AND EXISTS ( SELECT 1 FROM usuario AS administrador INNER JOIN ambiente AS a ON a.id_ambiente = administrador.id_ambiente WHERE administrador.id_usuario = $3 AND administrador.id_ambiente = $2 AND administrador.ativo = TRUE AND administrador.perfil_acesso = 'ADMINISTRADOR' AND a.ativo = TRUE )";
+      const autorizacao = "AND EXISTS ( SELECT 1 FROM usuario AS administrador INNER JOIN ambiente AS a ON a.id_ambiente = administrador.id_ambiente WHERE administrador.id_usuario = $3 AND administrador.id_ambiente = $2 AND administrador.ativo = TRUE AND administrador.perfil_acesso = 'ADMINISTRADOR' AND administrador.eh_fundador = TRUE AND a.ativo = TRUE )";
       const retorno = COLUNAS.split(", ").map((c) => "alvo." + c).join(", ");
       const filtro = "WHERE alvo.id_usuario = $1 AND alvo.id_ambiente = $2 " + autorizacao + " RETURNING " + retorno;
       const sqlPutAmbiente = "UPDATE usuario AS alvo SET nome = $4, email = $5, perfil_acesso = $6, data_atualizacao = CURRENT_TIMESTAMP " + filtro;
@@ -157,7 +158,7 @@ function preparar(t) {
             (u.id_usuario === params[1] && u.id_ambiente === params[2]))
             .sort((a, b) => a.id_usuario - b.id_usuario)
             .map((u) => ({ id_usuario: u.id_usuario, id_ambiente: u.id_ambiente,
-              perfil_acesso: u.perfil_acesso, ativo: u.ativo, email: u.email }));
+              eh_fundador: u.eh_fundador, id_convite_origem: u.id_convite_origem, perfil_acesso: u.perfil_acesso, ativo: u.ativo, email: u.email }));
           transacao.usuariosBloqueados = rows.map((u) => u.id_usuario);
           transacao.bloqueios.push("USUARIOS");
           const administrador = rows.find((u) => u.id_usuario === params[0]);
@@ -216,7 +217,7 @@ function preparar(t) {
         }
         return { rows, rowCount: rows.length };
       }
-      if (sql === "SELECT id_usuario, nome, email, senha_hash, perfil_acesso, ativo, data_criacao, data_atualizacao FROM usuario WHERE LOWER(email) = LOWER($1) LIMIT 1") {
+      if (sql === "SELECT id_usuario, nome, email, senha_hash, perfil_acesso, eh_fundador, id_convite_origem, ativo, data_criacao, data_atualizacao FROM usuario WHERE LOWER(email) = LOWER($1) LIMIT 1") {
         assert.equal(params.length, 1);
         assert.equal(typeof params[0], "string");
         estado.sequencia.push("EMAIL_GLOBAL");
@@ -347,6 +348,9 @@ function preparar(t) {
   try {
     for (const p of cache.keys()) delete require.cache[p];
     Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
+      if (request === '../controllers/usuarioPermissoesController') return new Proxy({}, { get(_t,k) { return () => { estado.inesperadas.push('permissoes.'+String(k)); throw new Error('Operacao fora do escopo deste teste'); }; } });
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cache.has(parent?.filename)) {
@@ -385,7 +389,7 @@ function preparar(t) {
   }
   async function requisitar(op, id, token = "admin-a", entradas = {}) {
     const corpo = entradas.body || (op.metodo === "PUT"
-      ? { nome: "Nome atualizado", email: "alterado" + id + "@example.invalid", perfil_acesso: "ENGENHEIRO_SEGURANCA" }
+      ? { nome: "Nome atualizado", email: "alterado" + id + "@example.invalid", eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA" }
       : { ativo: false });
     const url = "/" + id + (op.metodo === "PATCH" ? "/status" : "");
     const req = {
@@ -477,9 +481,9 @@ for (const op of OPERACOES) {
     test(op.metodo + ": identidade/ambiente forjados não dão a " + contexto.nome + " acesso ao outro ambiente", async (t) => {
       const ctx = preparar(t);
       const antes = ctx.alvos();
-      const forjada = { id_usuario: contexto.nome === "A" ? 22 : 11, id_ambiente: contexto.outro, perfil_acesso: "ADMINISTRADOR" };
+      const forjada = { id_usuario: contexto.nome === "A" ? 22 : 11, id_ambiente: contexto.outro, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
       const dados = op.metodo === "PUT"
-        ? { nome: "Nome forjado", email: "forjado@example.invalid", perfil_acesso: "ADMINISTRADOR" }
+        ? { nome: "Nome forjado", email: "forjado@example.invalid", eh_fundador: true, perfil_acesso: "ADMINISTRADOR" }
         : { ativo: false };
       const { res, req } = await ctx.requisitar(op, contexto.externo, contexto.token, {
         body: { ...dados, ...forjada, usuario: forjada }, query: forjada, params: forjada, usuario: forjada,
@@ -504,7 +508,7 @@ for (const op of OPERACOES) {
       const ctx = preparar(t);
       alterar(ctx);
       const antes = ctx.alvos();
-      const forjada = { id_usuario: 22, id_ambiente: B, perfil_acesso: "ADMINISTRADOR" };
+      const forjada = { id_usuario: 22, id_ambiente: B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
       const body = op.metodo === "PUT" ? { nome: "Teste", email: "novo@example.invalid", ...forjada } : { ativo: false, ...forjada };
       const { res } = await ctx.requisitar(op, 101, token, { body, query: forjada, params: forjada, usuario: forjada });
       semEscrita(ctx, antes);
@@ -543,15 +547,16 @@ for (const op of OPERACOES) {
 }
 
 for (const contexto of CONTEXTOS) {
-  test("PUT: administrador " + contexto.nome + " pode promover legitimamente o alvo do próprio ambiente", async (t) => {
+  test("PUT: administrador " + contexto.nome + " recusa promover administrativamente o alvo do próprio ambiente", async (t) => {
     const ctx = preparar(t);
     const op = OPERACOES[0];
     const alvo = ctx.usuario(contexto.alvo);
     const { res } = await ctx.requisitar(op, contexto.alvo, contexto.token, {
-      body: { nome: alvo.nome, email: alvo.email, perfil_acesso: "ADMINISTRADOR" },
+      body: { nome: alvo.nome, email: alvo.email, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" },
     });
-    assert.equal(alvo.perfil_acesso, "ADMINISTRADOR");
-    sucessoSeguro(ctx, op, res, contexto.alvo);
+    assert.equal(alvo.perfil_acesso, "ENGENHEIRO_SEGURANCA");
+    verificarErro(res, 409);
+    assert.deepEqual(ctx.estado.updates, []);
   });
 
   test("PUT: e-mail já pertencente ao outro ambiente não pode ser reutilizado por " + contexto.nome, async (t) => {
@@ -559,7 +564,7 @@ for (const contexto of CONTEXTOS) {
     const antes = ctx.alvos();
     const op = OPERACOES[0];
     const { res } = await ctx.requisitar(op, contexto.alvo, contexto.token, {
-      body: { nome: "Nome válido", email: ctx.usuario(contexto.externo).email.toUpperCase(), perfil_acesso: "ENGENHEIRO_SEGURANCA" },
+      body: { nome: "Nome válido", email: ctx.usuario(contexto.externo).email.toUpperCase(), eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA" },
     });
     semEscrita(ctx, antes);
     verificarErro(res, 409);

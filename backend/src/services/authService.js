@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { perfis } = require('../utils/permissoes');
 const normalizarIdDominio = require("../utils/normalizarIdDominio");
 const usuarioRepository = require("../repositories/usuarioRepository");
 
@@ -199,10 +200,7 @@ async function loginMultiTenant(dados = {}) {
     );
   }
 
-  const perfisPermitidos = [
-    "ADMINISTRADOR",
-    "ENGENHEIRO_SEGURANCA",
-  ];
+  const perfisPermitidos = perfis;
 
   if (
     !perfisPermitidos.includes(usuario.perfil_acesso)
@@ -253,6 +251,7 @@ async function loginMultiTenant(dados = {}) {
       nome: usuario.nome,
       email: usuario.email,
       perfil_acesso: usuario.perfil_acesso,
+      eh_fundador: usuario.eh_fundador === true,
     },
   };
 }

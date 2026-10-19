@@ -1,3 +1,4 @@
+const { conferir: conferirCapacidadeSql } = require('./helpers/rbacSqlSimulado.cjs');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const pool = require("../src/config/database");
@@ -61,7 +62,7 @@ function verificarAutorizacao(sql) {
   assert.match(sql, /AND\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+usuario\s+AS\s+u/i);
   assert.match(sql, /u\.id_usuario\s*=\s*\$3/i);
   assert.match(sql, /u\.id_ambiente\s*=\s*c\.id_ambiente/i);
-  assert.match(sql, /AND\s*\(\s*u\.perfil_acesso\s*=\s*'ADMINISTRADOR'\s+OR\s+c\.id_usuario\s*=\s*u\.id_usuario\s*\)/i);
+  conferirCapacidadeSql(sql, 'u');
 }
 
 test("Recusa UUID de ambiente inválido nas seis funções antes de consultar", async (t) => {
@@ -156,7 +157,7 @@ test("Restringe a criação à campanha do ambiente autenticado e ignora identid
     idAmbiente: AMBIENTE_B,
     id_usuario: 999,
     idUsuario: 999,
-    perfil_acesso: "ADMINISTRADOR",
+    eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, USUARIO_A);
   const [sql, parametros] = consultaUnica(consulta);
 
@@ -260,7 +261,7 @@ test("Não altera id_campanha nem identidade fornecidos nos dados da atualizaç�
   const consulta = simularBanco(t, [LOCAL]);
   await repository.atualizarNoAmbiente(40, {
     ...DADOS, idCampanha: 999, id_campanha: 999,
-    id_usuario: 999, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR",
+    id_usuario: 999, id_ambiente: AMBIENTE_B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, USUARIO_A);
   await repository.atualizarStatusNoAmbiente(40, "INATIVO", USUARIO_A);
 
@@ -321,7 +322,7 @@ test("Exportação filtra os ambientes A e B por WHERE c.id_ambiente = $1", asyn
     assert.match(sql, /u\.id_usuario\s*=\s*\$2/);
     assert.match(sql, /u\.ativo\s*=\s*TRUE/);
     assert.match(sql, /a\.ativo\s*=\s*TRUE/);
-    assert.match(sql, /c\.id_usuario\s*=\s*u\.id_usuario/);
+    conferirCapacidadeSql(sql, 'u');
   }
   assert.equal(consulta.mock.callCount(), 2);
 });
@@ -389,7 +390,7 @@ test("As três escritas encaminham identidade A ou B sem usar ambiente e perfil 
     const outroAmbiente = indice === 0 ? AMBIENTE_B : AMBIENTE_A;
     const dados = {
       ...DADOS, id_ambiente: outroAmbiente, id_usuario: 999,
-      perfil_acesso: "ADMINISTRADOR",
+      eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
     };
     for (const executar of escritas(usuario, dados)) {
       await executar();

@@ -84,7 +84,7 @@ test(
       nome: "Administrador Teste",
       email: "admin@exemplo.com",
       senha_hash: "hash-simulado",
-      perfil_acesso: "ADMINISTRADOR",
+      eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
       ativo: true,
       ambiente_ativo: true,
     };

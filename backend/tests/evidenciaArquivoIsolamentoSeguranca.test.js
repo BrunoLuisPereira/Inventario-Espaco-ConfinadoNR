@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
@@ -24,13 +25,13 @@ const CONTEXTOS = [
   { nome: "A", ambiente: A, outro: B, admin: 11, responsavel: 12, engenheiro: 13, criador: 14, campanha: 1, local: 101, evidencia: 501, externa: 601 },
   { nome: "B", ambiente: B, outro: A, admin: 21, responsavel: 22, engenheiro: 23, criador: 24, campanha: 2, local: 201, evidencia: 601, externa: 501 },
 ];
-const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
+const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
 const SQL_EVIDENCIA = "SELECT e.*, l.nome_local, u.nome AS usuario_responsavel FROM evidencia e INNER JOIN local l ON l.id_local = e.id_local INNER JOIN usuario u ON u.id_usuario = e.id_usuario WHERE e.id_evidencia = $1";
 const SQL_LOCAL = "SELECT l.id_local, l.nome_local, l.setor, l.descricao, l.endereco, l.latitude, l.longitude, l.status, l.id_campanha, c.nome_campanha, l.data_criacao, l.data_atualizacao FROM local l INNER JOIN campanha c ON c.id_campanha = l.id_campanha WHERE l.id_local = $1 LIMIT 1";
 const SQL_CAMPANHA = "SELECT c.id_campanha, c.nome_campanha, c.empresa, c.responsavel, c.data_inicio, c.status, c.id_usuario, u.nome AS usuario_responsavel, c.data_criacao, c.data_atualizacao FROM campanha c INNER JOIN usuario u ON u.id_usuario = c.id_usuario WHERE c.id_campanha = $1 LIMIT 1";
 // Leitura existente do repositório multi-tenant, reconhecida exatamente como
 // referência. Outros SQLs/imports futuros exigirão revisão explícita do mock.
-const SQL_AUTORIZADO = "SELECT e.*, l.nome_local, criador.nome AS usuario_responsavel FROM evidencia AS e INNER JOIN local AS l ON l.id_local = e.id_local INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha INNER JOIN usuario AS criador ON criador.id_usuario = e.id_usuario AND criador.id_ambiente = c.id_ambiente WHERE c.id_ambiente = $1 AND EXISTS ( SELECT 1 FROM usuario AS solicitante INNER JOIN ambiente AS a ON a.id_ambiente = solicitante.id_ambiente WHERE solicitante.id_usuario = $2 AND solicitante.id_ambiente = c.id_ambiente AND solicitante.ativo = TRUE AND a.ativo = TRUE AND ( solicitante.perfil_acesso = 'ADMINISTRADOR' OR c.id_usuario = solicitante.id_usuario ) ) AND e.id_evidencia = $3 LIMIT 1";
+const SQL_AUTORIZADO = "SELECT e.*, l.nome_local, criador.nome AS usuario_responsavel FROM evidencia AS e INNER JOIN local AS l ON l.id_local = e.id_local INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha INNER JOIN usuario AS criador ON criador.id_usuario = e.id_usuario AND criador.id_ambiente = c.id_ambiente WHERE c.id_ambiente = $1 AND EXISTS ( SELECT 1 FROM usuario AS solicitante INNER JOIN ambiente AS a ON a.id_ambiente = solicitante.id_ambiente WHERE solicitante.id_usuario = $2 AND solicitante.id_ambiente = c.id_ambiente AND solicitante.ativo = TRUE AND a.ativo = TRUE AND (solicitante.perfil_acesso IN ('ADMINISTRADOR', 'ENGENHEIRO_SEGURANCA', 'TECNICO_SEGURANCA', 'COORDENADOR', 'SUPERVISOR', 'AUDITOR', 'VISUALIZADOR')) ) AND e.id_evidencia = $3 LIMIT 1";
 
 function preparar(t) {
   const estado = { usuarios: new Map(), ambientes: new Map([[A, true], [B, true]]),
@@ -43,7 +44,7 @@ function preparar(t) {
   for (const c of CONTEXTOS) {
     for (const [papel, id] of [["admin", c.admin], ["responsavel", c.responsavel], ["engenheiro", c.engenheiro], ["criador", c.criador]]) {
       const perfil = papel === "admin" ? "ADMINISTRADOR" : "ENGENHEIRO_SEGURANCA";
-      estado.usuarios.set(id, { id_usuario: id, id_ambiente: c.ambiente, perfil_acesso: perfil, ativo: true, nome: "Pessoa " + id });
+      estado.usuarios.set(id, { id_usuario: id, id_ambiente: c.ambiente, eh_fundador: perfil === "ADMINISTRADOR", perfil_acesso: perfil, ativo: true, nome: "Pessoa " + id });
       tokens.set(papel + "-" + c.nome, { sub: String(id), perfil, id_ambiente: c.outro });
     }
     estado.campanhas.set(c.campanha, { id_campanha: c.campanha, id_ambiente: c.ambiente,
@@ -88,7 +89,7 @@ function preparar(t) {
         const usuario = estado.usuarios.get(params[0]);
         return resultado(usuario?.ativo === true && estado.ambientes.get(usuario.id_ambiente) === true
           ? [{ id_usuario: usuario.id_usuario, id_ambiente: usuario.id_ambiente,
-            perfil_acesso: usuario.perfil_acesso, nome: usuario.nome, email: "pessoa@example.invalid" }] : []);
+            eh_fundador: usuario.eh_fundador === true, perfil_acesso: usuario.perfil_acesso, nome: usuario.nome, email: "pessoa@example.invalid" }] : []);
       }
       if (sql === SQL_EVIDENCIA || sql === SQL_AUTORIZADO) {
         falhar("evidência");
@@ -113,7 +114,7 @@ function preparar(t) {
           permitido = permitido && !!v.campanha && v.campanha.id_ambiente === params[0] &&
             v.criador.id_ambiente === params[0] && usuario?.id_ambiente === params[0] &&
             usuario.ativo === true && estado.ambientes.get(params[0]) === true &&
-            (usuario.perfil_acesso === "ADMINISTRADOR" || v.campanha.id_usuario === usuario.id_usuario);
+            ["ADMINISTRADOR","ENGENHEIRO_SEGURANCA","TECNICO_SEGURANCA","COORDENADOR","SUPERVISOR","AUDITOR","VISUALIZADOR"].includes(usuario.perfil_acesso);
           estado.autorizadas.push({ params: [...params], permitido });
         }
         estado.eventos.push(global ? "EVIDENCIA_GLOBAL" : "EVIDENCIA_AUTORIZADA");
@@ -205,6 +206,8 @@ function preparar(t) {
   try {
     for (const p of cache.keys()) delete require.cache[p];
     Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cache.has(parent?.filename)) {
@@ -371,11 +374,10 @@ for (const c of CONTEXTOS) {
     semArquivo(ctx);
     erroPublico(res, 404);
   });
-  test("Arquivo " + c.nome + ": engenheiro não responsável recebe 404 sem caminho ou bytes", async (t) => {
+  test("Arquivo " + c.nome + ": engenheiro consulta no próprio ambiente sem responsabilidade individual", async (t) => {
     const ctx = preparar(t);
     const { res } = await ctx.solicitar(c.evidencia, "engenheiro-" + c.nome);
-    semArquivo(ctx);
-    erroPublico(res, 404);
+    entregaLegitima(ctx, c, res);
   });
   test("Arquivo " + c.nome + ": responsabilidade não permite atravessar ambientes", async (t) => {
     const ctx = preparar(t);
@@ -411,23 +413,22 @@ for (const c of CONTEXTOS) {
     const ctx = preparar(t);
     ctx.estado.usuarios.get(c.admin).perfil_acesso = "ENGENHEIRO_SEGURANCA";
     const { res, req } = await ctx.solicitar(c.evidencia, "admin-" + c.nome);
-    semArquivo(ctx);
-    erroPublico(res, 404);
+    entregaLegitima(ctx, c, res);
     assert.deepEqual(ctx.estado.identidades, [c.admin]);
     assert.equal(req.usuario.perfil_acesso, "ENGENHEIRO_SEGURANCA");
   });
   for (const fonte of ["body", "query", "params"]) {
     test("Arquivo " + c.nome + ": identidade forjada em " + fonte + " não autoriza evidência externa", async (t) => {
       const ctx = preparar(t);
-      const forjada = { id_usuario: 999, id_ambiente: c.outro, perfil_acesso: "ADMINISTRADOR" };
+      const forjada = { id_usuario: 999, id_ambiente: c.outro, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
       const { res } = await ctx.solicitar(c.externa, "admin-" + c.nome, { [fonte]: forjada, usuario: forjada });
       semArquivo(ctx);
       erroPublico(res, 404);
     });
   }
-  test("Arquivo " + c.nome + ": ser criador não concede autorização automática", async (t) => {
+  test("Arquivo " + c.nome + ": ser criador não permite acessar outro ambiente", async (t) => {
     const ctx = preparar(t);
-    const { res } = await ctx.solicitar(c.evidencia, "criador-" + c.nome);
+    const { res } = await ctx.solicitar(c.externa, "criador-" + c.nome);
     semArquivo(ctx);
     erroPublico(res, 404);
   });
@@ -445,7 +446,7 @@ for (const id of [0, -1, "abc", "1.5", Number.MAX_SAFE_INTEGER + 1, "90071992547
 for (const [nome, token] of [["ausente", null], ["inválido", "invalido"]]) {
   test("Arquivo: JWT " + nome + " recebe 401 sem consultas ou arquivo", async (t) => {
     const ctx = preparar(t);
-    const { res } = await ctx.solicitar(501, token, { usuario: { id_usuario: 11, id_ambiente: A, perfil_acesso: "ADMINISTRADOR" } });
+    const { res } = await ctx.solicitar(501, token, { usuario: { id_usuario: 11, id_ambiente: A, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" } });
     semArquivo(ctx);
     erroPublico(res, 401);
     assert.deepEqual(ctx.estado.consultas, []);

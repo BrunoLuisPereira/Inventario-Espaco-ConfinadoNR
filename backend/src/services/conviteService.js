@@ -8,10 +8,7 @@ const ambienteRepository = require("../repositories/ambienteRepository");
 const conviteRepository = require("../repositories/conviteRepository");
 const emailLockRepository = require("../repositories/emailLockRepository");
 
-const PERFIS_PERMITIDOS = [
-  "ADMINISTRADOR",
-  "ENGENHEIRO_SEGURANCA",
-];
+const { perfisConvite: PERFIS_PERMITIDOS } = require('../utils/permissoes');
 
 const PRAZO_CONVITE_HORAS = 48;
 
@@ -260,6 +257,10 @@ function validarConviteParaAceite(convite) {
     );
   }
 
+  if (!PERFIS_PERMITIDOS.includes(convite.perfil_acesso)) {
+    throw criarErro('O perfil deste convite não permite o aceite. Solicite um novo convite.', 409);
+  }
+
   if (convite.data_aceite !== null) {
     throw criarErro(
       "Este convite já foi utilizado.",
@@ -421,6 +422,7 @@ async function aceitarConvite(token, dados = {}) {
           email: convite.email,
           senhaHash,
           perfilAcesso: convite.perfil_acesso,
+          idConviteOrigem: convite.id_convite,
         }
       );
 

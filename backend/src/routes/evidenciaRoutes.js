@@ -1,3 +1,4 @@
+const { autorizarModulo } = require('../utils/permissoes');
 const express = require("express");
 const evidenciaController = require(
   "../controllers/evidenciaController"
@@ -15,6 +16,7 @@ const router = express.Router();
 
 // Todas as operações revalidam a identidade antes de ler dados ou receber uploads.
 router.use(autenticarMultiTenant);
+router.use(autorizarModulo('evidencias'));
 
 // O download revalida a identidade e o ambiente antes de acessar o arquivo.
 router.get(

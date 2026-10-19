@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
@@ -19,6 +20,8 @@ function preparar(t, respostas = {}) {
   try {
     delete require.cache[caminho];
     Module._load = function(request, parent, ...args) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       if (parent?.filename === caminho) {
         if (request === '../repositories/dadosTecnicosMultiTenantRepository') return repo;
         proibidas.push(request); throw new Error('Dependência real proibida');
@@ -75,7 +78,7 @@ for (const campo of numeros) {
 }
 test('Criação aplica padrões existentes e ignora identidade/vínculos forjados', async t => {
   const { service, chamadas } = preparar(t, { criarNoAmbiente: R });
-  await service.criarDadosTecnicos({ id_local: '40', id_usuario: 999, id_ambiente: B, perfil_acesso: 'ADMINISTRADOR', id_campanha: 999 }, U);
+  await service.criarDadosTecnicos({ id_local: '40', id_usuario: 999, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', id_campanha: 999 }, U);
   assert.deepEqual(chamadas, [{ nome: 'criarNoAmbiente', args: [{ id_local: 40, ventilacao: 'NAO_INFORMADA', status: 'PENDENTE' }, U] }]);
 });
 test('PUT omitido/null preserva contrato sem leitura de valores antigos', async t => {

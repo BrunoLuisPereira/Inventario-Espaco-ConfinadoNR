@@ -32,6 +32,20 @@
 .usuarios-erro p { margin: 0 0 14px; }
 .usuarios-erro button { padding: 10px 16px; border: 0; border-radius: 8px; background: #f5b700; color: #172033; cursor: pointer; }
 .usuarios-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.usuarios-editar { border: 1px solid #d0d5dd; border-radius: 7px; padding: 8px 10px; background: #fff; color: #172033; cursor: pointer; }
+.permissoes-modal { margin: auto; width: min(520px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 24px; border: 1px solid #d0d5dd; border-radius: 12px; color: #172033; background: #fff; }
+.permissoes-modal::backdrop { background: rgb(15 23 42 / 55%); }
+.usuarios-auditoria { margin-top: 24px; overflow-wrap: anywhere; }
+.usuarios-auditoria p, .usuarios-auditoria li { margin: 12px 0; }
+.usuarios-auditoria button { padding: 12px; border-radius: 8px; border: 1px solid #d0d5dd; cursor: pointer; }
+.permissoes-modal p { margin: 16px 0; overflow-wrap: anywhere; }
+.permissoes-modal select { width: 100%; padding: 12px; margin-top: 8px; border: 1px solid #d0d5dd; border-radius: 8px; }
+.permissoes-confirmacao { display: flex; align-items: flex-start; gap: 8px; font-size: .9rem; }
+.permissoes-confirmacao input { margin-top: 3px; flex-shrink: 0; }
+.permissoes-botoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+.permissoes-botoes button { padding: 12px; border: 1px solid #d0d5dd; border-radius: 8px; cursor: pointer; }
+.permissoes-botoes button[type=submit] { background: #f5b700; color: #172033; border-color: #f5b700; }
+.permissoes-botoes button:disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 1100px) { .usuarios-tabela th, .usuarios-tabela td { padding-left: 8px; padding-right: 8px; } }
 @media (max-width: 700px) {
   .usuarios-actions { justify-content: stretch; }

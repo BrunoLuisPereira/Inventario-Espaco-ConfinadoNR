@@ -1,3 +1,4 @@
+const { sqlCapacidade } = require('../utils/permissoes');
 const pool = require("../config/database");
 
 // Requer o esquema das migrações 015/019 e a homologação multi-tenant/versionamento.
@@ -7,7 +8,7 @@ const TIPOS = ["FOTO", "TEXTO", "DOCUMENTO"];
 const INDICE_IDEMPOTENCIA = "uq_evidencia_id_operacao_cliente";
 
 // Fragmentos estáticos: $1 é o ambiente e $2 é o usuário solicitante.
-const AUTORIZACAO = `
+const AUTORIZACAO_LEITURA = `
   AND EXISTS (
     SELECT 1
     FROM usuario AS solicitante
@@ -17,12 +18,11 @@ const AUTORIZACAO = `
       AND solicitante.id_ambiente = c.id_ambiente
       AND solicitante.ativo = TRUE
       AND a.ativo = TRUE
-      AND (
-        solicitante.perfil_acesso = 'ADMINISTRADOR'
-        OR c.id_usuario = solicitante.id_usuario
-      )
+      AND ${sqlCapacidade('solicitante', 'evidencias.consultar')}
   )
 `;
+const AUTORIZACAO = AUTORIZACAO_LEITURA.replace(sqlCapacidade('solicitante', 'evidencias.consultar'), sqlCapacidade('solicitante', 'evidencias.editar'));
+
 const LEITURA = `
   SELECT e.*, l.nome_local, criador.nome AS usuario_responsavel
   FROM evidencia AS e
@@ -34,7 +34,7 @@ const LEITURA = `
     ON criador.id_usuario = e.id_usuario
     AND criador.id_ambiente = c.id_ambiente
   WHERE c.id_ambiente = $1
-  ${AUTORIZACAO}
+  ${AUTORIZACAO_LEITURA}
 `;
 
 // Valores de controle são textos, não Number/Date JavaScript. O timestamp
@@ -68,10 +68,7 @@ const RELACOES_BLOQUEIO_GPS = `
     AND e.id_evidencia = $3
     AND solicitante.ativo = TRUE
     AND a.ativo = TRUE
-    AND (
-      solicitante.perfil_acesso = 'ADMINISTRADOR'
-      OR c.id_usuario = solicitante.id_usuario
-    )
+    AND ${sqlCapacidade('solicitante', 'evidencias.consultar')}
 `;
 
 function criarErro(message, statusCode = 400) {
@@ -283,7 +280,7 @@ async function atualizarComGpsEsperado(query, valores, gpsEsperado) {
     // podem causar deadlocks: não há repetição automática de transações.
     const raiz = await client.query(`
       SELECT l.id_local, c.id_campanha
-      ${RELACOES_BLOQUEIO_GPS}
+      ${RELACOES_BLOQUEIO_GPS.replace(sqlCapacidade('solicitante', 'evidencias.consultar'), sqlCapacidade('solicitante', 'evidencias.editar'))}
       FOR SHARE OF a
     `, identidade);
     if (!raiz.rows[0]) {
@@ -297,7 +294,7 @@ async function atualizarComGpsEsperado(query, valores, gpsEsperado) {
     for (const alias of ["solicitante", "c", "l"]) {
       const bloqueio = await client.query(`
         SELECT l.id_local, c.id_campanha
-        ${RELACOES_BLOQUEIO_GPS}
+        ${RELACOES_BLOQUEIO_GPS.replace(sqlCapacidade('solicitante', 'evidencias.consultar'), sqlCapacidade('solicitante', 'evidencias.editar'))}
           AND l.id_local = $4
           AND c.id_campanha = $5
         FOR SHARE OF ${alias}
@@ -310,7 +307,7 @@ async function atualizarComGpsEsperado(query, valores, gpsEsperado) {
 
     const bloqueada = await client.query(`
       SELECT e.id_evidencia, (${comparacaoGpsSql(6)}) AS gps_confere
-      ${RELACOES_BLOQUEIO_GPS}
+      ${RELACOES_BLOQUEIO_GPS.replace(sqlCapacidade('solicitante', 'evidencias.consultar'), sqlCapacidade('solicitante', 'evidencias.editar'))}
         AND l.id_local = $4
         AND c.id_campanha = $5
       FOR UPDATE OF e
@@ -353,6 +350,30 @@ async function atualizarComGpsEsperado(query, valores, gpsEsperado) {
   }
 }
 
+// Mantem atividade e capacidade estaveis durante INSERT/UPDATE sem CAS GPS.
+async function escreverComCapacidade(query, valores, criacao) {
+  const client = await pool.connect(); let aberta = false, descartar = false;
+  try {
+    await client.query('BEGIN ISOLATION LEVEL READ COMMITTED'); aberta = true;
+    for (const alias of criacao ? ['a','solicitante','c','l'] : ['a','solicitante','c','l','e']) {
+      const r = await client.query(`SELECT l.id_local FROM ambiente a JOIN usuario solicitante ON solicitante.id_ambiente=a.id_ambiente
+        JOIN campanha c ON c.id_ambiente=a.id_ambiente JOIN local l ON l.id_campanha=c.id_campanha
+        ${criacao ? '' : 'JOIN evidencia e ON e.id_local=l.id_local'}
+        WHERE a.id_ambiente=$1 AND solicitante.id_usuario=$2 AND ${criacao ? 'l.id_local' : 'e.id_evidencia'}=$3
+          AND a.ativo=TRUE AND solicitante.ativo=TRUE AND ${sqlCapacidade('solicitante','evidencias.editar')}
+        FOR ${['a','solicitante'].includes(alias) ? 'SHARE' : 'UPDATE'} OF ${alias}`, valores.slice(0,3));
+      if (!r.rows[0]) { await client.query('ROLLBACK'); aberta = false; return { rows: [] }; }
+    }
+    const resultado = await client.query(query, valores);
+    if (!resultado.rows[0]) throw criarErro('Falha interna ao salvar evidência.', 500);
+    await client.query('COMMIT'); aberta = false;
+    return resultado;
+  } catch (e) {
+    if (aberta) { try { await client.query('ROLLBACK'); } catch { descartar = true; } } else descartar = true;
+    throw e;
+  } finally { client.release(descartar || undefined); }
+}
+
 async function criarNoAmbiente(dados, usuarioAutenticado) {
   const usuario = validarIdentidade(usuarioAutenticado);
   validarDados(dados);
@@ -393,7 +414,7 @@ async function criarNoAmbiente(dados, usuarioAutenticado) {
   ];
 
   try {
-    const resultado = await pool.query(query, valores);
+    const resultado = await escreverComCapacidade(query, valores, true);
     return resultado.rows[0] || null;
   } catch (erro) {
     if (
@@ -439,7 +460,7 @@ async function buscarPorIdEAmbiente(idEvidencia, usuarioAutenticado, opcoes) {
         ON criador.id_usuario = e.id_usuario
         AND criador.id_ambiente = c.id_ambiente
       WHERE c.id_ambiente = $1
-        ${AUTORIZACAO}
+        ${AUTORIZACAO_LEITURA}
         AND e.id_evidencia = $3
       LIMIT 1
     `, [usuario.id_ambiente, usuario.id_usuario, id]);
@@ -516,7 +537,7 @@ async function atualizarNoAmbiente(idEvidencia, dados, usuarioAutenticado, opcoe
   // A CHECK de par latitude/longitude também valida o estado final combinado
   // com os valores atuais, inclusive quando só uma coordenada é informada.
   if (gpsEsperado) return atualizarComGpsEsperado(query, valores, gpsEsperado);
-  const resultado = await pool.query(query, valores);
+  const resultado = await escreverComCapacidade(query, valores, false);
   return resultado.rows[0] || null;
 }
 
@@ -530,7 +551,7 @@ async function excluirNoAmbiente(idEvidencia, usuarioAutenticado, opcoes) {
       AND e.id_evidencia = $3
       AND l.id_local = e.id_local
       AND c.id_campanha = l.id_campanha
-      ${AUTORIZACAO}
+      ${AUTORIZACAO_LEITURA.replace(sqlCapacidade('solicitante', 'evidencias.consultar'), sqlCapacidade('solicitante', 'evidencias.excluir'))}
     RETURNING e.*
   `;
   const valores = [usuario.id_ambiente, usuario.id_usuario, id];
@@ -545,7 +566,7 @@ async function excluirNoAmbiente(idEvidencia, usuarioAutenticado, opcoes) {
       for (const alias of ["a", "solicitante", "c", "l", "e"]) {
         const bloqueio = await client.query(`
           SELECT l.id_local, c.id_campanha
-          ${RELACOES_BLOQUEIO_GPS}
+          ${RELACOES_BLOQUEIO_GPS.replace(sqlCapacidade('solicitante', 'evidencias.consultar'), sqlCapacidade('solicitante', 'evidencias.excluir'))}
           ${vinculo ? "AND l.id_local = $4 AND c.id_campanha = $5" : ""}
           FOR ${alias === "e" ? "UPDATE" : "SHARE"} OF ${alias}
         `, vinculo || valores);
@@ -585,7 +606,7 @@ async function buscarLocalAutorizadoNoAmbiente(idLocal, usuarioAutenticado) {
       ON c.id_campanha = l.id_campanha
     WHERE c.id_ambiente = $1
       AND l.id_local = $3
-      ${AUTORIZACAO}
+      ${AUTORIZACAO_LEITURA}
     LIMIT 1
   `;
   const resultado = await pool.query(query, [usuario.id_ambiente, usuario.id_usuario, id]);

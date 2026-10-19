@@ -1,3 +1,4 @@
+import { useCapacidade } from '../hooks/useCapacidade'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Sidebar from '../components/layout/Sidebar'
@@ -25,6 +26,7 @@ const FORMULARIO_INICIAL = {
 }
 
 function DadosTecnicosLocal() {
+  const podeEditar = useCapacidade('dados_tecnicos.editar')
   const { idLocal } = useParams()
 
   const [local, setLocal] = useState(null)
@@ -261,6 +263,8 @@ function DadosTecnicosLocal() {
         className="dados-tecnicos-form"
         onSubmit={onSubmit}
       >
+        {!podeEditar && <p role="status">Seu perfil permite somente consulta nesta tela.</p>}
+        <fieldset disabled={!podeEditar} style={{border:0,padding:0,margin:0,minWidth:0}}>
         <div className="dados-tecnicos-grid">
           <div className="dados-tecnicos-field">
             <label htmlFor="pressao_atmosferica">
@@ -463,7 +467,8 @@ function DadosTecnicosLocal() {
                 : 'Salvar dados técnicos'}
           </button>
         </div>
-      </form>
+      </fieldset>
+</form>
     )
   }
 
@@ -619,7 +624,7 @@ function DadosTecnicosLocal() {
                     <button
                       type="button"
                       onClick={iniciarEdicao}
-                      disabled={alterandoStatus}
+                      disabled={!podeEditar || (alterandoStatus)}
                     >
                       Editar dados técnicos
                     </button>
@@ -632,7 +637,7 @@ function DadosTecnicosLocal() {
                         onClick={() =>
                           mudarStatus('CONCLUIDO')
                         }
-                        disabled={alterandoStatus}
+                        disabled={!podeEditar || (alterandoStatus)}
                       >
                         {alterandoStatus
                           ? 'Alterando...'
@@ -648,7 +653,7 @@ function DadosTecnicosLocal() {
                         onClick={() =>
                           mudarStatus('PENDENTE')
                         }
-                        disabled={alterandoStatus}
+                        disabled={!podeEditar || (alterandoStatus)}
                       >
                         {alterandoStatus
                           ? 'Alterando...'

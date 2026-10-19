@@ -1,3 +1,4 @@
+import { useCapacidade } from '../hooks/useCapacidade'
 import { useEffect, useState } from 'react'
 import {
   Link,
@@ -18,6 +19,7 @@ import {
 import '../styles/RelatorioLocal.css'
 
 function RelatorioLocal() {
+  const podeEditar = useCapacidade('relatorios.gerar')
   const { idLocal } = useParams()
 
   const [local, setLocal] = useState(null)
@@ -304,7 +306,7 @@ function RelatorioLocal() {
                     type="button"
                     className="relatorio-btn relatorio-btn-primary"
                     onClick={handleGerarPdf}
-                    disabled={gerando}
+                    disabled={!podeEditar || (gerando)}
                   >
                     {gerando
                       ? 'Gerando PDF...'

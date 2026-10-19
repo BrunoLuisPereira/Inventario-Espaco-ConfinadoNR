@@ -282,7 +282,7 @@ test("Ignora usuário, ambiente e perfil forjados no corpo das três escritas", 
   });
   const dados = {
     ...DADOS, status: "INATIVO", id_usuario: 999, id_ambiente: AMBIENTE_B,
-    perfil_acesso: "ADMINISTRADOR", idUsuario: 999, idAmbiente: AMBIENTE_B,
+    eh_fundador: true, perfil_acesso: "ADMINISTRADOR", idUsuario: 999, idAmbiente: AMBIENTE_B,
   };
   await service.criarLocal(dados, USUARIO_A);
   await service.atualizarLocal(40, dados, USUARIO_A);
@@ -367,7 +367,7 @@ test("Encaminha argumentos isolados para ambientes A e B nas seis operações", 
   for (const [indice, usuario] of [USUARIO_A, USUARIO_B].entries()) {
     const dados = {
       ...DADOS, id_ambiente: indice === 0 ? AMBIENTE_B : AMBIENTE_A,
-      id_usuario: 999, perfil_acesso: "ADMINISTRADOR",
+      id_usuario: 999, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
     };
     await service.criarLocal(dados, usuario);
     await service.listarLocais(usuario);

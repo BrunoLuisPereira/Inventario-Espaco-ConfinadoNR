@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
@@ -28,6 +29,8 @@ let controller;
 try {
   delete require.cache[CAMINHO];
   Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
     if (parent?.filename === CAMINHO) {
       imports.push(request);
       if (request !== "../services/usuarioService") {
@@ -79,6 +82,8 @@ function preparar(t, op, implementacao) {
   const carregar = Module._load;
   const proibidos = [];
   t.mock.method(Module, "_load", function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
     if (parent?.filename === CAMINHO) {
       if (request === "../services/usuarioService") return service;
       proibidos.push(request);
@@ -185,7 +190,7 @@ for (const op of OPERACOES) {
       const identidadeForjada = Object.freeze({
         id_usuario: 777,
         id_ambiente: "22222222-2222-4222-8222-222222222222",
-        perfil_acesso: "ADMINISTRADOR",
+        eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
       });
       const reqForjada = {
         usuario: identidadeOriginal,

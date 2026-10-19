@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -47,6 +48,8 @@ function simular(t, modo = {}) {
   }};
   const carregar = Module._load;
   Module._load = function (r, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (r === '../utils/permissoes') return politicaRbac723;
     if (parent?.filename === fonte && r === 'fs') return falsoFs;
     if (parent?.filename === fonte && r === 'crypto') return { ...crypto, randomUUID: () => uuid };
     return carregar.call(this, r, parent, ...resto);

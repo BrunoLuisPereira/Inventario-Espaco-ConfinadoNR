@@ -12,7 +12,11 @@ const request = criarHttp({
     sessaoAtual().limpar()
     window.dispatchEvent(new Event(eventoSessaoExpirada))
   },
-  fetchImpl: (...args) => fetch(...args),
+  fetchImpl: async (...args) => {
+    const resposta = await fetch(...args)
+    if (resposta.status === 403) window.dispatchEvent(new Event('nr33-permissoes-revalidar'))
+    return resposta
+  },
   demonstracao: modoDemo ? (...args) => demonstracaoAtual().request(...args) : null,
 })
 const requestArquivo = endpoint => request(endpoint, { method: 'GET' }, true)
@@ -28,6 +32,8 @@ export function emitirConvite({ email, perfilAcesso }) {
   return request('/convites', { method: 'POST', body: JSON.stringify({ email, perfilAcesso }) })
 }
 export const listarUsuarios = () => request('/usuarios')
+export const alterarPermissoesUsuario = (id, perfil_acesso) => request(`/usuarios/${encodeURIComponent(id)}/permissoes`, { method: 'PATCH', body: JSON.stringify({ perfil_acesso }) })
+export const listarAuditoriaPerfis = () => request('/usuarios/auditoria/perfis')
 export const listarRelatorios = () => request('/relatorios')
 
 export async function login(email, senha) {

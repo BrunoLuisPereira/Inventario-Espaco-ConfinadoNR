@@ -1,3 +1,4 @@
+const { sqlCapacidade } = require('../utils/permissoes');
 const pool = require("../config/database");
 
 async function criar(local) {
@@ -162,7 +163,7 @@ async function listarParaExportacaoPorAmbiente(idAmbiente, usuarioAutenticado) {
         INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente
         WHERE u.id_usuario = $2 AND u.id_ambiente = c.id_ambiente
           AND u.ativo = TRUE AND a.ativo = TRUE
-          AND (u.perfil_acesso = 'ADMINISTRADOR' OR c.id_usuario = u.id_usuario)
+          AND ${sqlCapacidade('u', 'locais.exportar')}
       )
     ORDER BY
       c.nome_campanha ASC,

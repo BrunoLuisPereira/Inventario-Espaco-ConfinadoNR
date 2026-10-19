@@ -37,7 +37,7 @@ function criarUsuario(overrides = {}) {
     nome: "Administrador Teste",
     email: "admin@exemplo.com",
     senha_hash: bcrypt.hashSync("SenhaSegura123", 4),
-    perfil_acesso: "ADMINISTRADOR",
+    eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
     ativo: true,
     ambiente_ativo: true,
     ...overrides,

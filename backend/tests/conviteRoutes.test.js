@@ -153,7 +153,7 @@ test(
       async () => ({
         id_usuario: 10,
         id_ambiente: ID_AMBIENTE,
-        perfil_acesso: "ENGENHEIRO_SEGURANCA",
+        eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA",
       })
     );
 
@@ -204,7 +204,7 @@ test(
       async () => ({
         id_usuario: 10,
         id_ambiente: ID_AMBIENTE,
-        perfil_acesso: "ADMINISTRADOR",
+        eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
       })
     );
 

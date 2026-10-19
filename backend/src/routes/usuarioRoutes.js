@@ -11,13 +11,18 @@ const {
 } = require("../middlewares/autorizacaoMiddleware");
 
 const router = express.Router();
+const { autorizarCapacidade } = require('../utils/permissoes');
+const permissoesController = require('../controllers/usuarioPermissoesController');
+router.get('/auditoria/entidades', autenticarMultiTenant, autorizarCapacidade('auditoria.consultar'), permissoesController.historico);
+router.get('/auditoria/perfis', autenticarMultiTenant, autorizarCapacidade('usuarios.auditoria.consultar'), permissoesController.auditoria);
+router.patch('/:id/permissoes', autenticarMultiTenant, autorizarCapacidade('usuarios.permissoes.alterar'), permissoesController.alterar);
 
 // Consultas e alterações usam identidade atual. O cadastro direto POST
 // permanece legado até sua revisão específica.
-router.get("/", autenticarMultiTenant, autorizar("ADMINISTRADOR"), usuarioController.listar);
-router.get("/:id", autenticarMultiTenant, autorizar("ADMINISTRADOR"), usuarioController.buscarPorId);
-router.put("/:id", autenticarMultiTenant, autorizar("ADMINISTRADOR"), usuarioController.atualizar);
-router.patch("/:id/status", autenticarMultiTenant, autorizar("ADMINISTRADOR"), usuarioController.alterarStatus);
+router.get("/", autenticarMultiTenant, autorizarCapacidade('usuarios.consultar'), usuarioController.listar);
+router.get("/:id", autenticarMultiTenant, autorizarCapacidade('usuarios.consultar'), usuarioController.buscarPorId);
+router.put("/:id", autenticarMultiTenant, autorizarCapacidade('usuarios.editar'), usuarioController.atualizar);
+router.patch("/:id/status", autenticarMultiTenant, autorizarCapacidade('usuarios.status'), usuarioController.alterarStatus);
 
 router.use(
   autenticar,

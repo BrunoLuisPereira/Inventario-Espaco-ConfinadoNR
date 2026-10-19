@@ -1,3 +1,4 @@
+const { conferir: conferirCapacidadeSql } = require('./helpers/rbacSqlSimulado.cjs');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const pool = require('../src/config/database');
@@ -10,13 +11,13 @@ function preparar(t, ambiente = A, engenheiro = false, criacao = false) {
   const estado = { ativo: true, ambienteAtivo: true, ambiente, criadorAmbiente: ambiente, perfil: engenheiro ? 'ENGENHEIRO_SEGURANCA' : 'ADMINISTRADOR', responsavel: u.id_usuario,
     campanha: 10, local: { id_local: 40, id_campanha: 10 }, registro: criacao ? null : { id_dados: 50, id_local: 40, id_usuario: 99, pressao_atmosferica: 0, oxigenio: '20.90', temperatura: 0, ventilacao: 'NATURAL', observacoes: 'Historico', status: 'PENDENTE' },
     consultas: [], escritas: [], liberacoes: [], inesperadas: [], falha: null, hook: null, vazio: false, rollbackFalha: false, aberta: false, trabalho: undefined };
-  const permitido = () => estado.ativo && estado.ambienteAtivo && estado.ambiente === u.id_ambiente && (estado.perfil === 'ADMINISTRADOR' || estado.responsavel === u.id_usuario);
+  const permitido = () => estado.ativo && estado.ambienteAtivo && estado.ambiente === u.id_ambiente && ['ADMINISTRADOR','ENGENHEIRO_SEGURANCA','TECNICO_SEGURANCA','COORDENADOR'].includes(estado.perfil);
   function contexto(sql, params) {
     assert.match(sql, /c\.id_ambiente\s*=\s*\$[12]|a\.id_ambiente\s*=\s*\$2/);
     assert.match(sql, /u\.id_usuario\s*=\s*\$[23]/);
     assert.match(sql, /u\.id_ambiente\s*=\s*c\.id_ambiente|u\.id_ambiente\s*=\s*a\.id_ambiente/);
     assert.match(sql, /u\.ativo\s*=\s*TRUE/); assert.match(sql, /a\.ativo\s*=\s*TRUE/);
-    assert.match(sql, /u\.perfil_acesso\s*=\s*'ADMINISTRADOR'\s+OR\s+c\.id_usuario\s*=\s*u\.id_usuario/);
+    conferirCapacidadeSql(sql, 'u');
     assert.ok(params.includes(u.id_ambiente)); assert.ok(params.includes(u.id_usuario)); assert.equal(sql.includes(u.id_ambiente), false);
   }
   const client = {
@@ -97,9 +98,9 @@ for (const [nome, executar] of escritas) {
     if (nome === 'criar') assert.equal(resultado.id_usuario, u.id_usuario); if (nome === 'excluir') assert.equal(estado.registro, null);
     assert.equal(estado.consultas[0].sql, 'BEGIN ISOLATION LEVEL READ COMMITTED'); assert.equal(estado.consultas.at(-1).sql, 'COMMIT'); assert.equal(estado.escritas.length, 1); assert.deepEqual(estado.liberacoes, [undefined]);
   });
-  for (const [alias, condicao] of [['a', 'ambiente'], ['u', 'usuario'], ['c', 'perfil'], ['c', 'responsavel'], ['l', 'campanha'], ...nome === 'criar' ? [] : [['d', 'local']]]) test(`${nome}: revogação/troca ${condicao} recusa antes da escrita`, async t => {
-    const { estado, u } = preparar(t, A, condicao === 'responsavel', nome === 'criar');
-    estado.hook = { alias, executar(s) { if (condicao === 'ambiente') s.ambienteAtivo = false; if (condicao === 'usuario') s.ativo = false; if (condicao === 'perfil') s.perfil = 'ENGENHEIRO_SEGURANCA', s.responsavel = 999; if (condicao === 'responsavel') s.responsavel = 999; if (condicao === 'campanha') s.local.id_campanha = 20; if (condicao === 'local') s.registro.id_local = 90; } };
+  for (const [alias, condicao] of [['a', 'ambiente'], ['u', 'usuario'], ['c', 'perfil'], ['c', 'capacidade'], ['l', 'campanha'], ...nome === 'criar' ? [] : [['d', 'local']]]) test(`${nome}: revogação/troca ${condicao} recusa antes da escrita`, async t => {
+    const { estado, u } = preparar(t, A, condicao === 'capacidade', nome === 'criar');
+    estado.hook = { alias, executar(s) { if (condicao === 'ambiente') s.ambienteAtivo = false; if (condicao === 'usuario') s.ativo = false; if (condicao === 'perfil') s.perfil = 'VISUALIZADOR'; if (condicao === 'capacidade') s.perfil = 'VISUALIZADOR'; if (condicao === 'campanha') s.local.id_campanha = 20; if (condicao === 'local') s.registro.id_local = 90; } };
     assert.equal(await executar(u), null); assert.deepEqual(estado.escritas, []); assert.equal(estado.consultas.at(-1).sql, 'ROLLBACK'); assert.deepEqual(estado.liberacoes, [undefined]);
   });
   for (const prefixo of ['BEGIN', 'SELECT', nome === 'criar' ? 'INSERT' : nome === 'excluir' ? 'DELETE' : 'UPDATE', 'COMMIT']) test(`${nome}: erro técnico em ${prefixo} não vira autorização`, async t => {
@@ -121,7 +122,7 @@ for (const tipo of ['listar', 'id', 'local', 'localAutorizado']) for (const ambi
   const { estado, u } = preparar(t, ambiente, true);
   if (condicao === 'externo') estado.ambiente = ambiente === A ? B : A; if (condicao === 'naoResponsavel') estado.responsavel = 999; if (condicao === 'inativo') estado.ativo = false; if (condicao === 'ambienteInativo') estado.ambienteAtivo = false;
   const resultado = await ({ listar: () => repo.listarPermitidosNoAmbiente(u), id: () => repo.buscarPorIdNoAmbiente(50, u), local: () => repo.buscarPorLocalNoAmbiente(40, u), localAutorizado: () => repo.buscarLocalAutorizadoNoAmbiente(40, u) })[tipo]();
-  if (condicao !== 'autorizado') assert.deepEqual(resultado, tipo === 'listar' ? [] : null); else if (tipo === 'listar') assert.equal(resultado.length, 1); else assert.equal(resultado.id_local, 40);
+  if (!['autorizado','naoResponsavel'].includes(condicao)) assert.deepEqual(resultado, tipo === 'listar' ? [] : null); else if (tipo === 'listar') assert.equal(resultado.length, 1); else assert.equal(resultado.id_local, 40);
   assert.equal(estado.liberacoes.length, 0);
 });
 test('PUT não restaura medição concorrente omitida, mantém zero e precisão textual', async t => {

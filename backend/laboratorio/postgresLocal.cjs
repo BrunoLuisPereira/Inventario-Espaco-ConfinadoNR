@@ -14,7 +14,10 @@ function validarAmbienteLocal(env) {
       typeof env.JWT_SECRET !== 'string' || env.JWT_SECRET.length < 48) {
     throw Error('Configuracao local isolada obrigatoria.');
   }
-  return d;
+  if (env.NR33_BACKEND_PORT !== undefined && !['3000', '3001'].includes(env.NR33_BACKEND_PORT)) {
+    throw Error('Porta HTTP local nao autorizada.');
+  }
+  return { ...d, portaHTTP: Number(env.NR33_BACKEND_PORT ?? d.portaHTTP) };
 }
 function sqlInstalacaoLocal(banco, fontes, senha, revisao = false) {
   destinoLocal(banco);

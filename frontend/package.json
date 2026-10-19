@@ -8,6 +8,7 @@
     "build:demo": "vite build --mode demo --outDir dist-demo",
     "test": "node --test",
     "test:browser": "node --experimental-websocket scripts/testar-demo-navegador.mjs",
+    "test:rbac-browser": "node --experimental-websocket scripts/verificar-rbac-723.mjs",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",

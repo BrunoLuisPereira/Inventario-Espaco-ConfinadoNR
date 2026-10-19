@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useLayout } from '../../contexts/useLayout'
 import { exportarLocaisExcel } from '../../services/api'
 import { podeAdministrar } from '../../services/conta'
+import { pode } from '../../services/permissoes'
 import '../../styles/Sidebar.css'
 
 function Sidebar() {
@@ -164,7 +165,7 @@ function Sidebar() {
           <NavLink to="/locais">
             Locais
           </NavLink>
-          <button
+          {pode(usuario, 'locais.exportar') && <button
             type="button"
             className="sidebar-nav-action"
             onClick={handleExportarLocais}
@@ -173,7 +174,7 @@ function Sidebar() {
             {exportando
               ? 'Exportando...'
               : 'Exportar Locais'}
-          </button>
+          </button>}
 
           <hr className="sidebar-divider" />
 

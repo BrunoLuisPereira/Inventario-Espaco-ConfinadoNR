@@ -1,3 +1,4 @@
+const { autorizarModulo } = require('../utils/permissoes');
 const express = require("express");
 
 const relatorioController = require("../controllers/relatorioController");
@@ -7,6 +8,7 @@ const { autenticarMultiTenant } = require("../middlewares/autenticacaoMiddleware
 const router = express.Router();
 
 router.use(autenticarMultiTenant);
+router.use(autorizarModulo('relatorios'));
 
 router.post("/", relatorioController.criar);
 

@@ -184,7 +184,7 @@ test(
       id_usuario: 10,
       id_ambiente:
         "11111111-1111-4111-8111-111111111111",
-      perfil_acesso: "ADMINISTRADOR",
+      eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
     };
 
     const consulta = t.mock.method(
@@ -257,7 +257,7 @@ test(
         id_usuario: 10,
         id_ambiente:
           "11111111-1111-4111-8111-111111111111",
-        perfil_acesso: "ENGENHEIRO_SEGURANCA",
+        eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA",
       })
     );
 

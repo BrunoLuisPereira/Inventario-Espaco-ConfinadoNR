@@ -1,3 +1,4 @@
+const { sqlCapacidade } = require('../utils/permissoes');
 
 const pool = require("../config/database");
 
@@ -6,7 +7,7 @@ const PERMISSAO_LEITURA = `AND EXISTS (
   INNER JOIN ambiente AS a ON a.id_ambiente = solicitante.id_ambiente
   WHERE solicitante.id_usuario = $2 AND solicitante.id_ambiente = c.id_ambiente
     AND solicitante.ativo = TRUE AND a.ativo = TRUE
-    AND (solicitante.perfil_acesso = 'ADMINISTRADOR' OR c.id_usuario = solicitante.id_usuario)
+    AND ${sqlCapacidade('solicitante', 'campanhas.consultar')}
 )`;
 
 function validarIdentidadeAtual(usuario) {
@@ -60,8 +61,8 @@ async function executarEscritaComBloqueios(query, valores, usuario, idCampanha) 
         ${comCampanha ? "INNER JOIN campanha AS c ON c.id_ambiente = a.id_ambiente" : ""}
         WHERE a.id_ambiente = $1 AND u.id_usuario = $2 AND u.ativo = TRUE AND a.ativo = TRUE
           ${comCampanha
-            ? "AND c.id_campanha = $3 AND (u.perfil_acesso = 'ADMINISTRADOR' OR c.id_usuario = u.id_usuario)"
-            : "AND u.perfil_acesso IN ('ADMINISTRADOR', 'ENGENHEIRO_SEGURANCA')"}
+            ? `AND c.id_campanha = $3 AND ${sqlCapacidade('u', 'campanhas.editar')}`
+            : `AND ${sqlCapacidade('u', 'campanhas.criar')}`}
         FOR ${alias === "c" ? "UPDATE" : "SHARE"} OF ${alias}
       `, identidade);
       if (!bloqueio.rows[0]) {
@@ -264,7 +265,7 @@ async function criarNoAmbiente(dados, idAmbiente, opcoes) {
       AND u.id_ambiente = $7
       AND u.ativo = TRUE
       AND a.ativo = TRUE
-      AND u.perfil_acesso IN ('ADMINISTRADOR', 'ENGENHEIRO_SEGURANCA')
+      AND ${sqlCapacidade('u', 'campanhas.criar')}
     RETURNING
       id_campanha,
       id_ambiente,
@@ -380,10 +381,7 @@ async function atualizarNoAmbiente(
           AND u.id_ambiente = c.id_ambiente
           AND u.ativo = TRUE
           AND a.ativo = TRUE
-          AND (
-            u.perfil_acesso = 'ADMINISTRADOR'
-            OR c.id_usuario = u.id_usuario
-          )
+          AND ${sqlCapacidade('u', 'campanhas.editar')}
       )
     RETURNING
       c.id_campanha,
@@ -491,10 +489,7 @@ async function atualizarStatusNoAmbiente(
           AND u.id_ambiente = c.id_ambiente
           AND u.ativo = TRUE
           AND a.ativo = TRUE
-          AND (
-            u.perfil_acesso = 'ADMINISTRADOR'
-            OR c.id_usuario = u.id_usuario
-          )
+          AND ${sqlCapacidade('u', 'campanhas.editar')}
       )
     RETURNING
       c.id_campanha,

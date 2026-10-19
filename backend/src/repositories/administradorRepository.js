@@ -33,12 +33,12 @@ async function buscarAdministradorAtivo(client, idUsuario, opcoes = {}) {
       u.id_ambiente,
       u.nome,
       u.email,
-      u.perfil_acesso
+      u.perfil_acesso, u.eh_fundador
     FROM usuario AS u
     INNER JOIN ambiente AS a
       ON a.id_ambiente = u.id_ambiente
     WHERE u.id_usuario = $1
-      AND u.perfil_acesso = 'ADMINISTRADOR'
+      AND u.perfil_acesso = 'ADMINISTRADOR' AND u.eh_fundador = TRUE
       AND u.ativo = TRUE
       AND a.ativo = TRUE
     LIMIT 1
@@ -59,10 +59,10 @@ async function buscarAdministradorAtivo(client, idUsuario, opcoes = {}) {
   `, [referencia.id_ambiente]);
   if (!ambiente.rows[0]) return null;
   const bloqueado = await client.query(`
-    SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso
+    SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador
     FROM usuario AS u
     WHERE u.id_usuario = $1 AND u.id_ambiente = $2
-      AND u.ativo = TRUE AND u.perfil_acesso = 'ADMINISTRADOR'
+      AND u.ativo = TRUE AND u.perfil_acesso = 'ADMINISTRADOR' AND u.eh_fundador = TRUE
     FOR SHARE OF u
   `, [idUsuario, referencia.id_ambiente]);
   return bloqueado.rows[0] || null;

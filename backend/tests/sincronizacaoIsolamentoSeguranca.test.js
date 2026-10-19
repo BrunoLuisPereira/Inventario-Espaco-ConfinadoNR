@@ -1,10 +1,11 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
 
 const CAMINHO_SERVICE = require.resolve("../src/services/sincronizacaoService");
 const CAMINHO_APLICACAO = require.resolve("../src/repositories/sincronizacaoAplicacaoRepository");
-const USUARIO = Object.freeze({ id_usuario: 11, perfil_acesso: "ENGENHEIRO_SEGURANCA" });
+const USUARIO = Object.freeze({ id_usuario: 11, eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA" });
 const ENTIDADES = [
   { nome: "CAMPANHA", tabela: "campanha", chave: "id_campanha", campo: "nome_campanha", valor: "Campanha atualizada" },
   { nome: "LOCAL", tabela: "local", chave: "id_local", campo: "nome_local", valor: "Local atualizado" },
@@ -29,6 +30,8 @@ function carregarIsolado(t, dependencias) {
   try {
     for (const caminho of originais.keys()) delete require.cache[caminho];
     Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       if (parent?.filename === CAMINHO_APLICACAO) {
         imports.push(["aplicacao", request]);
         if (request === "../config/database") return dependencias.pool;
@@ -174,7 +177,7 @@ function preparar(t, entidade, autorizado) {
           return resultado([]);
         }
         registrarBloqueio("usuario", "SHARE");
-        return resultado([{ id_usuario: usuario.id_usuario, perfil_acesso: usuario.perfil_acesso }]);
+        return resultado([{ id_usuario: usuario.id_usuario, eh_fundador: usuario.eh_fundador === true, perfil_acesso: usuario.perfil_acesso }]);
       }
       if (/^SELECT (?:\*|versao) FROM versao_entidade WHERE entidade = \$1 AND id_entidade = \$2(?: FOR UPDATE)?;?$/i.test(sql)) {
         assert.deepEqual(params, [entidade.nome, alvo[entidade.chave]]);

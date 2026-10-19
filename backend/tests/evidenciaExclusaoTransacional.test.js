@@ -1,3 +1,5 @@
+const { conferir: conferirCapacidadeSql } = require('./helpers/rbacSqlSimulado.cjs');
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
@@ -22,7 +24,7 @@ function preparar(t, opcoes = {}) {
         assert.match(texto, /c\.id_ambiente = \$1/);
         assert.match(texto, /solicitante\.ativo = TRUE/);
         assert.match(texto, /a\.ativo = TRUE/);
-        assert.match(texto, /solicitante\.perfil_acesso = 'ADMINISTRADOR' OR c\.id_usuario = solicitante\.id_usuario/);
+        conferirCapacidadeSql(texto, 'solicitante');
         if (opcoes.revogar === bloqueios) return { rows: [] };
         return { rows: [{ id_local: 20, id_campanha: 30 }] };
       }
@@ -41,6 +43,8 @@ function preparar(t, opcoes = {}) {
   try {
     delete require.cache[alvo];
     Module._load = function (request, parent, ...args) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       if (parent?.filename === alvo) {
         assert.equal(request, '../config/database');
         return { query() { throw new Error('Fallback global proibido'); }, async connect() { eventos.push({ connect: true }); return client; } };

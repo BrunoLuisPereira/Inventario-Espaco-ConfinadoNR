@@ -1,3 +1,4 @@
+const { conferir: conferirCapacidadeSql } = require('./helpers/rbacSqlSimulado.cjs');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const pool = require('../src/config/database');
@@ -8,12 +9,12 @@ const opcoes = { bloquearAutorizacao: true };
 function preparar(t, ambiente = A, engenheiro = false) {
   const u = { id_usuario: ambiente === A ? 11 : 21, id_ambiente: ambiente };
   const estado = { ativo: true, ambienteAtivo: true, perfil: engenheiro ? 'ENGENHEIRO_SEGURANCA' : 'ADMINISTRADOR', responsavel: u.id_usuario, ambiente, campanha: 10, local: { id_local: 40, id_campanha: 10, nome_local: 'Antigo', setor: 'Preservar', latitude: 0, longitude: 0, status: 'ATIVO' }, consultas: [], escritas: [], liberacoes: [], inesperadas: [], falha: null, revogar: null, vazio: false, rollbackFalha: false, aberta: false, antes: null };
-  const permitido = () => estado.ativo && estado.ambienteAtivo && estado.ambiente === u.id_ambiente && (estado.perfil === 'ADMINISTRADOR' || estado.responsavel === u.id_usuario);
+  const permitido = () => estado.ativo && estado.ambienteAtivo && estado.ambiente === u.id_ambiente && ['ADMINISTRADOR','ENGENHEIRO_SEGURANCA','TECNICO_SEGURANCA','COORDENADOR'].includes(estado.perfil);
   function verificarContexto(sql, params, leitura = false) {
     assert.match(sql, /c\.id_ambiente\s*=\s*\$[12]|a\.id_ambiente\s*=\s*\$2/);
     assert.match(sql, /u\.id_usuario\s*=\s*\$[23]/);
     assert.match(sql, /u\.ativo\s*=\s*TRUE/); assert.match(sql, /a\.ativo\s*=\s*TRUE/);
-    assert.match(sql, /u\.perfil_acesso\s*=\s*'ADMINISTRADOR'\s+OR\s+c\.id_usuario\s*=\s*u\.id_usuario/);
+    conferirCapacidadeSql(sql, 'u');
     assert.ok(params.includes(u.id_ambiente)); assert.ok(params.includes(u.id_usuario));
     assert.equal(sql.includes(u.id_ambiente), false);
     if (leitura) assert.match(sql, /c\.id_campanha\s*=\s*l\.id_campanha/);
@@ -82,9 +83,9 @@ for (const [nome, executar] of escritas) {
     assert.equal(estado.consultas[0].sql, 'BEGIN ISOLATION LEVEL READ COMMITTED');
     assert.equal(estado.consultas.at(-1).sql, 'COMMIT'); assert.equal(estado.escritas.length, 1); assert.deepEqual(estado.liberacoes, [undefined]);
   });
-  for (const [alias, condicao] of [['a', 'ambiente'], ['u', 'usuario'], ['c', 'perfil'], ['c', 'responsavel'], ...nome === 'criar' ? [] : [['l', 'vinculo']]]) test(`${nome}: revogação ${condicao} antes do lock recusa sem escrita`, async t => {
-    const { estado, u } = preparar(t, A, condicao === 'responsavel');
-    estado.revogar = { alias, executar(s) { if (condicao === 'ambiente') s.ambienteAtivo = false; if (condicao === 'usuario') s.ativo = false; if (condicao === 'perfil') s.perfil = 'ENGENHEIRO_SEGURANCA', s.responsavel = 999; if (condicao === 'responsavel') s.responsavel = 999; if (condicao === 'vinculo') s.local.id_campanha = 20; } };
+  for (const [alias, condicao] of [['a', 'ambiente'], ['u', 'usuario'], ['c', 'perfil'], ['c', 'capacidade'], ...nome === 'criar' ? [] : [['l', 'vinculo']]]) test(`${nome}: revogação ${condicao} antes do lock recusa sem escrita`, async t => {
+    const { estado, u } = preparar(t, A, condicao === 'capacidade');
+    estado.revogar = { alias, executar(s) { if (condicao === 'ambiente') s.ambienteAtivo = false; if (condicao === 'usuario') s.ativo = false; if (condicao === 'perfil') s.perfil = 'VISUALIZADOR'; if (condicao === 'capacidade') s.perfil = 'VISUALIZADOR'; if (condicao === 'vinculo') s.local.id_campanha = 20; } };
     assert.equal(await executar(u), null); assert.deepEqual(estado.escritas, []); assert.equal(estado.consultas.at(-1).sql, 'ROLLBACK'); assert.deepEqual(estado.liberacoes, [undefined]);
   });
   for (const prefixo of ['BEGIN', 'SELECT', nome === 'criar' ? 'INSERT' : 'UPDATE', 'COMMIT']) test(`${nome}: falha ${prefixo} preserva erro e libera`, async t => {
@@ -111,7 +112,7 @@ for (const individual of [false, true]) for (const ambiente of [A, B]) for (cons
   if (condicao === 'inativo') estado.ativo = false;
   if (condicao === 'ambienteInativo') estado.ambienteAtivo = false;
   const resultado = individual ? await repo.buscarPermitidoPorIdNoAmbiente(40, u) : await repo.listarPermitidosNoAmbiente(u);
-  if (condicao === 'autorizado') assert.deepEqual(resultado, individual ? estado.local : [estado.local]); else assert.deepEqual(resultado, individual ? null : []);
+  if (['autorizado','naoResponsavel'].includes(condicao)) assert.deepEqual(resultado, individual ? estado.local : [estado.local]); else assert.deepEqual(resultado, individual ? null : []);
   assert.equal(estado.liberacoes.length, 0);
 });
 test('UPDATE usa flags do pedido, preserva omitidos e limpa null explícito', async t => {
@@ -149,7 +150,7 @@ for (const exportador of [repo, require('../src/repositories/localRepository')])
     assert.match(chamadas[0].sql, /u\.id_usuario = \$2/);
     assert.match(chamadas[0].sql, /u\.ativo = TRUE/);
     assert.match(chamadas[0].sql, /a\.ativo = TRUE/);
-    assert.match(chamadas[0].sql, /OR c\.id_usuario = u\.id_usuario/);
+    assert.deepEqual(conferirCapacidadeSql(chamadas[0].sql,'u'), ['ADMINISTRADOR','ENGENHEIRO_SEGURANCA','TECNICO_SEGURANCA','COORDENADOR','SUPERVISOR','AUDITOR']);
     assert.match(chamadas[0].sql, /LEFT JOIN evidencia/);
   });
 }

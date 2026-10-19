@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
@@ -10,14 +11,14 @@ const operacoes = [['POST', '/', 'criar'], ['GET', '/', 'listar'], ['GET', '/10'
 function preparar(t) {
   const estado = { usuarios: new Map(), campanhas: new Map(), locais: new Map(), globais: [], escritas: [], chamadas: [], identidades: [], logs: [], revogado: false, erro: null, iniciada: false, falhaEnvio: false };
   for (const [ambiente, base] of [[A, 10], [B, 20]]) {
-    for (const [n, perfil] of [[1, 'ADMINISTRADOR'], [2, 'ENGENHEIRO_SEGURANCA'], [3, 'ENGENHEIRO_SEGURANCA']]) estado.usuarios.set(base + n, { id_usuario: base + n, id_ambiente: ambiente, perfil_acesso: perfil, ativo: true, ambienteAtivo: true });
+    for (const [n, perfil] of [[1, 'ADMINISTRADOR'], [2, 'ENGENHEIRO_SEGURANCA'], [3, 'ENGENHEIRO_SEGURANCA']]) estado.usuarios.set(base + n, { id_usuario: base + n, id_ambiente: ambiente, eh_fundador: perfil === "ADMINISTRADOR", perfil_acesso: perfil, ativo: true, ambienteAtivo: true });
     estado.campanhas.set(base, { id_campanha: base, id_ambiente: ambiente, id_usuario: base + 2 });
     estado.locais.set(base, { id_local: base, id_campanha: base, nome_local: 'EXCLUSIVO_' + base, setor: 'Setor preservado', latitude: 0, longitude: 0, status: 'ATIVO' });
   }
   const falhar = () => { if (estado.aoConsultar) estado.aoConsultar(); if (estado.erro) throw estado.erro; };
   const permitido = (id, u) => {
     const c = estado.campanhas.get(id), atual = estado.usuarios.get(u?.id_usuario);
-    return !!(c && atual?.ativo && atual.ambienteAtivo && !estado.revogado && c.id_ambiente === u.id_ambiente && atual.id_ambiente === u.id_ambiente && (atual.perfil_acesso === 'ADMINISTRADOR' || c.id_usuario === atual.id_usuario));
+    return !!(c && atual?.ativo && atual.ambienteAtivo && !estado.revogado && c.id_ambiente === u.id_ambiente && atual.id_ambiente === u.id_ambiente && ['ADMINISTRADOR','ENGENHEIRO_SEGURANCA','TECNICO_SEGURANCA','COORDENADOR','SUPERVISOR','AUDITOR','VISUALIZADOR'].includes(atual.perfil_acesso));
   };
   const alterar = (id, d) => {
     const local = estado.locais.get(id);
@@ -47,6 +48,8 @@ function preparar(t) {
   try {
     for (const p of cache.keys()) delete require.cache[p];
     Module._load = function(request, parent, ...args) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cache.has(parent?.filename)) {
@@ -82,7 +85,7 @@ function preparar(t) {
   async function solicitar(method, url, token = '11', body = { ...dados, status: 'INATIVO' }) {
     let concluir;
     const fim = new Promise(resolve => { concluir = resolve; });
-    const req = { method, url, headers: token === null ? {} : { authorization: 'Bearer ' + token }, body, query: { id_usuario: 21, id_ambiente: B, perfil_acesso: 'ADMINISTRADOR' }, usuario: { id_usuario: 21, id_ambiente: B, perfil_acesso: 'ADMINISTRADOR' } };
+    const req = { method, url, headers: token === null ? {} : { authorization: 'Bearer ' + token }, body, query: { id_usuario: 21, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' }, usuario: { id_usuario: 21, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' } };
     let envios = 0;
     const res = { headersSent: estado.iniciada, statusCode: 200, status(n) { this.statusCode = n; return this; }, json(value) { envios++; this.body = value; this.headersSent = true; concluir(); if (estado.falhaEnvio) throw new Error('Falha de transporte'); return this; } };
     if (estado.iniciada) Object.defineProperty(res, 'headersSent', { get() { concluir(); return true; } });
@@ -109,17 +112,21 @@ for (const [method, url, nome] of operacoes) {
     assert.deepEqual(ctx.estado.identidades, [Number(token)]);
     assert.deepEqual(ctx.estado.globais, []);
   });
-  for (const condicao of ['semJWT', 'invalido', 'adulterado', 'usuarioInativo', 'ambienteInativo', 'perfilRevogado', 'responsabilidadeRevogada']) test(nome + ': revalida ' + condicao, async t => {
+  for (const condicao of ['semJWT', 'invalido', 'adulterado', 'usuarioInativo', 'ambienteInativo', 'perfilRevogado', 'responsavelAlterado']) test(nome + ': revalida ' + condicao, async t => {
     const ctx = preparar(t);
     if (condicao === 'usuarioInativo') ctx.estado.usuarios.get(11).ativo = false;
     if (condicao === 'ambienteInativo') ctx.estado.usuarios.get(11).ambienteAtivo = false;
-    if (condicao === 'perfilRevogado') ctx.estado.usuarios.get(11).perfil_acesso = 'ENGENHEIRO_SEGURANCA';
-    if (condicao === 'responsabilidadeRevogada') ctx.estado.campanhas.get(10).id_usuario = 13;
-    const token = condicao === 'semJWT' ? null : ['invalido', 'adulterado'].includes(condicao) ? condicao : condicao === 'responsabilidadeRevogada' ? '12' : '11';
+    if (condicao === 'perfilRevogado') ctx.estado.usuarios.get(12).perfil_acesso = 'AUDITOR';
+    if (condicao === 'responsavelAlterado') ctx.estado.campanhas.get(10).id_usuario = 13;
+    const token = condicao === 'semJWT' ? null : ['invalido', 'adulterado'].includes(condicao) ? condicao : ['perfilRevogado','responsavelAlterado'].includes(condicao) ? '12' : '11';
     const { res } = await ctx.solicitar(method, url, token);
-    const revogacao = ['perfilRevogado', 'responsabilidadeRevogada'].includes(condicao);
-    assert.equal(res.statusCode, revogacao ? nome === 'listar' ? 200 : 404 : 401);
-    if (revogacao && nome === 'listar') assert.deepEqual(res.body.data, []);
+    if (['perfilRevogado','responsavelAlterado'].includes(condicao)) {
+      assert.equal(res.statusCode, condicao === 'perfilRevogado' ? method === 'GET' ? 200 : 403 : nome === 'criar' ? 201 : 200);
+      if (nome === 'listar') assert.equal(res.body.data.length, 1);
+      if (condicao === 'perfilRevogado') assert.deepEqual(ctx.estado.escritas, []);
+      return;
+    }
+    assert.equal(res.statusCode, 401);
     assert.deepEqual(ctx.estado.escritas, []);
   });
   test(nome + ': técnico não vira ausência/autorização', async t => {
@@ -134,8 +141,13 @@ for (const [method, url, nome] of operacoes) {
   });
 }
 for (const [method, url, nome] of operacoes.filter(o => o[2] !== 'listar')) {
-  for (const token of ['21', '13']) test(nome + ': externo ou não responsável ' + token, async t => {
+  for (const token of ['21', '13']) test(nome + ": recurso conforme ambiente e capacidade " + token, async t => {
     const ctx = preparar(t); const { res } = await ctx.solicitar(method, url, token);
+    if (token === '13') {
+      assert.equal(res.statusCode, nome === 'criar' ? 201 : 200);
+      assert.deepEqual(ctx.estado.identidades, [13]);
+      return;
+    }
     assert.equal(res.statusCode, 404); assert.deepEqual(ctx.estado.escritas, []);
   });
 }
@@ -152,7 +164,7 @@ for (const [method, url, nome] of operacoes.filter(o => !['criar', 'listar'].inc
 }
 test('PUT preserva campos omitidos, zeros e vínculo apesar do corpo forjado', async t => {
   const ctx = preparar(t);
-  const { res } = await ctx.solicitar('PUT', '/10', '12', { nome_local: 'Novo', id_campanha: 20, id_usuario: 21, id_ambiente: B, perfil_acesso: 'ADMINISTRADOR' });
+  const { res } = await ctx.solicitar('PUT', '/10', '12', { nome_local: 'Novo', id_campanha: 20, id_usuario: 21, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' });
   assert.equal(res.statusCode, 200); assert.equal(res.body.data.id_campanha, 10); assert.equal(res.body.data.setor, 'Setor preservado'); assert.equal(res.body.data.latitude, 0); assert.equal(res.body.data.longitude, 0);
 });
 test('PUT permite limpeza explícita sem apagar coordenadas omitidas', async t => {
@@ -165,7 +177,7 @@ test('Falha do JSON após início não provoca segundo envio', async t => {
 for (const [method, url, nome] of operacoes) {
   test(nome + ': encaminha identidade original e corpo sem reconstrução no controller', async t => {
     const ctx = preparar(t);
-    const body = { ...dados, id_usuario: 21, id_ambiente: B, perfil_acesso: 'ADMINISTRADOR', status: 'INATIVO' };
+    const body = { ...dados, id_usuario: 21, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', status: 'INATIVO' };
     const { req, res } = await ctx.solicitar(method, url, '12', body);
     assert.equal(res.statusCode, nome === 'criar' ? 201 : 200);
     assert.equal(ctx.estado.argumentosServico.length, 1);

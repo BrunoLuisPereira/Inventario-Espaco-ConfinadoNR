@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
@@ -46,6 +47,8 @@ function carregar(t, opcoes = {}) {
   try {
     delete require.cache[alvo];
     Module._load = function (request, parent, ...args) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       if (parent?.filename === alvo) {
         if (request === 'fs') return fs;
         if (request === 'path') return path;

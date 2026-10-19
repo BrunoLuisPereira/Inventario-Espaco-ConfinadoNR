@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -17,6 +18,8 @@ let cadastroController;
 try {
   delete require.cache[CAMINHO_CONTROLLER];
   Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
     if (parent && parent.filename === CAMINHO_CONTROLLER) {
       importsController.push(request);
       if (request !== "../services/cadastroService") {
@@ -67,7 +70,7 @@ test(
       },
       usuario: {
         id_usuario: 10,
-        perfil_acesso: "ADMINISTRADOR",
+        eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
       },
     };
 
@@ -207,7 +210,7 @@ const RESULTADO_SEGURO = Object.freeze({
   ambiente: Object.freeze({
     id_ambiente: "11111111-1111-4111-8111-111111111111", nome: "Ambiente simulado",
   }),
-  usuario: Object.freeze({ id_usuario: 10, perfil_acesso: "ADMINISTRADOR" }),
+  usuario: Object.freeze({ id_usuario: 10, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" }),
 });
 
 function prepararSeguranca(t, implementacao) {
@@ -218,6 +221,8 @@ function prepararSeguranca(t, implementacao) {
   }
   const carregar = Module._load;
   t.mock.method(Module, "_load", function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
     if (parent && parent.filename === CAMINHO_CONTROLLER) {
       if (request === "../services/cadastroService") return cadastroService;
       proibidos.push(request);

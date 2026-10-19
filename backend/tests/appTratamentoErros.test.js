@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
@@ -61,6 +62,8 @@ function carregarAppIsolado(t) {
   try {
     delete require.cache[APP_PATH];
     Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       if (parent && parent.filename === APP_PATH) {
         imports.push(request);
         if (!Object.hasOwn(dependencias, request)) {
@@ -81,6 +84,8 @@ function carregarAppIsolado(t) {
   // Bloqueia também tentativas de importar dependências novas dentro dos
   // callbacks do app durante o teste, incluindo pool, dotenv, fs e serviços.
   t.mock.method(Module, "_load", function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
     if (parent && parent.filename === APP_PATH) {
       if (!Object.hasOwn(dependencias, request)) {
         proibidos.push(request);

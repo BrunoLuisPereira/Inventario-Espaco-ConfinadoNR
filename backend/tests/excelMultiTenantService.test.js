@@ -102,7 +102,7 @@ test("Obtém registros exclusivamente de listarLocaisParaExportacao", async (t) 
 });
 
 test("Encaminha a mesma instância da identidade autenticada original", async (t) => {
-  const usuario = { ...USUARIO_A, perfil_acesso: "ENGENHEIRO_SEGURANCA" };
+  const usuario = { ...USUARIO_A, eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA" };
   const consulta = simularFontes(t, (recebido) => {
     assert.strictEqual(recebido, usuario);
     return [];
@@ -116,7 +116,7 @@ test("Identidade forjada nos registros não substitui a identidade da consulta n
   const consulta = simularFontes(t, [registro({
     id_usuario: 999,
     id_ambiente: AMBIENTE_B,
-    perfil_acesso: "ADMINISTRADOR",
+    eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   })]);
   const worksheet = await abrir(await excelService.gerarExcelLocais(USUARIO_A));
   assert.equal(consulta.mock.callCount(), 1);

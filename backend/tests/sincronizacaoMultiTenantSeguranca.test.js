@@ -1,3 +1,5 @@
+const { conferir: conferirCapacidadeSql } = require('./helpers/rbacSqlSimulado.cjs');
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
@@ -43,12 +45,12 @@ function preparar(t) {
     const local = e === 'LOCAL' ? alvo : e === 'CAMPANHA' ? null : atual().tabelas.local.get(alvo?.id_local);
     const c = e === 'CAMPANHA' ? alvo : atual().tabelas.campanha.get(local?.id_campanha);
     return usuario?.ativo && estado.ambientes.get(env) && usuario.id_ambiente === env && c?.id_ambiente === env &&
-      (usuario.perfil_acesso === 'ADMINISTRADOR' || c.id_usuario === uid) ? { ...alvo, _campanha:c.id_campanha, _local:local?.id_local ?? null } : null;
+      ['ADMINISTRADOR','ENGENHEIRO_SEGURANCA','TECNICO_SEGURANCA','COORDENADOR','SUPERVISOR','AUDITOR','VISUALIZADOR'].includes(usuario.perfil_acesso) ? { ...alvo, _campanha:c.id_campanha, _local:local?.id_local ?? null } : null;
   }
   function syncPermitida(s,env,uid,visivel) {
     const usuario = estado.usuarios.get(uid);
     if (!s || !usuario?.ativo || !estado.ambientes.get(env) || usuario.id_ambiente !== env || s.id_ambiente !== env ||
-      !(usuario.perfil_acesso === 'ADMINISTRADOR' || s.id_usuario === uid)) return false;
+      !['ADMINISTRADOR','ENGENHEIRO_SEGURANCA','TECNICO_SEGURANCA','COORDENADOR'].includes(usuario.perfil_acesso) || !(usuario.perfil_acesso === 'ADMINISTRADOR' || s.id_usuario === uid)) return false;
     if (!visivel || s.operacao === 'CRIAR' && s.id_entidade == null) return true;
     return !!autorizado(env,uid,s.entidade,s.id_entidade) || s.operacao === 'EXCLUIR' && usuario.perfil_acesso === 'ADMINISTRADOR' && atual().versoes.get(`${env}:${s.entidade}:${s.id_entidade}`)?.excluido;
   }
@@ -61,7 +63,7 @@ function preparar(t) {
   function conferirEntidade(sql,params,e) {
     assert.match(sql,/id_ambiente = \$1/); assert.match(sql,/solicitante\.id_usuario = \$2/);
     assert.match(sql,/solicitante\.ativo = TRUE AND a\.ativo = TRUE/);
-    assert.match(sql,/perfil_acesso = 'ADMINISTRADOR' OR (?:c|e)\.id_usuario = solicitante\.id_usuario/);
+    conferirCapacidadeSql(sql, 'solicitante');
     if (!['CAMPANHA','LOCAL'].includes(e)) assert.match(sql,/JOIN local l ON l\.id_local = e\.id_local JOIN campanha c ON c\.id_campanha = l\.id_campanha/);
     if (e === 'LOCAL') assert.match(sql,/JOIN campanha c ON c\.id_campanha = e\.id_campanha/);
     assert.equal(typeof params[0],'string'); assert.ok(Number.isSafeInteger(params[1]));
@@ -161,6 +163,8 @@ function preparar(t) {
   try {
     for (const p of cache.keys()) delete require.cache[p];
     Module._load=function(r,parent,...args) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (r === '../utils/permissoes') return politicaRbac723;
       if (parent?.filename===repoPath) { if (r==='../config/database') return pool; throw new Error('Dependência real proibida: '+r); }
       if (parent?.filename===servicePath) { if (r==='../repositories/sincronizacaoMultiTenantRepository') return repo; throw new Error('Dependência real proibida: '+r); }
       return load.call(this,r,parent,...args);
@@ -192,7 +196,7 @@ test('regressao 42P08: finalizacao usa varchar(20) consistente e confirma escrit
 for (const e of Object.keys(especificacoes)) for (const ambiente of [A,B]) for (const papel of ['admin','responsavel','naoResponsavel','externo']) test(`${e}: registro contextual ${ambiente} ${papel}`, async t=>{
   const s=preparar(t), base=ambiente===A?10:20; s.u.id_ambiente=ambiente; s.u.id_usuario=base+(papel==='admin'?1:papel==='naoResponsavel'?3:2);
   const alvo=papel==='externo'?(base===10?20:10):base;
-  if (['naoResponsavel','externo'].includes(papel)) {
+  if (papel === 'externo') {
     await assert.rejects(s.service.criarSincronizacao(s.dados(e,'ATUALIZAR',alvo),s.u),{statusCode:404}); assert.deepEqual(s.estado.escritas,[]);
   } else {
     const r=await s.service.criarSincronizacao(s.dados(e,'ATUALIZAR',alvo),s.u); assert.equal(r.id_ambiente,ambiente); assert.equal(r.id_usuario,s.u.id_usuario); assert.equal(r.status,'PENDENTE');
@@ -202,9 +206,9 @@ for (const e of Object.keys(especificacoes)) for (const ambiente of [A,B]) for (
 for (const e of ['CAMPANHA','LOCAL','CHECKLIST_NR33','DADOS_TECNICOS']) for (const op of ['ATUALIZAR','EXCLUIR']) for (const c of ['igual','divergente','externo','revogado']) test(`${e} ${op}: processamento ${c}`,async t=>{
   const s=preparar(t), d=s.dados(e,op,c==='externo'?20:10); Object.assign(s.estado.sync.get(10),d,{id_operacao_cliente:null});
   if (c==='divergente') s.estado.versoes.get(`${A}:${e}:10`).versao=6;
-  if (c==='revogado') { s.u.id_usuario=12; s.estado.tabelas.campanha.get(10).id_usuario=13; }
+  if (c==='revogado') { s.u.id_usuario=12; s.estado.usuarios.get(12).perfil_acesso='AUDITOR'; }
   const anterior=clone(s.estado.tabelas[especificacoes[e][0]].get(10));
-  if (['externo','revogado'].includes(c)) { await assert.rejects(s.service.processarSincronizacao(10,s.u),{statusCode:404}); assert.deepEqual(s.estado.escritas,[]); }
+  if (['externo','revogado'].includes(c)) { await assert.rejects(s.service.processarSincronizacao(10,s.u),{statusCode:c==='revogado'?403:404}); assert.deepEqual(s.estado.escritas,[]); }
   else {
     const r=await s.service.processarSincronizacao(10,s.u); assert.equal(r.status,c==='divergente'?'CONFLITO':'SINCRONIZADO');
     assert.equal(s.estado.escritas.filter(x=>x==='ENTIDADE').length,c==='divergente'?0:1);
@@ -230,8 +234,8 @@ for (const filtros of ['listar','pendentes','conflitos','entidade']) for (const 
 for (const alvo of [20,999]) test('busca externa/inexistente indistinguível '+alvo,async t=>{
   const s=preparar(t); await assert.rejects(s.service.buscarSincronizacaoPorId(alvo,s.u),e=>e.statusCode===404&&e.message==='Registro de sincronização ou entidade não encontrado.');
 });
-test('snapshot não é exposto após revogação da campanha',async t=>{
-  const s=preparar(t); s.u.id_usuario=12; s.estado.tabelas.campanha.get(10).id_usuario=13;
+test('snapshot não é exposto após revogação da capacidade offline',async t=>{
+  const s=preparar(t); s.u.id_usuario=12; s.estado.usuarios.get(12).perfil_acesso='AUDITOR';
   s.estado.sync.get(10).dados_servidor={segredo:'NAO_EXIBIR'};
   assert.deepEqual(await s.service.listarSincronizacoes(s.u),[]); await assert.rejects(s.service.buscarSincronizacaoPorId(10,s.u),{statusCode:404});
 });
@@ -362,20 +366,20 @@ for(const externo of ['ambiente','usuario'])test('mapeamento UUID não usa pai d
   s.estado.sync.set(99,{id_sincronizacao:99,id_ambiente:externo==='ambiente'?B:A,id_usuario:externo==='ambiente'?21:12,entidade:'CAMPANHA',operacao:'CRIAR',status:'SINCRONIZADO',id_registro_cliente:REG,id_entidade:externo==='ambiente'?20:10});
   await assert.rejects(s.service.criarSincronizacao(d,s.u),{statusCode:409});assert.deepEqual(s.estado.escritas,[]);
 });
-test('pai removido ou revogado depois do enfileiramento impede criação dependente',async t=>{
+test('capacidade revogada depois do enfileiramento impede criação dependente',async t=>{
   const s=preparar(t);s.u.id_usuario=12;const d=criacao(s,'LOCAL'),fila=await s.service.criarSincronizacao(d,s.u);
-  s.estado.tabelas.campanha.get(10).id_usuario=13;s.estado.escritas=[];
-  await assert.rejects(s.service.processarSincronizacao(fila.id_sincronizacao,s.u),{statusCode:404});assert.deepEqual(s.estado.escritas,[]);
+  s.estado.usuarios.get(12).perfil_acesso='AUDITOR';s.estado.escritas=[];
+  await assert.rejects(s.service.processarSincronizacao(fila.id_sincronizacao,s.u),{statusCode:403});assert.deepEqual(s.estado.escritas,[]);
 });
 test('checklist antigo não sobrescreve critérios explicitamente enviados',async t=>{
   const s=preparar(t),d=criacao(s,'CHECKLIST_NR33');d.dados_cliente.criterio_b='SIM';
   const fila=await s.service.criarSincronizacao(d,s.u),r=await s.service.processarSincronizacao(fila.id_sincronizacao,s.u);
   assert.equal(r.dados_servidor.criterio_a,'SIM');assert.equal(r.dados_servidor.criterio_b,'SIM');assert.equal(r.dados_servidor.criterio_c,'NAO');
 });
-test('revogação durante aquisição de locks recusa antes de UPDATE',async t=>{
+test('troca de responsável durante aquisição de locks preserva a autorização por ambiente',async t=>{
   const s=preparar(t);s.u.id_usuario=12;let mudou=false;
   s.estado.hook=sql=>{if(!mudou&&sql.startsWith('SELECT e.*')&&sql.endsWith('FOR UPDATE OF c')){mudou=true;s.estado.revogarCampanha(10,13);}};
-  await assert.rejects(s.service.processarSincronizacao(10,s.u),{statusCode:404});assert.deepEqual(s.estado.escritas,[]);assert.ok(mudou);
+  assert.equal((await s.service.processarSincronizacao(10,s.u)).status,'SINCRONIZADO');assert.equal(s.estado.escritas.filter(x=>x==='ENTIDADE').length,1);assert.ok(mudou);
 });
 test('bloqueios do contexto seguem ambiente -> usuário -> campanha -> local -> versão',async t=>{
   const s=preparar(t);await s.service.processarSincronizacao(10,s.u);
@@ -422,8 +426,8 @@ test('versão fora do INTEGER PostgreSQL é rejeitada antes de SQL',async t=>{
   await assert.rejects(s.service.criarSincronizacao(d,s.u),{statusCode:400});assert.deepEqual(s.estado.consultas,[]);
 });
 for(const resolucao of ['CLIENTE','MESCLADO','SERVIDOR'])test('revogação bloqueia resolução '+resolucao,async t=>{
-  const s=preparar(t);s.u.id_usuario=12;s.estado.sync.get(10).status='CONFLITO';s.estado.tabelas.campanha.get(10).id_usuario=13;
-  await assert.rejects(s.service.resolverConflito(10,{resolucao,dados_resolvidos:{nome_local:'Nome'}},s.u),{statusCode:404});assert.deepEqual(s.estado.escritas,[]);
+  const s=preparar(t);s.u.id_usuario=12;s.estado.sync.get(10).status='CONFLITO';s.estado.usuarios.get(12).perfil_acesso='AUDITOR';
+  await assert.rejects(s.service.resolverConflito(10,{resolucao,dados_resolvidos:{nome_local:'Nome'}},s.u),{statusCode:403});assert.deepEqual(s.estado.escritas,[]);
 });
 test('exclusão manual de registro pendente continua autorizada e contextual',async t=>{
   const s=preparar(t);const r=await s.service.excluirSincronizacao(10,s.u);assert.equal(r.id_sincronizacao,10);assert.equal(s.estado.sync.has(10),false);assert.equal(s.estado.sync.has(20),true);
@@ -435,4 +439,30 @@ test('exclusão já consumada: administrador confirma tombstone somente no ambie
 test('tombstone sem ancestralidade não inventa responsabilidade de engenheiro',async t=>{
   const s=preparar(t);s.u.id_usuario=12;s.estado.sync.get(10).operacao='EXCLUIR';s.estado.tabelas.local.delete(10);s.estado.versoes.get(`${A}:LOCAL:10`).excluido=true;
   await assert.rejects(s.service.processarSincronizacao(10,s.u),{statusCode:404});assert.deepEqual(s.estado.escritas,[]);
+});
+
+for(const perfil of ['ADMINISTRADOR','ENGENHEIRO_SEGURANCA','TECNICO_SEGURANCA','COORDENADOR','SUPERVISOR','AUDITOR','VISUALIZADOR']) for(const entidade of ['CAMPANHA','LOCAL','CHECKLIST_NR33','DADOS_TECNICOS']) test('RBAC offline '+perfil+' '+entidade,async t=>{
+  const s=preparar(t);s.u.id_usuario=12;s.estado.usuarios.get(12).perfil_acesso=perfil;
+  s.estado.tabelas.campanha.get(10).id_usuario=999;
+  const d=s.dados(entidade);
+  if(['SUPERVISOR','AUDITOR','VISUALIZADOR'].includes(perfil)) {
+    await assert.rejects(s.service.criarSincronizacao(d,s.u),{statusCode:403});assert.deepEqual(s.estado.escritas,[]);
+  } else {
+    const fila=await s.service.criarSincronizacao(d,s.u);
+    const r=await s.service.processarSincronizacao(fila.id_sincronizacao,s.u);
+    assert.equal(r.status,'SINCRONIZADO');assert.equal(s.estado.escritas.filter(x=>x==='ENTIDADE').length,1);
+  }
+});
+for(const perfil of ['SUPERVISOR','AUDITOR','VISUALIZADOR']) test('RBAC offline perfil revogado depois da fila: '+perfil,async t=>{
+  const s=preparar(t);s.u.id_usuario=12;
+  const fila=await s.service.criarSincronizacao(s.dados(),s.u);s.estado.escritas=[];
+  s.estado.usuarios.get(12).perfil_acesso=perfil;
+  await assert.rejects(s.service.processarSincronizacao(fila.id_sincronizacao,s.u),{statusCode:403});
+  assert.deepEqual(s.estado.escritas,[]);assert.equal(s.estado.sync.get(fila.id_sincronizacao).status,'PENDENTE');
+});
+
+for(const perfil of ['TECNICO_SEGURANCA','COORDENADOR']) for(const entidade of ['CAMPANHA','LOCAL','CHECKLIST_NR33','DADOS_TECNICOS']) test('RBAC offline nao amplia exclusao destrutiva: '+perfil+' '+entidade,async t=>{
+  const s=preparar(t);s.u.id_usuario=12;s.estado.usuarios.get(12).perfil_acesso=perfil;
+  await assert.rejects(s.service.criarSincronizacao(s.dados(entidade,'EXCLUIR'),s.u),{statusCode:403});
+  assert.deepEqual(s.estado.escritas,[]);assert.equal(s.estado.tabelas[especificacoes[entidade][0]].has(10),true);
 });

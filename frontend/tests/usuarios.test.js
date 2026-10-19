@@ -26,7 +26,7 @@ test('busca vazia preserva referencias e nao altera os indicadores', () => {
 })
 test('rotulos de perfis preservam valores desconhecidos sem atribuir permissoes', () => {
   assert.equal(nomePerfil('ADMINISTRADOR'), 'Administrador')
-  assert.equal(nomePerfil('ENGENHEIRO_SEGURANCA'), 'Engenheiro de segurança')
+  assert.equal(nomePerfil('ENGENHEIRO_SEGURANCA'), 'Engenheiro de Segurança')
   assert.equal(nomePerfil('OUTRO'), 'OUTRO')
   assert.equal(nomePerfil(null), 'Não informado')
 })

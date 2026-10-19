@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
@@ -9,12 +10,12 @@ const operacoes = [['POST', '/', 'criar'], ['GET', '/', 'listar'], ['GET', '/10'
 function preparar(t) {
   const estado = { usuarios: new Map(), campanhas: new Map(), escritas: [], globais: [], identidades: [], chamadas: [], logs: [], falha: false, revogado: false, falhaResposta: false, iniciada: false };
   for (const [ambiente, base] of [[A, 10], [B, 20]]) {
-    for (const [offset, perfil] of [[1, 'ADMINISTRADOR'], [2, 'ENGENHEIRO_SEGURANCA'], [3, 'ENGENHEIRO_SEGURANCA']]) estado.usuarios.set(base + offset, { id_usuario: base + offset, id_ambiente: ambiente, perfil_acesso: perfil, ativo: true, ambienteAtivo: true });
+    for (const [offset, perfil] of [[1, 'ADMINISTRADOR'], [2, 'ENGENHEIRO_SEGURANCA'], [3, 'ENGENHEIRO_SEGURANCA']]) estado.usuarios.set(base + offset, { id_usuario: base + offset, id_ambiente: ambiente, eh_fundador: perfil === "ADMINISTRADOR", perfil_acesso: perfil, ativo: true, ambienteAtivo: true });
     estado.campanhas.set(base, { ...DADOS, id_campanha: base, id_ambiente: ambiente, id_usuario: base + 2, status: 'EM ANDAMENTO', nome_campanha: 'EXCLUSIVO_' + ambiente });
   }
   const permitido = (c, u) => {
     const atual = estado.usuarios.get(u?.id_usuario);
-    return !!(c && atual?.ativo && atual.ambienteAtivo && !estado.revogado && c.id_ambiente === u.id_ambiente && atual.id_ambiente === u.id_ambiente && (atual.perfil_acesso === 'ADMINISTRADOR' || c.id_usuario === atual.id_usuario));
+    return !!(c && atual?.ativo && atual.ambienteAtivo && !estado.revogado && c.id_ambiente === u.id_ambiente && atual.id_ambiente === u.id_ambiente && ['ADMINISTRADOR','ENGENHEIRO_SEGURANCA','TECNICO_SEGURANCA','COORDENADOR','SUPERVISOR','AUDITOR','VISUALIZADOR'].includes(atual.perfil_acesso));
   };
   const falhar = () => { if (estado.falha) throw Object.assign(new Error('SQL_TOKEN_CAMINHO_SENSIVEL'), { statusCode: estado.statusErro === undefined ? 500 : estado.statusErro }); };
   const legadoRepo = {
@@ -42,6 +43,8 @@ function preparar(t) {
   try {
     for (const p of cache.keys()) delete require.cache[p];
     Module._load = function (request, parent, ...args) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cache.has(parent?.filename)) {
@@ -75,7 +78,7 @@ function preparar(t) {
     let concluir;
     const fim = new Promise((resolve) => { concluir = resolve; });
     let envios = 0;
-    const req = { method, url, headers: token === null ? {} : { authorization: 'Bearer ' + token }, body, query: { id_usuario: 21, id_ambiente: B, perfil_acesso: 'ADMINISTRADOR' }, usuario: { id_usuario: 21, id_ambiente: B, perfil_acesso: 'ADMINISTRADOR' } };
+    const req = { method, url, headers: token === null ? {} : { authorization: 'Bearer ' + token }, body, query: { id_usuario: 21, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' }, usuario: { id_usuario: 21, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' } };
     const res = { headersSent: estado.iniciada, statusCode: 200, status(n) { this.statusCode = n; return this; }, json(value) { envios++; this.body = value; this.headersSent = true; concluir(); if (estado.falhaResposta) throw new Error('envio interrompido'); return this; } };
     if (estado.iniciada) Object.defineProperty(res, 'headersSent', { get() { concluir(); return true; } });
     const timer = setTimeout(concluir, 1000);
@@ -109,11 +112,16 @@ for (const [method, url, nome] of operacoes) {
       const ctx = preparar(t);
       if (condicao === 'usuarioInativo') ctx.estado.usuarios.get(11).ativo = false;
       if (condicao === 'ambienteInativo') ctx.estado.usuarios.get(11).ambienteAtivo = false;
-      if (condicao === 'perfilRevogado') ctx.estado.usuarios.get(11).perfil_acesso = 'ENGENHEIRO_SEGURANCA';
-      const { res } = await ctx.solicitar(method, url, condicao === 'semJWT' ? null : ['invalido', 'adulterado'].includes(condicao) ? condicao : '11');
-      const esperado = condicao === 'perfilRevogado' ? nome === 'criar' ? 201 : nome === 'listar' ? 200 : 404 : 401;
+      if (condicao === 'perfilRevogado') ctx.estado.usuarios.get(12).perfil_acesso = 'AUDITOR';
+      const { res } = await ctx.solicitar(method, url, condicao === 'semJWT' ? null : ['invalido', 'adulterado'].includes(condicao) ? condicao : condicao === 'perfilRevogado' ? '12' : '11');
+    if (['perfilRevogado','responsavelAlterado'].includes(condicao)) {
+      assert.equal(res.statusCode, condicao === 'perfilRevogado' ? method === 'GET' ? 200 : 403 : nome === 'criar' ? 201 : 200);
+      if (nome === 'listar') assert.equal(res.body.data.length, 1);
+      if (condicao === 'perfilRevogado') assert.deepEqual(ctx.estado.escritas, []);
+      return;
+    }
+      const esperado = 401;
       assert.equal(res.statusCode, esperado);
-      if (nome === 'listar' && condicao === 'perfilRevogado') assert.deepEqual(res.body.data, []);
       if (esperado >= 400) assert.deepEqual(ctx.estado.escritas, []);
     });
   }
@@ -132,9 +140,14 @@ for (const [method, url, nome] of operacoes) {
 }
 for (const [method, url, nome] of operacoes.filter((o) => !['criar', 'listar'].includes(o[2]))) {
   for (const token of ['21', '13']) {
-    test(nome + ': externo/não responsável recebe 404 ' + token, async (t) => {
+    test(nome + ": recurso conforme ambiente e capacidade " + token, async (t) => {
       const ctx = preparar(t);
       const { res } = await ctx.solicitar(method, url, token);
+    if (token === '13') {
+      assert.equal(res.statusCode, nome === 'criar' ? 201 : 200);
+      assert.deepEqual(ctx.estado.identidades, [13]);
+      return;
+    }
       assert.equal(res.statusCode, 404);
       assert.equal(res.body.message, 'Campanha não encontrada.');
       assert.deepEqual(ctx.estado.escritas, []);
@@ -155,14 +168,14 @@ for (const [method, url, nome] of operacoes.filter((o) => !['criar', 'listar'].i
 }
 test('PUT não transfere ambiente nem responsável por campos forjados', async (t) => {
   const ctx = preparar(t);
-  const { res } = await ctx.solicitar('PUT', '/10', '12', { ...DADOS, id_ambiente: B, id_usuario: 21, perfil_acesso: 'ADMINISTRADOR' });
+  const { res } = await ctx.solicitar('PUT', '/10', '12', { ...DADOS, id_ambiente: B, id_usuario: 21, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' });
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.data.id_ambiente, A);
   assert.equal(res.body.data.id_usuario, 12);
 });
 test('POST ignora identidade do corpo e mantém responsabilidade do criador', async (t) => {
   const ctx = preparar(t);
-  const { res } = await ctx.solicitar('POST', '/', '12', { ...DADOS, id_usuario: 21, id_ambiente: B, perfil_acesso: 'ADMINISTRADOR' });
+  const { res } = await ctx.solicitar('POST', '/', '12', { ...DADOS, id_usuario: 21, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' });
   assert.equal(res.statusCode, 201);
   assert.equal(res.body.data.id_usuario, 12);
   assert.equal(res.body.data.id_ambiente, A);
@@ -191,12 +204,12 @@ for (const [method, url, nome] of operacoes) {
   });
 }
 for (const [method, url, nome] of operacoes.filter((o) => o[2] !== 'criar')) {
-  test(nome + ': responsabilidade revogada impede acesso do engenheiro', async (t) => {
+  test(nome + ': troca de responsavel preserva acesso do engenheiro', async (t) => {
     const ctx = preparar(t);
     ctx.estado.campanhas.get(10).id_usuario = 13;
     const { res } = await ctx.solicitar(method, url, '12');
-    assert.equal(res.statusCode, nome === 'listar' ? 200 : 404);
-    if (nome === 'listar') assert.deepEqual(res.body.data, []);
-    assert.deepEqual(ctx.estado.escritas, []);
+    assert.equal(res.statusCode, nome === 'criar' ? 201 : 200);
+    if (nome === 'listar') assert.equal(res.body.data.length, 1);
+
   });
 }

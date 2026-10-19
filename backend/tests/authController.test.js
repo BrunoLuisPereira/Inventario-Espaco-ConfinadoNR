@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
@@ -37,6 +38,8 @@ function preparar(t, implementacao) {
   try {
     delete require.cache[CONTROLLER_PATH];
     Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       if (parent && parent.filename === CONTROLLER_PATH) {
         imports.push(request);
         if (request !== "../services/authService") {
@@ -55,6 +58,8 @@ function preparar(t, implementacao) {
   }
   // A mesma barreira permanece ativa para imports feitos durante o login.
   t.mock.method(Module, "_load", function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
     if (parent && parent.filename === CONTROLLER_PATH) {
       if (request === "../services/authService") return service;
       proibidos.push(request);

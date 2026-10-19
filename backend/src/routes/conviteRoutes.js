@@ -1,3 +1,4 @@
+const { autorizarCapacidade } = require('../utils/permissoes');
 
 const express = require("express");
 
@@ -44,7 +45,7 @@ router.post(
 router.post(
   "/",
   autenticarMultiTenant,
-  autorizar("ADMINISTRADOR"),
+  autorizarCapacidade('convites.criar'),
   conviteController.emitir
 );
 

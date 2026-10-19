@@ -35,6 +35,7 @@ async function criarUsuarioConvidado(client, dados) {
     email,
     senhaHash,
     perfilAcesso,
+    idConviteOrigem,
   } = dados;
 
   const query = `
@@ -43,9 +44,10 @@ async function criarUsuarioConvidado(client, dados) {
       nome,
       email,
       senha_hash,
-      perfil_acesso
+      perfil_acesso,
+      id_convite_origem
     )
-    VALUES ($1, $2, $3, $4, $5)
+    VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING
       id_usuario,
       id_ambiente,
@@ -62,6 +64,7 @@ async function criarUsuarioConvidado(client, dados) {
     email,
     senhaHash,
     perfilAcesso,
+    idConviteOrigem,
   ]);
 
   return resultado.rows[0];

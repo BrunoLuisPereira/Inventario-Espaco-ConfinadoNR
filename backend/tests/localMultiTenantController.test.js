@@ -12,8 +12,8 @@ const pool = require("../src/config/database");
 const AMBIENTE_A = "11111111-1111-4111-8111-111111111111";
 const AMBIENTE_B = "22222222-2222-4222-8222-222222222222";
 const IDENTIDADES = [
-  { id_usuario: 10, id_ambiente: AMBIENTE_A, perfil_acesso: "ENGENHEIRO_SEGURANCA" },
-  { id_usuario: 20, id_ambiente: AMBIENTE_B, perfil_acesso: "ENGENHEIRO_SEGURANCA" },
+  { id_usuario: 10, id_ambiente: AMBIENTE_A, eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA" },
+  { id_usuario: 20, id_ambiente: AMBIENTE_B, eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA" },
 ];
 const LOCAL = { id_local: 40, id_campanha: 30, nome_local: "Tanque A", status: "ATIVO" };
 // Buffer simulado: estes testes verificam transporte, não geração do XLSX.
@@ -70,7 +70,7 @@ function simularReq(usuario) {
   const identidadeForjada = {
     id_usuario: 999,
     id_ambiente: usuario.id_ambiente === AMBIENTE_A ? AMBIENTE_B : AMBIENTE_A,
-    perfil_acesso: "ADMINISTRADOR",
+    eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   };
   return {
     usuario,

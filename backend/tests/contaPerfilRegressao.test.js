@@ -31,12 +31,12 @@ test('perfil: não permite apropriar e-mail reservado', async t => {
 for (const ambiente of [A, B]) for (const papel of ['ADMINISTRADOR', 'ENGENHEIRO_SEGURANCA']) {
   for (const [method, caminho] of [['get', '/me'], ['get', '/perfil'], ['put', '/perfil'], ['put', '/senha']]) {
     test(`contrato ${method} ${caminho}: ${ambiente} ${papel}`, async t => {
-      const c = preparar(t, { usuario: { id_ambiente: ambiente, perfil_acesso: papel } });
+      const c = preparar(t, { usuario: { id_ambiente: ambiente, eh_fundador: papel === "ADMINISTRADOR", perfil_acesso: papel } });
       const { req } = await c.executar(method, caminho, caminho === '/senha' ? senha : perfil);
       assert.equal(c.res.statusCode, 200);
       assert.equal(c.res.envios, 1);
       assert.equal(c.res.body.status, 'success');
-      assert.deepEqual(req.usuario, { id_usuario: 1, id_ambiente: ambiente, perfil_acesso: papel });
+      assert.deepEqual(req.usuario, { id_usuario: 1, id_ambiente: ambiente, eh_fundador: papel === "ADMINISTRADOR", perfil_acesso: papel });
       if (caminho === '/me') {
         assert.deepEqual(c.res.body, { status: 'success', message: 'Usuário autenticado.', data: { id_usuario: 1, perfil_acesso: papel } });
       } else if (caminho === '/senha') {
@@ -103,8 +103,8 @@ for (const campo of ['nome', 'email']) {
   });
 }
 test('perfil/ambiente/identidade/status forjados não são escritos', async t => {
-  const c = preparar(t, { usuario: { perfil_acesso: 'ENGENHEIRO_SEGURANCA' } });
-  await c.executar('put', '/perfil', { ...perfil, id_usuario: 999, id_ambiente: B, perfil_acesso: 'ADMINISTRADOR', perfilAcesso: 'ADMINISTRADOR', ativo: false, senha_hash: 'forjado' });
+  const c = preparar(t, { usuario: { eh_fundador: false, perfil_acesso: 'ENGENHEIRO_SEGURANCA' } });
+  await c.executar('put', '/perfil', { ...perfil, id_usuario: 999, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', perfilAcesso: 'ADMINISTRADOR', ativo: false, senha_hash: 'forjado' });
   assert.equal(c.res.statusCode, 200);
   assert.equal(c.estado.usuario.id_usuario, 1); assert.equal(c.estado.usuario.id_ambiente, A);
   assert.equal(c.estado.usuario.perfil_acesso, 'ENGENHEIRO_SEGURANCA');

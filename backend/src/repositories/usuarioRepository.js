@@ -17,6 +17,8 @@ async function buscarPorEmail(email) {
       email,
       senha_hash,
       perfil_acesso,
+      eh_fundador,
+      id_convite_origem,
       ativo,
       data_criacao,
       data_atualizacao
@@ -57,6 +59,8 @@ async function criar(usuario) {
       nome,
       email,
       perfil_acesso,
+      eh_fundador,
+      id_convite_origem,
       ativo,
       data_criacao,
       data_atualizacao
@@ -81,6 +85,8 @@ async function listarTodos() {
       nome,
       email,
       perfil_acesso,
+      eh_fundador,
+      id_convite_origem,
       ativo,
       data_criacao,
       data_atualizacao
@@ -100,6 +106,8 @@ async function buscarPorId(idUsuario) {
       nome,
       email,
       perfil_acesso,
+      eh_fundador,
+      id_convite_origem,
       ativo,
       data_criacao,
       data_atualizacao
@@ -134,6 +142,8 @@ async function listarPorAmbiente(idAmbiente) {
       nome,
       email,
       perfil_acesso,
+      eh_fundador,
+      id_convite_origem,
       ativo,
       data_criacao,
       data_atualizacao
@@ -158,6 +168,8 @@ async function buscarPorIdEAmbiente(idUsuario, idAmbiente) {
       nome,
       email,
       perfil_acesso,
+      eh_fundador,
+      id_convite_origem,
       ativo,
       data_criacao,
       data_atualizacao
@@ -190,6 +202,8 @@ async function atualizar(idUsuario, dados) {
       nome,
       email,
       perfil_acesso,
+      eh_fundador,
+      id_convite_origem,
       ativo,
       data_criacao,
       data_atualizacao
@@ -219,6 +233,8 @@ async function atualizarStatus(idUsuario, ativo) {
       nome,
       email,
       perfil_acesso,
+      eh_fundador,
+      id_convite_origem,
       ativo,
       data_criacao,
       data_atualizacao
@@ -311,7 +327,7 @@ async function buscarIdentidadeAutenticada(idUsuario) {
       u.id_ambiente,
       u.nome,
       u.email,
-      u.perfil_acesso
+      u.perfil_acesso, u.eh_fundador
     FROM usuario AS u
     INNER JOIN ambiente AS a
       ON a.id_ambiente = u.id_ambiente
@@ -350,7 +366,7 @@ async function executarEscritaNoAmbiente(idUsuario, dados, usuarioAutenticado, a
       (alterarStatus ? typeof dados.ativo !== "boolean" :
         typeof dados.nome !== "string" || !dados.nome.trim() ||
         typeof dados.email !== "string" || !dados.email.trim() ||
-        !["ADMINISTRADOR", "ENGENHEIRO_SEGURANCA"].includes(dados.perfilAcesso))) {
+        !require('../utils/permissoes').perfis.includes(dados.perfilAcesso))) {
     throw erroEscritaUsuario("Dados do usuário inválidos.", 400);
   }
   const email = alterarStatus ? null : dados.email.trim().toLowerCase();
@@ -374,7 +390,7 @@ async function executarEscritaNoAmbiente(idUsuario, dados, usuarioAutenticado, a
       throw erroEscritaUsuario("Usuário ou ambiente inválido ou desativado. Realize o login novamente.", 401);
     }
     const usuarios = await client.query(`
-      SELECT id_usuario, id_ambiente, perfil_acesso, ativo, email
+      SELECT id_usuario, id_ambiente, perfil_acesso, eh_fundador, id_convite_origem, ativo, email
       FROM usuario
       WHERE id_usuario = $1 OR (id_usuario = $2 AND id_ambiente = $3)
       ORDER BY id_usuario
@@ -384,12 +400,15 @@ async function executarEscritaNoAmbiente(idUsuario, dados, usuarioAutenticado, a
     if (!administrador || administrador.ativo !== true || administrador.id_ambiente !== idAmbiente) {
       throw erroEscritaUsuario("Usuário ou ambiente inválido ou desativado. Realize o login novamente.", 401);
     }
-    if (administrador.perfil_acesso !== "ADMINISTRADOR") {
+    if (administrador.perfil_acesso !== "ADMINISTRADOR" || administrador.eh_fundador !== true) {
       throw erroEscritaUsuario("Você não possui permissão para acessar este recurso.", 403);
     }
     const alvo = usuarios.rows.find((u) => Number(u.id_usuario) === idUsuario && u.id_ambiente === idAmbiente);
     if (!alvo) throw erroEscritaUsuario("Usuário não encontrado.", 404);
 
+    if (!alterarStatus && dados.perfilAcesso !== alvo.perfil_acesso) {
+      throw erroEscritaUsuario('Utilize a operacao de editar permissoes para alterar o perfil.', 409);
+    }
     if (!alterarStatus) {
       // Consulta global somente de existência, necessária à exclusividade do
       // e-mail. Não recupera dados ou identidade de usuários de outro ambiente.
@@ -414,12 +433,12 @@ async function executarEscritaNoAmbiente(idUsuario, dados, usuarioAutenticado, a
         WHERE administrador.id_usuario = $3
           AND administrador.id_ambiente = $2
           AND administrador.ativo = TRUE
-          AND administrador.perfil_acesso = 'ADMINISTRADOR'
+          AND administrador.perfil_acesso = 'ADMINISTRADOR' AND administrador.eh_fundador = TRUE
           AND a.ativo = TRUE
       )
     `;
     const colunasRetorno = `
-      alvo.id_usuario, alvo.nome, alvo.email, alvo.perfil_acesso,
+      alvo.id_usuario, alvo.nome, alvo.email, alvo.perfil_acesso, alvo.eh_fundador, alvo.id_convite_origem,
       alvo.ativo, alvo.data_criacao, alvo.data_atualizacao
     `;
     const sql = alterarStatus ? `

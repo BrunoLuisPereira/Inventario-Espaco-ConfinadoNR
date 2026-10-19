@@ -32,6 +32,7 @@ async function buscarPorEmailComAmbiente(email) {
       u.email,
       u.senha_hash,
       u.perfil_acesso,
+      u.eh_fundador,
       u.ativo,
       a.ativo AS ambiente_ativo
     FROM usuario AS u

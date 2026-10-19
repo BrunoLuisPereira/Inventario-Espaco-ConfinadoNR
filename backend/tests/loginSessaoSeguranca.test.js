@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
@@ -13,7 +14,7 @@ const caminhos = ['controllers/authController', 'services/authService',
 
 function preparar(t, opcoes = {}) {
   let usuario = { id_usuario: 10, id_ambiente: A, nome: 'Conta simulada', email: 'conta@example.invalid',
-    senha_hash: 'hash-correto', perfil_acesso: 'ADMINISTRADOR', ativo: true, ambiente_ativo: true, ...opcoes.usuario };
+    senha_hash: 'hash-correto', eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', ativo: true, ambiente_ativo: true, ...opcoes.usuario };
   const consultas = [], logs = [], proibidos = [], comparacoes = [], errosSimulador = [];
   const ambienteAnterior = {};
   for (const chave of ['JWT_SECRET', 'JWT_ISSUER', 'JWT_AUDIENCE', 'JWT_EXPIRES_IN']) {
@@ -51,7 +52,7 @@ function preparar(t, opcoes = {}) {
       consultas.push({ identidade: id });
       if (opcoes.falhaIdentidade) throw new Error('SQL TOKEN SENHA /caminho/interno');
       if (!usuario || !usuario.ativo || !usuario.ambiente_ativo) return null;
-      return { id_usuario: usuario.id_usuario, id_ambiente: usuario.id_ambiente, perfil_acesso: usuario.perfil_acesso };
+      return { id_usuario: usuario.id_usuario, id_ambiente: usuario.id_ambiente, eh_fundador: usuario.eh_fundador === true, perfil_acesso: usuario.perfil_acesso };
     },
   };
   const bcrypt = { async compare(senha, hash) {
@@ -65,6 +66,8 @@ function preparar(t, opcoes = {}) {
   try {
     for (const p of caminhos) delete require.cache[p];
     Module._load = function (request, parent, ...args) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (caminhos.includes(parent?.filename)) {
@@ -84,6 +87,8 @@ function preparar(t, opcoes = {}) {
   }
   // A dependência carregada dinamicamente pelo serviço permanece simulada.
   t.mock.method(Module, '_load', function (request, parent, ...args) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
     if (parent?.filename === caminhos[1] && request === '../repositories/autenticacaoMultiTenantRepository') {
       return repository;
     }
@@ -100,7 +105,7 @@ function preparar(t, opcoes = {}) {
     { subject: '10', issuer, audience, algorithm: 'HS256', expiresIn: '8h', ...options });
   async function sessao(valor = token()) {
     const req = { headers: valor === null ? {} : { authorization: 'Bearer ' + valor },
-      body: { id_usuario: 999, id_ambiente: B, perfil_acesso: 'ADMINISTRADOR' } };
+      body: { id_usuario: 999, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' } };
     let next = 0;
     await middleware.autenticarMultiTenant(req, res, () => { next++; });
     return { req, next };
@@ -126,15 +131,15 @@ test('login recusa desativação durante bcrypt', async t => {
 
 for (const ambiente of [A, B]) for (const perfil of ['ADMINISTRADOR', 'ENGENHEIRO_SEGURANCA']) {
   test(`login legítimo ${ambiente} ${perfil}: HTTP, JSON e JWT preservados`, async t => {
-    const c = preparar(t, { usuario: { id_ambiente: ambiente, perfil_acesso: perfil } });
+    const c = preparar(t, { usuario: { id_ambiente: ambiente, eh_fundador: perfil === "ADMINISTRADOR", perfil_acesso: perfil } });
     await c.login({ email: ' CONTA@example.invalid ', senha: 'senha-correta', id_usuario: 999,
-      id_ambiente: ambiente === A ? B : A, perfil_acesso: 'ADMINISTRADOR' });
+      id_ambiente: ambiente === A ? B : A, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' });
     assert.equal(c.res.statusCode, 200); assert.equal(c.res.envios, 1);
     assert.equal(c.res.body.status, 'success'); assert.equal(c.res.body.message, 'Login realizado com sucesso.');
     const data = c.res.body.data;
     assert.deepEqual(Object.keys(data).sort(), ['expiraEm', 'tipo', 'token', 'usuario']);
     assert.equal(data.tipo, 'Bearer'); assert.equal(data.expiraEm, '8h');
-    assert.deepEqual(data.usuario, { id_usuario: 10, nome: 'Conta simulada', email: 'conta@example.invalid', perfil_acesso: perfil });
+    assert.deepEqual(data.usuario, { id_usuario: 10, nome: 'Conta simulada', email: 'conta@example.invalid', eh_fundador: perfil === "ADMINISTRADOR", perfil_acesso: perfil });
     const claims = jwt.verify(data.token, SECRET, { algorithms: ['HS256'], issuer, audience });
     assert.equal(claims.sub, '10'); assert.equal(claims.perfil, perfil); assert.equal(claims.id_ambiente, undefined);
     assert.equal(claims.exp - claims.iat, 8 * 3600);
@@ -234,10 +239,10 @@ for (const valor of ['ausente', 'invalido', 'expirado', 'assinatura', 'perfilAdu
 }
 for (const ambiente of [A, B]) {
   test('claims assinadas antigas não substituem banco: ' + ambiente, async t => {
-    const c = preparar(t, { usuario: { id_ambiente: ambiente, perfil_acesso: 'ENGENHEIRO_SEGURANCA' } });
+    const c = preparar(t, { usuario: { id_ambiente: ambiente, eh_fundador: false, perfil_acesso: 'ENGENHEIRO_SEGURANCA' } });
     const sessao = await c.sessao(c.token({ perfil: 'ADMINISTRADOR', id_ambiente: ambiente === A ? B : A }));
     assert.equal(sessao.next, 1);
-    assert.deepEqual(sessao.req.usuario, { id_usuario: 10, id_ambiente: ambiente, perfil_acesso: 'ENGENHEIRO_SEGURANCA' });
+    assert.deepEqual(sessao.req.usuario, { id_usuario: 10, id_ambiente: ambiente, eh_fundador: false, perfil_acesso: 'ENGENHEIRO_SEGURANCA' });
     assert.deepEqual(c.consultas, [{ identidade: 10 }]);
     assert.equal(c.res.envios, 0);
   });

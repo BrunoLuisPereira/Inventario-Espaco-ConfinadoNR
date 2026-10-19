@@ -1,3 +1,4 @@
+const { autorizarModulo } = require('../utils/permissoes');
 const express = require("express");
 const localController = require("../controllers/localController");
 
@@ -9,6 +10,7 @@ const router = express.Router();
 
 // Uma única autenticação atual para todas as operações montadas.
 router.use(autenticarMultiTenant);
+router.use(autorizarModulo('locais'));
 // A exportação deve preceder "/:id".
 router.get("/exportar", localController.exportar);
 

@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
@@ -21,6 +22,8 @@ let service;
 try {
   delete require.cache[caminhoService];
   Module._load = function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
     if (parent && parent.filename === caminhoService) {
       importsService.push(request);
       if (request !== "../repositories/evidenciaMultiTenantRepository") {
@@ -63,6 +66,8 @@ function simularRepositorio(t, respostas = {}) {
   const acessoProibido = [];
   const carregar = Module._load;
   t.mock.method(Module, "_load", function (request, parent, ...resto) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
     if (parent && parent.filename === caminhoService) {
       if (request === "../repositories/evidenciaMultiTenantRepository") return repository;
       acessoProibido.push(request);
@@ -725,7 +730,7 @@ test("Não carrega dependências de banco, legados ou app e não manipula arquiv
 
 test("Ambiente A: seis operações ignoram identidade forjada e encaminham somente identidade autenticada", async (t) => {
   const usuario = USUARIO_A;
-  const forjados = { id_usuario: 999, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR" };
+  const forjados = { id_usuario: 999, id_ambiente: AMBIENTE_B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
   const registro = { ...REGISTRO, id_usuario: usuario.id_usuario };
   const lista = [registro];
   const { mocks, eventos } = simularRepositorio(t, {
@@ -772,7 +777,7 @@ test("Ambiente A: seis operações ignoram identidade forjada e encaminham somen
 
 test("Ambiente B: seis operações ignoram identidade forjada e encaminham somente identidade autenticada", async (t) => {
   const usuario = USUARIO_B;
-  const forjados = { id_usuario: 999, id_ambiente: AMBIENTE_A, perfil_acesso: "ADMINISTRADOR" };
+  const forjados = { id_usuario: 999, id_ambiente: AMBIENTE_A, eh_fundador: true, perfil_acesso: "ADMINISTRADOR" };
   const registro = { ...REGISTRO, id_usuario: usuario.id_usuario };
   const lista = [registro];
   const { mocks, eventos } = simularRepositorio(t, {
@@ -1109,7 +1114,7 @@ test("Resultado de criação: corpo não determina criada em criação efetiva",
     criada: false, evidencia: { id_evidencia: 999 },
     incluirResultadoCriacao: false, opcoes: { incluirResultadoCriacao: false },
     data_criacao: "2099-01-01T00:00:00.000Z", id_evidencia: 999,
-    id_usuario: 999, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR",
+    id_usuario: 999, id_ambiente: AMBIENTE_B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, USUARIO_A, { incluirResultadoCriacao: true, criada: false });
   verificarEnvelopeCriacao(resultado, simulado.registro, true);
   verificarFluxoResultadoCriacao(simulado);
@@ -1119,7 +1124,7 @@ test("Resultado de criação: ambiente B permanece isolado em criação efetiva"
   const simulado = simularResultadoCriacao(t, "criacao", USUARIO_B);
   const resultado = await service.criarEvidencia({
     ...DADOS, id_operacao_cliente: OPERACAO,
-    id_usuario: USUARIO_A.id_usuario, id_ambiente: AMBIENTE_A, perfil_acesso: "ADMINISTRADOR",
+    id_usuario: USUARIO_A.id_usuario, id_ambiente: AMBIENTE_A, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, { ...USUARIO_B, id_usuario: "20" }, { incluirResultadoCriacao: true });
   verificarEnvelopeCriacao(resultado, simulado.registro, true);
   verificarFluxoResultadoCriacao(simulado);
@@ -1184,7 +1189,7 @@ test("Resultado de criação: corpo não determina criada em repetição anterio
     criada: true, evidencia: { id_evidencia: 999 },
     incluirResultadoCriacao: false, opcoes: { incluirResultadoCriacao: false },
     data_criacao: "2099-01-01T00:00:00.000Z", id_evidencia: 999,
-    id_usuario: 999, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR",
+    id_usuario: 999, id_ambiente: AMBIENTE_B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, USUARIO_A, { incluirResultadoCriacao: true, criada: true });
   verificarEnvelopeCriacao(resultado, simulado.registro, false);
   verificarFluxoResultadoCriacao(simulado);
@@ -1194,7 +1199,7 @@ test("Resultado de criação: ambiente B permanece isolado em repetição anteri
   const simulado = simularResultadoCriacao(t, "repeticao", USUARIO_B);
   const resultado = await service.criarEvidencia({
     ...DADOS, id_operacao_cliente: OPERACAO,
-    id_usuario: USUARIO_A.id_usuario, id_ambiente: AMBIENTE_A, perfil_acesso: "ADMINISTRADOR",
+    id_usuario: USUARIO_A.id_usuario, id_ambiente: AMBIENTE_A, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, { ...USUARIO_B, id_usuario: "20" }, { incluirResultadoCriacao: true });
   verificarEnvelopeCriacao(resultado, simulado.registro, false);
   verificarFluxoResultadoCriacao(simulado);
@@ -1259,7 +1264,7 @@ test("Resultado de criação: corpo não determina criada em recuperação após
     criada: true, evidencia: { id_evidencia: 999 },
     incluirResultadoCriacao: false, opcoes: { incluirResultadoCriacao: false },
     data_criacao: "2099-01-01T00:00:00.000Z", id_evidencia: 999,
-    id_usuario: 999, id_ambiente: AMBIENTE_B, perfil_acesso: "ADMINISTRADOR",
+    id_usuario: 999, id_ambiente: AMBIENTE_B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, USUARIO_A, { incluirResultadoCriacao: true, criada: true });
   verificarEnvelopeCriacao(resultado, simulado.registro, false);
   verificarFluxoResultadoCriacao(simulado);
@@ -1269,7 +1274,7 @@ test("Resultado de criação: ambiente B permanece isolado em recuperação apó
   const simulado = simularResultadoCriacao(t, "conflito", USUARIO_B);
   const resultado = await service.criarEvidencia({
     ...DADOS, id_operacao_cliente: OPERACAO,
-    id_usuario: USUARIO_A.id_usuario, id_ambiente: AMBIENTE_A, perfil_acesso: "ADMINISTRADOR",
+    id_usuario: USUARIO_A.id_usuario, id_ambiente: AMBIENTE_A, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, { ...USUARIO_B, id_usuario: "20" }, { incluirResultadoCriacao: true });
   verificarEnvelopeCriacao(resultado, simulado.registro, false);
   verificarFluxoResultadoCriacao(simulado);

@@ -81,7 +81,7 @@ function simularRequisicao() {
     usuario: {
       id_usuario: 10,
       id_ambiente: AMBIENTE_A,
-      perfil_acesso: "ENGENHEIRO_SEGURANCA",
+      eh_fundador: false, perfil_acesso: "ENGENHEIRO_SEGURANCA",
     },
     body: {
       nome_campanha: "Inspeção NR-33",
@@ -94,7 +94,7 @@ function simularRequisicao() {
       id_campanha: 999,
       id_usuario: 999,
       id_ambiente: AMBIENTE_B,
-      perfil_acesso: "ADMINISTRADOR",
+      eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
     },
   };
 }

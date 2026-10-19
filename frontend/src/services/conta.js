@@ -1,4 +1,5 @@
-export const podeAdministrar = usuario => usuario?.perfil_acesso === 'ADMINISTRADOR'
+import { pode } from './permissoes.js'
+export const podeAdministrar = usuario => pode(usuario, 'usuarios.consultar')
 export function validarCadastro(dados, convite = false) {
   if (!dados.nome?.trim() || dados.nome.trim().length > 120) return 'Informe seu nome completo, com até 120 caracteres.'
   if (!convite && (!dados.nome_ambiente?.trim() || dados.nome_ambiente.trim().length > 180)) return 'Informe o nome da empresa/ambiente, com até 180 caracteres.'

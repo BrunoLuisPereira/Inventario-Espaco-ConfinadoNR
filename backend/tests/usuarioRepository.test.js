@@ -69,7 +69,7 @@ test(
         "11111111-1111-4111-8111-111111111111",
       nome: "Administrador Teste",
       email: "admin@exemplo.com",
-      perfil_acesso: "ADMINISTRADOR",
+      eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
     };
 
     const consulta = t.mock.method(

@@ -1,3 +1,4 @@
+const { sqlCapacidade } = require('../utils/permissoes');
 const pool = require("../config/database");
 
 // O esquema multi-tenant e os bloqueios exigem homologação PostgreSQL.
@@ -19,7 +20,7 @@ const COLUNAS_LOCAL = `
 
 // Nas três escritas, $3 é sempre o ID do usuário autenticado.
 // A campanha c também é limitada ao ambiente autenticado por cada consulta.
-const AUTORIZACAO_ESCRITA = `
+const AUTORIZACAO_LEITURA = `
   AND EXISTS (
     SELECT 1
     FROM usuario AS u
@@ -29,12 +30,11 @@ const AUTORIZACAO_ESCRITA = `
       AND u.id_ambiente = c.id_ambiente
       AND u.ativo = TRUE
       AND a.ativo = TRUE
-      AND (
-        u.perfil_acesso = 'ADMINISTRADOR'
-        OR c.id_usuario = u.id_usuario
-      )
+      AND ${sqlCapacidade('u', 'locais.consultar')}
   )
 `;
+
+const AUTORIZACAO_ESCRITA = AUTORIZACAO_LEITURA.replace(sqlCapacidade('u', 'locais.consultar'), sqlCapacidade('u', 'locais.editar'));
 
 function criarErro(message, statusCode) {
   const erro = new Error(message);
@@ -290,7 +290,7 @@ async function listarParaExportacaoPorAmbiente(idAmbiente, usuarioAutenticado) {
     LEFT JOIN evidencia AS e
       ON e.id_local = l.id_local
     WHERE c.id_ambiente = $1
-      ${AUTORIZACAO_ESCRITA.replace(/\$3/g, "$2")}
+      ${AUTORIZACAO_LEITURA.replace(sqlCapacidade('u', 'locais.consultar'), sqlCapacidade('u', 'locais.exportar')).replace(/\$3/g, "$2")}
     ORDER BY
       c.nome_campanha ASC,
       l.nome_local ASC,
@@ -309,7 +309,7 @@ async function listarPermitidosNoAmbiente(usuarioAutenticado) {
   const resultado = await pool.query(`
     SELECT ${COLUNAS_LOCAL}, c.nome_campanha
     FROM local AS l INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha
-    WHERE c.id_ambiente = $1 ${AUTORIZACAO_ESCRITA.replace(/\$3/g, "$2")}
+    WHERE c.id_ambiente = $1 ${AUTORIZACAO_LEITURA.replace(/\$3/g, "$2")}
     ORDER BY l.data_criacao DESC
   `, [u.id_ambiente, u.id_usuario]);
   return resultado.rows;
@@ -321,7 +321,7 @@ async function buscarPermitidoPorIdNoAmbiente(idLocal, usuarioAutenticado) {
   const resultado = await pool.query(`
     SELECT ${COLUNAS_LOCAL}, c.nome_campanha
     FROM local AS l INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha
-    WHERE l.id_local = $1 AND c.id_ambiente = $2 ${AUTORIZACAO_ESCRITA}
+    WHERE l.id_local = $1 AND c.id_ambiente = $2 ${AUTORIZACAO_LEITURA}
     LIMIT 1
   `, [id, u.id_ambiente, u.id_usuario]);
   return resultado.rows[0] || null;
@@ -349,7 +349,7 @@ async function executarEscritaComBloqueios(query, valores, usuario, id, criacao)
         WHERE ${criacao ? "c.id_campanha" : "l.id_local"} = $1
           AND a.id_ambiente = $2 AND u.id_usuario = $3
           AND u.ativo = TRUE AND a.ativo = TRUE
-          AND (u.perfil_acesso = 'ADMINISTRADOR' OR c.id_usuario = u.id_usuario)
+          AND ${sqlCapacidade('u', 'locais.editar')}
           ${idCampanha === undefined ? "" : "AND c.id_campanha = $4"}
         FOR ${["c", "l"].includes(alias) ? "UPDATE" : "SHARE"} OF ${alias}
       `, parametros);

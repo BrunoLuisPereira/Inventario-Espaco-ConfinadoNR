@@ -1,0 +1,265 @@
+{
+  "perfis": [
+    "ADMINISTRADOR",
+    "ENGENHEIRO_SEGURANCA",
+    "TECNICO_SEGURANCA",
+    "COORDENADOR",
+    "SUPERVISOR",
+    "AUDITOR",
+    "VISUALIZADOR"
+  ],
+  "nomes": {
+    "ADMINISTRADOR": "Administrador",
+    "ENGENHEIRO_SEGURANCA": "Engenheiro de Segurança",
+    "TECNICO_SEGURANCA": "Técnico de Segurança",
+    "COORDENADOR": "Coordenador",
+    "SUPERVISOR": "Supervisor",
+    "AUDITOR": "Auditor",
+    "VISUALIZADOR": "Visualizador"
+  },
+  "descricoes": {
+    "ENGENHEIRO_SEGURANCA": "Cria e edita campanhas, locais e registros técnicos; gerencia evidências, relatórios e sincronização.",
+    "TECNICO_SEGURANCA": "Cria e edita campanhas, locais, checklists e evidências; exporta locais e sincroniza. Não exclui evidências nem gera relatórios.",
+    "COORDENADOR": "Coordena campanhas, locais e registros técnicos; gerencia evidências e relatórios, sem administrar usuários.",
+    "SUPERVISOR": "Consulta campanhas, locais, registros técnicos e históricos autorizados; pode exportar locais.",
+    "AUDITOR": "Consulta evidências, relatórios e históricos autorizados; pode exportar locais, sem editar registros.",
+    "VISUALIZADOR": "Consulta as informações autorizadas do ambiente, sem alterações ou exportação."
+  },
+  "capacidades": {
+    "dashboard.consultar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR",
+      "SUPERVISOR",
+      "AUDITOR",
+      "VISUALIZADOR"
+    ],
+    "campanhas.consultar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR",
+      "SUPERVISOR",
+      "AUDITOR",
+      "VISUALIZADOR"
+    ],
+    "locais.consultar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR",
+      "SUPERVISOR",
+      "AUDITOR",
+      "VISUALIZADOR"
+    ],
+    "checklists.consultar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR",
+      "SUPERVISOR",
+      "AUDITOR",
+      "VISUALIZADOR"
+    ],
+    "dados_tecnicos.consultar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR",
+      "SUPERVISOR",
+      "AUDITOR",
+      "VISUALIZADOR"
+    ],
+    "evidencias.consultar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR",
+      "SUPERVISOR",
+      "AUDITOR",
+      "VISUALIZADOR"
+    ],
+    "relatorios.consultar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR",
+      "SUPERVISOR",
+      "AUDITOR",
+      "VISUALIZADOR"
+    ],
+    "campanhas.criar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "campanhas.editar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "locais.criar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "locais.editar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "checklists.criar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "checklists.editar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "dados_tecnicos.criar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "dados_tecnicos.editar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "evidencias.criar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "evidencias.editar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "campanhas.status": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "locais.status": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "evidencias.excluir": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "relatorios.criar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "relatorios.editar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "relatorios.gerar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "locais.exportar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR",
+      "SUPERVISOR",
+      "AUDITOR"
+    ],
+    "auditoria.consultar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "COORDENADOR",
+      "SUPERVISOR",
+      "AUDITOR"
+    ],
+    "sincronizacao.consultar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "sincronizacao.executar": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR"
+    ],
+    "usuarios.consultar": [
+      "ADMINISTRADOR"
+    ],
+    "usuarios.editar": [
+      "ADMINISTRADOR"
+    ],
+    "usuarios.status": [
+      "ADMINISTRADOR"
+    ],
+    "usuarios.permissoes.alterar": [
+      "ADMINISTRADOR"
+    ],
+    "usuarios.auditoria.consultar": [
+      "ADMINISTRADOR"
+    ],
+    "convites.criar": [
+      "ADMINISTRADOR"
+    ],
+    "convites.gerenciar": [
+      "ADMINISTRADOR"
+    ],
+    "configuracoes.administrar": [
+      "ADMINISTRADOR"
+    ],
+    "conta.propria": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA",
+      "TECNICO_SEGURANCA",
+      "COORDENADOR",
+      "SUPERVISOR",
+      "AUDITOR",
+      "VISUALIZADOR"
+    ],
+    "campanhas.excluir": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA"
+    ],
+    "locais.excluir": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA"
+    ],
+    "checklists.excluir": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA"
+    ],
+    "dados_tecnicos.excluir": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA"
+    ],
+    "relatorios.excluir": [
+      "ADMINISTRADOR",
+      "ENGENHEIRO_SEGURANCA"
+    ]
+  }
+}

@@ -33,14 +33,16 @@ async function criarAdministrador(
       nome,
       email,
       senha_hash,
-      perfil_acesso
+      perfil_acesso,
+      eh_fundador
     )
     VALUES (
       $1,
       $2,
       $3,
       $4,
-      'ADMINISTRADOR'
+      'ADMINISTRADOR',
+      TRUE
     )
     RETURNING
       id_usuario,

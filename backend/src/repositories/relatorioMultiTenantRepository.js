@@ -1,3 +1,4 @@
+const { sqlCapacidade } = require('../utils/permissoes');
 const pool = require("../config/database");
 
 // Fragmentos estáticos; nenhum nome de coluna ou predicado vem do cliente.
@@ -7,8 +8,10 @@ const PERMISSAO = `AND EXISTS (
   INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente
   WHERE u.id_usuario = $3 AND u.id_ambiente = c.id_ambiente
     AND u.ativo = TRUE AND a.ativo = TRUE
-    AND (u.perfil_acesso = 'ADMINISTRADOR' OR c.id_usuario = u.id_usuario)
+    AND ${sqlCapacidade('u', 'relatorios.consultar')}
 )`;
+
+const PERMISSAO_ESCRITA = PERMISSAO.replace(sqlCapacidade('u', 'relatorios.consultar'), sqlCapacidade('u', 'relatorios.editar'));
 
 function erro(message, statusCode) {
   return Object.assign(new Error(message), { statusCode });
@@ -72,7 +75,7 @@ async function buscarLocalAutorizadoNoAmbiente(idLocal, usuarioAutenticado) {
 
 // Ordem comum aos módulos protegidos: ambiente -> solicitante -> campanha
 // -> local -> relatório. Pais fixados desde a primeira consulta autorizada.
-async function escrever(query, parametros, u, id, criacao) {
+async function escrever(query, parametros, u, id, criacao, capacidade = 'relatorios.editar') {
   const client = await pool.connect();
   let aberta = false;
   let descartar;
@@ -92,7 +95,7 @@ async function escrever(query, parametros, u, id, criacao) {
         WHERE ${criacao ? "l.id_local" : "r.id_relatorio"} = $1
           AND a.id_ambiente = $2 AND u.id_usuario = $3
           AND u.ativo = TRUE AND a.ativo = TRUE
-          AND (u.perfil_acesso = 'ADMINISTRADOR' OR c.id_usuario = u.id_usuario)
+          AND ${sqlCapacidade('u', capacidade)}
           ${pais ? "AND c.id_campanha = $4 AND l.id_local = $5" : ""}
         FOR ${["a", "u"].includes(alias) ? "SHARE" : "UPDATE"} OF ${alias}
       `, valores);
@@ -128,7 +131,7 @@ async function criarNoAmbiente(dados, usuarioAutenticado) {
       INSERT INTO relatorio AS r (id_local, ${CAMPOS.join(", ")}, id_usuario_responsavel)
       SELECT l.id_local, ${CAMPOS.map((_, i) => `$${i + 4}`).join(", ")}, $3
       FROM local AS l INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha
-      WHERE l.id_local = $1 AND c.id_ambiente = $2 ${PERMISSAO}
+      WHERE l.id_local = $1 AND c.id_ambiente = $2 ${PERMISSAO_ESCRITA}
       RETURNING r.*
     `, [id, u.id_ambiente, u.id_usuario, ...CAMPOS.map(c => campos[c] ?? null)], u, id, true);
   } catch (falha) {
@@ -143,7 +146,7 @@ async function atualizarNoAmbiente(idDados, dados, usuarioAutenticado) {
     UPDATE relatorio AS r
     SET ${CAMPOS.map((c, i) => `${c} = CASE WHEN $${i + 9}::boolean THEN $${i + 4} ELSE r.${c} END`).join(", ")}, data_atualizacao = CURRENT_TIMESTAMP
     FROM local AS l INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha
-    WHERE r.id_relatorio = $1 AND l.id_local = r.id_local AND c.id_ambiente = $2 ${PERMISSAO}
+    WHERE r.id_relatorio = $1 AND l.id_local = r.id_local AND c.id_ambiente = $2 ${PERMISSAO_ESCRITA}
     RETURNING r.*
   `, [id, u.id_ambiente, u.id_usuario, ...CAMPOS.map(c => dados[c] ?? null), ...CAMPOS.map(c => Object.hasOwn(dados, c))], u, id, false);
 }
@@ -154,9 +157,9 @@ async function excluirNoAmbiente(idDados, usuarioAutenticado) {
     DELETE FROM relatorio AS r
     USING local AS l, campanha AS c
     WHERE r.id_relatorio = $1 AND l.id_local = r.id_local
-      AND c.id_campanha = l.id_campanha AND c.id_ambiente = $2 ${PERMISSAO}
+      AND c.id_campanha = l.id_campanha AND c.id_ambiente = $2 ${PERMISSAO.replace(sqlCapacidade('u', 'relatorios.consultar'), sqlCapacidade('u', 'relatorios.excluir'))}
     RETURNING r.*
-  `, [id, u.id_ambiente, u.id_usuario], u, id, false);
+  `, [id, u.id_ambiente, u.id_usuario], u, id, false, 'relatorios.excluir');
 }
 
 const SQL_COMPLETO = `
@@ -259,7 +262,7 @@ const SQL_COMPLETO = `
     LEFT JOIN dados_tecnicos dt
       ON dt.id_local = l.id_local
 
-    WHERE r.id_relatorio = $1 AND c.id_ambiente = $2 ${PERMISSAO}
+    WHERE r.id_relatorio = $1 AND c.id_ambiente = $2 ${PERMISSAO.replace(sqlCapacidade('u', 'relatorios.consultar'), sqlCapacidade('u', 'relatorios.excluir'))}
   `;
 
 async function buscarCompletoNoAmbiente(idRelatorio, usuario) {
@@ -279,7 +282,7 @@ async function comRelatorioAutorizado(idRelatorio, usuario, executar) {
       WHERE r.id_relatorio = $1 AND c.id_ambiente = $2 ${PERMISSAO}`, [id, u.id_ambiente, u.id_usuario]);
     if (!resultado.rows[0]) throw erro('Falha interna ao carregar relatorio.', 500);
     return { rows: [await executar(resultado.rows[0])] };
-  }, null, u, id, false);
+  }, null, u, id, false, 'relatorios.consultar');
 }
 async function gerarNoAmbiente(idRelatorio, usuario, gerar) {
   const u = identidade(usuario);
@@ -291,7 +294,7 @@ async function gerarNoAmbiente(idRelatorio, usuario, gerar) {
     const atualizado = await client.query(`UPDATE relatorio AS r SET caminho_pdf = $4,
       hash_pdf = $5, status = 'GERADO', data_emissao = CURRENT_TIMESTAMP, data_atualizacao = CURRENT_TIMESTAMP
       FROM local AS l INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha
-      WHERE r.id_relatorio = $1 AND l.id_local = r.id_local AND c.id_ambiente = $2 ${PERMISSAO}
+      WHERE r.id_relatorio = $1 AND l.id_local = r.id_local AND c.id_ambiente = $2 ${PERMISSAO_ESCRITA}
       RETURNING r.*`, [id, u.id_ambiente, u.id_usuario, arquivo.caminhoRelativo, arquivo.hash]);
     if (!atualizado.rows[0]) throw erro('Falha interna ao salvar relatorio.', 500);
     return { rows: [{ relatorio: atualizado.rows[0], arquivo: { caminho: arquivo.caminhoRelativo, hash_sha256: arquivo.hash } }] };

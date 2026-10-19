@@ -1,3 +1,4 @@
+const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
@@ -10,7 +11,7 @@ const erro = (statusCode, code) => Object.assign(new Error('SEGREDO_SQL_CAMINHO'
 function preparar(t) {
   const estado = { usuarios: new Map(), registros: new Map(), eventos: [], fisicas: [], escritas: [], falha: false, revogado: false, conflito: false };
   for (const [ambiente, base] of [[A, 10], [B, 20]]) {
-    for (const [i, perfil] of [[1, 'ADMINISTRADOR'], [2, 'ENGENHEIRO_SEGURANCA'], [3, 'ENGENHEIRO_SEGURANCA']]) estado.usuarios.set(base + i, { id_usuario: base + i, id_ambiente: ambiente, perfil_acesso: perfil, ativo: true, ambienteAtivo: true });
+    for (const [i, perfil] of [[1, 'ADMINISTRADOR'], [2, 'ENGENHEIRO_SEGURANCA'], [3, 'ENGENHEIRO_SEGURANCA']]) estado.usuarios.set(base + i, { id_usuario: base + i, id_ambiente: ambiente, eh_fundador: perfil === "ADMINISTRADOR", perfil_acesso: perfil, ativo: true, ambienteAtivo: true });
     estado.registros.set(base, { id_evidencia: base, id_local: base, id_usuario: base + 3, ambiente, responsavel: base + 2, tipo: 'FOTO', descricao: 'EXCLUSIVO_' + ambiente, caminho_arquivo: 'uploads/evidencias/legado-' + base + '.jpg', latitude: 0, longitude: 0, estado_gps: { ...gps } });
   }
   function permitido(registro, usuario) {
@@ -56,6 +57,8 @@ function preparar(t) {
   try {
     for (const p of cache.keys()) delete require.cache[p];
     Module._load = function (request, parent, ...args) {
+      // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
+      if (request === '../utils/permissoes') return politicaRbac723;
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cache.has(parent?.filename)) {
@@ -82,7 +85,7 @@ function preparar(t) {
   t.mock.method(console, 'error', () => {});
   t.after(() => { if (segredo === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = segredo; assert.deepEqual(proibidas, []); });
   async function solicitar(method, url, body = {}, token = '11', file) {
-    const req = { method, url, headers: token === null ? {} : { authorization: 'Bearer ' + token }, body, query: { id_ambiente: B, perfil_acesso: 'ADMINISTRADOR' }, file };
+    const req = { method, url, headers: token === null ? {} : { authorization: 'Bearer ' + token }, body, query: { id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' }, file };
     let terminar;
     const fim = new Promise((resolve) => { terminar = resolve; });
     let envios = 0;
@@ -203,7 +206,7 @@ test('PUT com revogação entre leitura e escrita retorna 404 sem alteração', 
 });
 test('PUT ignora identidade e perfil forjados e preserva caminho igual sem reenviá-lo', async (t) => {
   const ctx = preparar(t);
-  const res = await ctx.solicitar('PUT', '/10', { descricao: 'Nova', caminho_arquivo: 'uploads/evidencias/legado-10.jpg', id_usuario: 21, id_ambiente: B, perfil_acesso: 'ADMINISTRADOR' });
+  const res = await ctx.solicitar('PUT', '/10', { descricao: 'Nova', caminho_arquivo: 'uploads/evidencias/legado-10.jpg', id_usuario: 21, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' });
   assert.equal(res.statusCode, 200);
   const escrita = ctx.estado.eventos.find((e) => e[0] === 'update');
   assert.deepEqual(escrita[2], { descricao: 'Nova' });

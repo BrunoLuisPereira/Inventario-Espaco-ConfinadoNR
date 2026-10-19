@@ -1,10 +1,7 @@
 const bcrypt = require("bcryptjs");
 const usuarioRepository = require("../repositories/usuarioRepository");
 
-const PERFIS_PERMITIDOS = [
-  "ADMINISTRADOR",
-  "ENGENHEIRO_SEGURANCA",
-];
+const { perfis: PERFIS_PERMITIDOS } = require('../utils/permissoes');
 
 /**
  * Valida e cria um usuário.

@@ -1,3 +1,4 @@
+const { conferir: conferirCapacidadeSql } = require('./helpers/rbacSqlSimulado.cjs');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const pool = require('../src/config/database');
@@ -10,13 +11,13 @@ function preparar(t, ambiente = A, engenheiro = false, criacao = false) {
   const estado = { ativo: true, ambienteAtivo: true, ambiente, criadorAmbiente: ambiente, perfil: engenheiro ? 'ENGENHEIRO_SEGURANCA' : 'ADMINISTRADOR', responsavel: u.id_usuario,
     campanha: 10, local: { id_local: 40, id_campanha: 10 }, registro: criacao ? null : { id_relatorio: 50, id_local: 40, id_usuario_responsavel: 99, nome_responsavel_tecnico: 'Historico', crea: 'CREA', numero_art: 'ART', data_art: '2026-10-18', status: 'RASCUNHO', caminho_pdf: 'uploads/relatorios/legado.pdf', hash_pdf: 'a'.repeat(64) },
     consultas: [], escritas: [], liberacoes: [], inesperadas: [], falha: null, hook: null, vazio: false, rollbackFalha: false, aberta: false, trabalho: undefined };
-  const permitido = () => estado.ativo && estado.ambienteAtivo && estado.ambiente === u.id_ambiente && (estado.perfil === 'ADMINISTRADOR' || estado.responsavel === u.id_usuario);
+  const permitido = () => estado.ativo && estado.ambienteAtivo && estado.ambiente === u.id_ambiente && ['ADMINISTRADOR','ENGENHEIRO_SEGURANCA','TECNICO_SEGURANCA','COORDENADOR'].includes(estado.perfil);
   function contexto(sql, params) {
     assert.match(sql, /c\.id_ambiente\s*=\s*\$[12]|a\.id_ambiente\s*=\s*\$2/);
     assert.match(sql, /u\.id_usuario\s*=\s*\$[23]/);
     assert.match(sql, /u\.id_ambiente\s*=\s*c\.id_ambiente|u\.id_ambiente\s*=\s*a\.id_ambiente/);
     assert.match(sql, /u\.ativo\s*=\s*TRUE/); assert.match(sql, /a\.ativo\s*=\s*TRUE/);
-    assert.match(sql, /u\.perfil_acesso\s*=\s*'ADMINISTRADOR'\s+OR\s+c\.id_usuario\s*=\s*u\.id_usuario/);
+    conferirCapacidadeSql(sql, 'u');
     assert.ok(params.includes(u.id_ambiente)); assert.ok(params.includes(u.id_usuario)); assert.equal(sql.includes(u.id_ambiente), false);
   }
   const client = {
@@ -121,9 +122,9 @@ for (const [nome, executar] of escritas) {
     if (nome === 'criar') assert.equal(resultado.id_usuario_responsavel, u.id_usuario); if (nome === 'excluir') assert.equal(estado.registro, null);
     assert.equal(estado.consultas[0].sql, 'BEGIN ISOLATION LEVEL READ COMMITTED'); assert.equal(estado.consultas.at(-1).sql, 'COMMIT'); assert.equal(estado.escritas.length, 1); assert.deepEqual(estado.liberacoes, [undefined]);
   });
-  for (const [alias, condicao] of [['a', 'ambiente'], ['u', 'usuario'], ['c', 'perfil'], ['c', 'responsavel'], ['l', 'campanha'], ...nome === 'criar' ? [] : [['r', 'local']]]) test(`${nome}: revogação/troca ${condicao} recusa antes da escrita`, async t => {
-    const { estado, u } = preparar(t, A, condicao === 'responsavel', nome === 'criar');
-    estado.hook = { alias, executar(s) { if (condicao === 'ambiente') s.ambienteAtivo = false; if (condicao === 'usuario') s.ativo = false; if (condicao === 'perfil') s.perfil = 'ENGENHEIRO_SEGURANCA', s.responsavel = 999; if (condicao === 'responsavel') s.responsavel = 999; if (condicao === 'campanha') s.local.id_campanha = 20; if (condicao === 'local') s.registro.id_local = 90; } };
+  for (const [alias, condicao] of [['a', 'ambiente'], ['u', 'usuario'], ['c', 'perfil'], ['c', 'capacidade'], ['l', 'campanha'], ...nome === 'criar' ? [] : [['r', 'local']]]) test(`${nome}: revogação/troca ${condicao} recusa antes da escrita`, async t => {
+    const { estado, u } = preparar(t, A, condicao === 'capacidade', nome === 'criar');
+    estado.hook = { alias, executar(s) { if (condicao === 'ambiente') s.ambienteAtivo = false; if (condicao === 'usuario') s.ativo = false; if (condicao === 'perfil') s.perfil = 'VISUALIZADOR'; if (condicao === 'capacidade') s.perfil = 'VISUALIZADOR'; if (condicao === 'campanha') s.local.id_campanha = 20; if (condicao === 'local') s.registro.id_local = 90; } };
     assert.equal(await executar(u), null); assert.deepEqual(estado.escritas, []); assert.equal(estado.consultas.at(-1).sql, 'ROLLBACK'); assert.deepEqual(estado.liberacoes, [undefined]);
   });
   for (const prefixo of ['BEGIN', 'SELECT', nome === 'criar' ? 'INSERT' : nome === 'excluir' ? 'DELETE' : 'UPDATE', 'COMMIT']) test(`${nome}: erro técnico em ${prefixo} não vira autorização`, async t => {
@@ -145,7 +146,7 @@ for (const tipo of ['listar', 'id', 'local', 'localAutorizado']) for (const ambi
   const { estado, u } = preparar(t, ambiente, true);
   if (condicao === 'externo') estado.ambiente = ambiente === A ? B : A; if (condicao === 'naoResponsavel') estado.responsavel = 999; if (condicao === 'inativo') estado.ativo = false; if (condicao === 'ambienteInativo') estado.ambienteAtivo = false;
   const resultado = await ({ listar: () => repo.listarPermitidosNoAmbiente(u), id: () => repo.buscarPorIdNoAmbiente(50, u), local: () => repo.buscarPorLocalNoAmbiente(40, u), localAutorizado: () => repo.buscarLocalAutorizadoNoAmbiente(40, u) })[tipo]();
-  if (condicao !== 'autorizado') assert.deepEqual(resultado, tipo === 'listar' ? [] : null); else if (tipo === 'listar') assert.equal(resultado.length, 1); else assert.equal(resultado.id_local, 40);
+  if (!['autorizado','naoResponsavel'].includes(condicao)) assert.deepEqual(resultado, tipo === 'listar' ? [] : null); else if (tipo === 'listar') assert.equal(resultado.length, 1); else assert.equal(resultado.id_local, 40);
   assert.equal(estado.liberacoes.length, 0);
 });
 test('PUT preserva ART concorrente omitida e campos gerenciados, com limpeza por null', async t => {
@@ -172,7 +173,7 @@ test('Falha ao adquirir cliente não executa SQL ou release fictício', async t 
 });
 for (const tipo of ['gerar', 'baixar']) for (const condicao of ['autorizado', 'revogado', 'falhaCallback', 'falhaCommit']) test(tipo + ': autorização protegida durante callback ' + condicao, async t => {
   const { estado, u } = preparar(t); let chamadas = 0;
-  if (condicao === 'revogado') estado.hook = { alias: 'r', executar(s) { s.perfil = 'ENGENHEIRO_SEGURANCA'; s.responsavel = 999; } };
+  if (condicao === 'revogado') estado.hook = { alias: 'r', executar(s) { s.ativo = false; } };
   const erro = new Error('Falha física simulada');
   if (condicao === 'falhaCommit') estado.falha = { prefixo: 'COMMIT', erro };
   const callback = async dados => {
@@ -192,15 +193,15 @@ for (const tipo of ['gerar', 'baixar']) for (const condicao of ['autorizado', 'r
     else assert.ok(Buffer.isBuffer(resultado.buffer));
   }
   assert.equal(chamadas, condicao === 'revogado' ? 0 : 1);
-  assert.equal(estado.consultas.at(-1).sql, condicao === 'autorizado' ? 'COMMIT' : 'ROLLBACK');
+  assert.equal(estado.consultas.at(-1).sql, ['autorizado','naoResponsavel'].includes(condicao) ? 'COMMIT' : 'ROLLBACK');
   assert.equal(estado.liberacoes.length, 1);
 });
 test('Consulta completa recusa antes de coletar agregados e revalida todos os vínculos', async t => {
   const { estado, u } = preparar(t);
-  estado.perfil = 'ENGENHEIRO_SEGURANCA'; estado.responsavel = 999;
+  estado.ativo = false;
   assert.equal(await repo.buscarCompletoNoAmbiente(50, u), null);
   assert.equal(estado.consultas.length, 1);
-  estado.responsavel = u.id_usuario;
+  estado.ativo = true;
   const completo = await repo.buscarCompletoNoAmbiente(50, u);
   assert.deepEqual(completo.evidencias, [{ id_local: 40 }]);
 });
