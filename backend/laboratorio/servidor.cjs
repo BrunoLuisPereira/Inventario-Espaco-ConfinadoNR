@@ -6,7 +6,7 @@ async function iniciar() {
   if (process.env.DOCKER_HOST || process.env.DOCKER_CONTEXT) throw Error('Override de Docker proibido.');
   const endpoint = execFileSync('docker', ['context', 'inspect', '--format', '{{.Endpoints.docker.Host}}'], { encoding: 'utf8', windowsHide: true }).trim();
   if (!['npipe:////./pipe/dockerDesktopLinuxEngine', 'npipe:////./pipe/docker_engine'].includes(endpoint)) throw Error('Docker local nao comprovado.');
-  const formato = '{"labels":{{json .Config.Labels}},"ports":{{json .HostConfig.PortBindings}},"image":{{json .Config.Image}},"running":{{json .State.Running}}}';
+  const formato = '{"labels":{{json .Config.Labels}},"ports":{{json .HostConfig.PortBindings}},"image":{{json .Config.Image}},"running":{{json .State.Running}},"mounts":{{json .Mounts}}}';
   validarContainer(d, JSON.parse(execFileSync('docker', ['inspect', '--format', formato, d.container], { encoding: 'utf8', windowsHide: true })));
   const pool = require('../src/config/database');
   let server;
@@ -21,11 +21,11 @@ async function iniciar() {
       EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_campanha_usuario_ambiente') AS vinculo,
       EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_versao_entidade' AND array_length(conkey, 1) = 3) AS versao`);
     const s = r.rows[0];
-    if (s?.banco !== d.banco || s.papel !== 'nr33_lab_app' || !s.ambiente || !s.convite || !s.vinculo || !s.versao) throw Error('Esquema de laboratorio incompleto.');
+    if (s?.banco !== d.banco || s.papel !== d.papel || !s.ambiente || !s.convite || !s.vinculo || !s.versao) throw Error('Esquema de laboratorio incompleto.');
     const { criarApp } = require('./app.cjs');
     server = criarApp(d.banco).listen(d.portaHTTP, d.host);
     await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
-    console.log(`LABORATORIO DESCARTAVEL: http://${d.host}:${d.portaHTTP} — ${d.banco}`);
+    console.log(`${d.persistente ? 'DESENVOLVIMENTO ISOLADO' : 'LABORATORIO DESCARTAVEL'}: http://${d.host}:${d.portaHTTP} — ${d.banco}`);
     for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => { encerrar().catch(() => { process.exitCode = 1; }); });
   } catch {
     await encerrar();

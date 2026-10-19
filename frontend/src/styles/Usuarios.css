@@ -1,0 +1,51 @@
+.usuarios-main { padding-top: 24px; }
+.usuarios-actions { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+.usuarios-convidar { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 20px; border-radius: 9px; background: #f5b700; color: #172033; font-weight: 600; text-decoration: none; }
+.usuarios-convidar:hover { background: #e5aa00; }
+.usuarios-convidar:focus-visible, .usuarios-erro button:focus-visible { outline: 3px solid #172033; outline-offset: 3px; }
+.usuarios-indicadores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 0 0 24px; }
+.usuarios-indicador { padding: 22px 24px; background: #fff; border: 1px solid #e2e6ec; border-radius: 12px; box-shadow: 0 2px 8px rgb(16 24 40 / 3%); }
+.usuarios-indicador dt { color: #667085; font-size: .9rem; }
+.usuarios-indicador dd { margin: 10px 0 0; color: #172033; font-size: 2rem; font-weight: 650; line-height: 1.2; }
+.usuarios-card { background: #fff; border: 1px solid #e2e6ec; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgb(16 24 40 / 3%); }
+.usuarios-card-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+.usuarios-card-header h2 { margin: 0; color: #172033; font-size: 1.1rem; }
+.usuarios-busca { width: min(100%, 310px); }
+.usuarios-busca label { display: block; margin-bottom: 7px; font-size: .78rem; color: #667085; }
+.usuarios-busca input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #d0d5dd; border-radius: 8px; color: #172033; background: #fff; }
+.usuarios-busca input:focus { outline: 2px solid #f5b700; outline-offset: 2px; }
+.usuarios-resultados { font-size: .8rem; color: #667085; margin: 0 0 12px; }
+.usuarios-tabela { width: 100%; border-collapse: collapse; text-align: left; font-size: .875rem; }
+.usuarios-tabela th { padding: 12px 14px; color: #667085; font-size: .78rem; font-weight: 500; border-bottom: 1px solid #e2e6ec; background: #f8fafc; }
+.usuarios-tabela td { padding: 18px 14px; border-bottom: 1px solid #edf0f4; color: #344054; overflow-wrap: anywhere; }
+.usuarios-tabela tr:last-child td { border-bottom: 0; }
+.usuarios-identidade { display: flex; align-items: center; gap: 12px; }
+.usuarios-identidade strong { color: #172033; font-weight: 600; }
+.usuarios-avatar { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; background: #fff2bd; color: #172033; font-weight: 650; }
+.usuarios-perfil { display: inline-block; padding: 5px 9px; border-radius: 6px; background: #f0f3f7; color: #475467; font-size: .78rem; }
+.usuarios-perfil-admin { background: #fff6d5; color: #815b00; }
+.usuarios-status { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-size: .8rem; }
+.usuarios-ativo { color: #137547; }
+.usuarios-inativo { color: #667085; }
+.usuarios-mensagem { padding: 28px 0; margin: 0; color: #667085; }
+.usuarios-erro { color: #a32c2c; }
+.usuarios-erro p { margin: 0 0 14px; }
+.usuarios-erro button { padding: 10px 16px; border: 0; border-radius: 8px; background: #f5b700; color: #172033; cursor: pointer; }
+.usuarios-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+@media (max-width: 1100px) { .usuarios-tabela th, .usuarios-tabela td { padding-left: 8px; padding-right: 8px; } }
+@media (max-width: 700px) {
+  .usuarios-actions { justify-content: stretch; }
+  .usuarios-convidar { width: 100%; }
+  .usuarios-indicadores { gap: 8px; }
+  .usuarios-indicador { padding: 16px 10px; }
+  .usuarios-indicador dt { font-size: .72rem; overflow-wrap: anywhere; }
+  .usuarios-indicador dd { font-size: 1.6rem; }
+  .usuarios-card { padding: 18px; }
+  .usuarios-card-header { align-items: stretch; flex-direction: column; gap: 16px; }
+  .usuarios-busca { width: 100%; }
+  .usuarios-tabela, .usuarios-tabela tbody, .usuarios-tabela tr, .usuarios-tabela td { display: block; }
+  .usuarios-tabela thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .usuarios-tabela tr { padding: 16px 0; border-top: 1px solid #e2e6ec; }
+  .usuarios-tabela td { padding: 8px 0; border: 0; }
+  .usuarios-tabela td[data-label]::before { content: attr(data-label); display: block; color: #667085; font-size: .72rem; margin-bottom: 5px; }
+}

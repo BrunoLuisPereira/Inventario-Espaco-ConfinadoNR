@@ -3,13 +3,14 @@ import logoInventario from '../assets/logo-inventario.png'
 import { login } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import '../styles/Login.css'
-import { useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { modoDemo } from '../services/sessao.js'
 import { contasDemo, senhaDemo } from '../services/demoApi.js'
 
 function Login() {
   const { autenticar, erroSessao } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
@@ -64,6 +65,7 @@ function Login() {
           {contasDemo.map(conta => <button type="button" key={conta} onClick={() => { setEmail(conta); setSenha(senhaDemo); setErro('') }}>{conta}</button>)}
         </section>}
         {erroSessao && <p role="alert">{erroSessao}</p>}
+        {location.state?.mensagem && <p role="status">{location.state.mensagem}</p>}
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="email">E-mail</label>
@@ -102,9 +104,8 @@ function Login() {
           )}
 
           <div className="login-options">
-            <button type="button" disabled title="Cadastro inicial depende do laboratório PostgreSQL autorizado.">
-              Criar conta
-            </button>
+            <Link to="/cadastro">Criar conta</Link>
+            <Link to="/convites/aceitar">Tenho um convite</Link>
 
             <button type="button" disabled title="Recuperação de senha ainda não disponível.">
               Esqueci minha senha

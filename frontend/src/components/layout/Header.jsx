@@ -4,7 +4,7 @@ import '../../styles/Header.css'
 
 function Header({ titulo, subtitulo }) {
   const { usuario } = useAuth()
-  const { abrirMenu } = useLayout()
+  const { abrirMenu, menuAberto } = useLayout()
 
   return (
     <header className="app-header">
@@ -14,6 +14,8 @@ function Header({ titulo, subtitulo }) {
           className="header-menu-button"
           onClick={abrirMenu}
           aria-label="Abrir menu principal"
+          aria-expanded={menuAberto}
+          aria-controls="sidebar-principal"
         >
           <span aria-hidden="true">☰</span>
         </button>

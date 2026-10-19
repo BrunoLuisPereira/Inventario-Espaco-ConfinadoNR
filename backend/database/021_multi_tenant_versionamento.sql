@@ -70,6 +70,11 @@ ALTER TABLE public.versao_entidade
 ADD CONSTRAINT uq_versao_entidade
 UNIQUE (id_ambiente, entidade, id_entidade);
 
+-- IDs de dominio sao globais por tabela (identity/PK), nao UUIDs offline.
+-- Preserva uma unica historia por entidade/ID e fecha a corrida entre ambientes.
+CREATE UNIQUE INDEX uq_versao_entidade_identidade_global
+ON public.versao_entidade (entidade, id_entidade);
+
 -- ============================================================
 -- 3. REGULARIZACAO GERAL POR ANCESTRALIDADE, SEM IDS FIXOS
 -- Versoes e tombstones conhecidos nunca sao reiniciados por este backfill.
@@ -104,6 +109,7 @@ FROM ativos a WHERE NOT EXISTS (
 CREATE OR REPLACE FUNCTION public.atualizar_versao_entidade()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SET search_path = pg_catalog, public
 AS $function$
 DECLARE
     v_entidade VARCHAR(50);
@@ -184,7 +190,8 @@ BEGIN
         FROM public.versao_entidade v
         WHERE v.entidade = v_entidade
           AND v.id_entidade = v_id_entidade
-          AND v.excluido = FALSE;
+          AND v.excluido = FALSE
+        FOR UPDATE;
 
         -- Para campanhas, podemos validar diretamente
         -- o ambiente do registro excluido.
@@ -214,6 +221,10 @@ BEGIN
           AND entidade = v_entidade
           AND id_entidade = v_id_entidade
           AND excluido = FALSE;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Versionamento ativo ausente na exclusao.';
+        END IF;
 
         RETURN OLD;
     END IF;
@@ -297,13 +308,7 @@ BEGIN
             FALSE,
             NULL,
             CURRENT_TIMESTAMP
-        )
-        ON CONFLICT (id_ambiente, entidade, id_entidade)
-        DO UPDATE
-        SET versao = versao_entidade.versao + 1,
-            excluido = FALSE,
-            data_exclusao = NULL,
-            data_atualizacao = CURRENT_TIMESTAMP;
+        );
 
         RETURN NEW;
     END IF;
@@ -314,30 +319,17 @@ BEGIN
 
     IF TG_OP = 'UPDATE' THEN
 
-        INSERT INTO public.versao_entidade (
-            id_ambiente,
-            entidade,
-            id_entidade,
-            versao,
-            excluido,
-            data_exclusao,
-            data_atualizacao
-        )
-        VALUES (
-            v_id_ambiente,
-            v_entidade,
-            v_id_entidade,
-            2,
-            FALSE,
-            NULL,
-            CURRENT_TIMESTAMP
-        )
-        ON CONFLICT (id_ambiente, entidade, id_entidade)
-        DO UPDATE
-        SET versao = versao_entidade.versao + 1,
-            excluido = FALSE,
-            data_exclusao = NULL,
-            data_atualizacao = CURRENT_TIMESTAMP;
+        UPDATE public.versao_entidade
+        SET versao = versao + 1,
+            data_atualizacao = CURRENT_TIMESTAMP
+        WHERE id_ambiente = v_id_ambiente
+          AND entidade = v_entidade
+          AND id_entidade = v_id_entidade
+          AND excluido = FALSE;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Versionamento ativo ausente na atualizacao.';
+        END IF;
 
         RETURN NEW;
     END IF;

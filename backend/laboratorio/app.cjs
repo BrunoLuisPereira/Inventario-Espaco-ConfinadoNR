@@ -14,6 +14,9 @@ function criarApp(banco) {
     ['/api/usuarios', '../src/routes/usuarioRoutes'],
     ['/api/campanhas', '../src/routes/campanhaRoutes'],
     ['/api/locais', '../src/routes/localRoutes'],
+    ['/api/checklists', '../src/routes/checklistRoutes'],
+    ['/api/dados-tecnicos', '../src/routes/dadosTecnicosRoutes'],
+    ['/api/relatorios', '../src/routes/relatorioRoutes'],
   ]) app.use(url, require(modulo));
   app.use((_req, res) => res.status(404).json({ status: 'error', message: 'Rota nao encontrada.' }));
   app.use((error, _req, res, next) => {

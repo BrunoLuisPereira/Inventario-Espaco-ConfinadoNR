@@ -38,6 +38,13 @@ async function cadastrarAmbiente(dados = {}) {
     );
   }
 
+  const nomeAmbiente = dados.nome_ambiente === undefined
+    ? `Ambiente de ${nomeNormalizado}`.slice(0, 180)
+    : dados.nome_ambiente;
+  if (typeof nomeAmbiente !== 'string' || !nomeAmbiente.trim() || nomeAmbiente.trim().length > 180) {
+    throw criarErro('Informe um nome de empresa/ambiente com até 180 caracteres.', 400);
+  }
+
   if (typeof email !== "string" || !email.trim()) {
     throw criarErro("O e-mail é obrigatório.", 400);
   }
@@ -94,7 +101,7 @@ async function cadastrarAmbiente(dados = {}) {
 
     const ambiente = await ambienteRepository.criar(
       client,
-      `Ambiente de ${nomeNormalizado}`.slice(0, 180)
+      nomeAmbiente.trim()
     );
 
     const administrador =

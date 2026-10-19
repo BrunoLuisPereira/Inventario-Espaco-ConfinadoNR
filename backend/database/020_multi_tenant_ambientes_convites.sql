@@ -385,6 +385,8 @@ RETURNS TRIGGER
 
 LANGUAGE plpgsql
 
+SET search_path = pg_catalog, public
+
 AS $function$
 
 DECLARE
@@ -411,19 +413,21 @@ BEGIN
 
       INTO v_id_ambiente_registro
 
-    FROM local l
+    FROM public.local l
 
-    JOIN campanha c ON c.id_campanha = l.id_campanha
+    JOIN public.campanha c ON c.id_campanha = l.id_campanha
 
-    WHERE l.id_local = NEW.id_local;
+    WHERE l.id_local = NEW.id_local
+    FOR KEY SHARE OF l, c;
 
     SELECT u.id_ambiente
 
       INTO v_id_ambiente_usuario
 
-    FROM usuario u
+    FROM public.usuario u
 
-    WHERE u.id_usuario = v_id_usuario;
+    WHERE u.id_usuario = v_id_usuario
+    FOR KEY SHARE OF u;
 
     IF v_id_ambiente_registro IS NULL
 
@@ -542,6 +546,28 @@ BEFORE UPDATE OF id_campanha
 ON local
 FOR EACH ROW
 EXECUTE FUNCTION public.bloquear_alteracao_campanha_local();
+-- Services atualizam campos de negocio, nunca transferem registros tecnicos.
+-- O ambiente continua derivado de local -> campanha, sem duplicar colunas.
+CREATE OR REPLACE FUNCTION public.bloquear_alteracao_local_tecnico()
+RETURNS TRIGGER LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $vinculo$
+BEGIN
+    IF OLD.id_local IS DISTINCT FROM NEW.id_local THEN
+        RAISE EXCEPTION 'Nao e permitido transferir um registro tecnico para outro local.';
+    END IF;
+    RETURN NEW;
+END;
+$vinculo$;
+
+CREATE TRIGGER trg_checklist_bloquear_local BEFORE UPDATE OF id_local ON public.checklist_nr33
+FOR EACH ROW EXECUTE FUNCTION public.bloquear_alteracao_local_tecnico();
+CREATE TRIGGER trg_dados_tecnicos_bloquear_local BEFORE UPDATE OF id_local ON public.dados_tecnicos
+FOR EACH ROW EXECUTE FUNCTION public.bloquear_alteracao_local_tecnico();
+CREATE TRIGGER trg_evidencia_bloquear_local BEFORE UPDATE OF id_local ON public.evidencia
+FOR EACH ROW EXECUTE FUNCTION public.bloquear_alteracao_local_tecnico();
+CREATE TRIGGER trg_relatorio_bloquear_local BEFORE UPDATE OF id_local ON public.relatorio
+FOR EACH ROW EXECUTE FUNCTION public.bloquear_alteracao_local_tecnico();
 -- ============================================================
 -- FIM DA MIGRACAO 020
 -- ============================================================

@@ -16,6 +16,10 @@ import EvidenciasLocal from './pages/EvidenciasLocal'
 import RelatorioLocal from './pages/RelatorioLocal'
 import ResponsaveisRelatorio from './pages/ResponsaveisRelatorio'
 import Configuracoes from './pages/Configuracoes'
+import Cadastro from './pages/Cadastro'
+import Convites from './pages/Convites'
+import Listagem from './pages/Listagem'
+import Usuarios from './pages/Usuarios'
 
 import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './hooks/useAuth'
@@ -32,6 +36,12 @@ function App() {
 
   return (
     <><DemoBanner /><Routes>
+      <Route path="/cadastro" element={<Cadastro />} />
+      <Route path="/convites/aceitar" element={<Cadastro convite />} />
+      <Route path="/usuarios" element={<ProtectedRoute administrador><Usuarios /></ProtectedRoute>} />
+      <Route path="/convites" element={<ProtectedRoute administrador><Convites /></ProtectedRoute>} />
+      <Route path="/locais" element={<ProtectedRoute><Listagem key="locais" tipo="locais" /></ProtectedRoute>} />
+      <Route path="/relatorios" element={<ProtectedRoute><Listagem key="relatorios" tipo="relatorios" /></ProtectedRoute>} />
       {/* Login */}
       <Route
         path="/login"

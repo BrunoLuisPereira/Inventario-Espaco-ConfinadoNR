@@ -10,6 +10,19 @@ const hash = crypto.createHash('sha256').update(token).digest('hex');
 const dados = { nome: 'Pessoa', email: ' NOVA@example.invalid ', senha: 'senha-simulada' };
 const conviteDados = { email: ' NOVA@example.invalid ', perfilAcesso: 'ENGENHEIRO_SEGURANCA' };
 
+test('cadastro publico preserva nome da empresa e gera UUID pelo repositorio, sem aceitar ambiente forjado', async t => {
+  const c=preparar(t);
+  const r=await c.cadastro.cadastrarAmbiente({...dados,nome_ambiente:' Empresa sintetica A ',id_ambiente:A,perfil_acesso:'MASTER'});
+  assert.equal(r.ambiente.nome,'Empresa sintetica A');
+  assert.equal(r.ambiente.id_ambiente,B);
+  assert.equal(r.usuario.perfil_acesso,'ADMINISTRADOR');
+});
+for(const nome of ['', ' ', 'x'.repeat(181), null, {}]) test('cadastro recusa nome de ambiente invalido: '+String(nome),async t=>{
+  const c=preparar(t);
+  await assert.rejects(c.cadastro.cadastrarAmbiente({...dados,nome_ambiente:nome}),{statusCode:400});
+  assert.deepEqual(c.eventos,[]);
+});
+
 for (const operacao of ['cadastro', 'aceitar']) for (const tamanho of [120, 121]) {
   test(`contrato DDL observado: ${operacao} nome com ${tamanho} caracteres`, async t => {
     const c = preparar(t, { comConvite: operacao === 'aceitar' });

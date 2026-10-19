@@ -4,6 +4,7 @@ import logoInventario from '../../assets/logo-inventario.png'
 import { useAuth } from '../../hooks/useAuth'
 import { useLayout } from '../../contexts/useLayout'
 import { exportarLocaisExcel } from '../../services/api'
+import { podeAdministrar } from '../../services/conta'
 import '../../styles/Sidebar.css'
 
 function Sidebar() {
@@ -120,6 +121,7 @@ function Sidebar() {
       />
 
       <aside
+        id="sidebar-principal"
         className={`sidebar ${
           menuAberto ? 'sidebar-open' : ''
         }`}
@@ -162,18 +164,6 @@ function Sidebar() {
           <NavLink to="/locais">
             Locais
           </NavLink>
-        </nav>
-
-        <div className="sidebar-settings-area">
-          <NavLink
-            to="/configuracoes"
-            className="sidebar-settings-link"
-          >
-            ⚙ Configurações
-          </NavLink>
-        </div>
-
-        <div className="sidebar-export-area">
           <button
             type="button"
             className="sidebar-nav-action"
@@ -184,7 +174,17 @@ function Sidebar() {
               ? 'Exportando...'
               : 'Exportar Locais'}
           </button>
-        </div>
+
+          <hr className="sidebar-divider" />
+
+          {podeAdministrar(usuario) && <>
+            <NavLink to="/usuarios">Usuários</NavLink>
+            <NavLink to="/convites">Convite</NavLink>
+          </>}
+          <NavLink to="/configuracoes" className="sidebar-settings-link">
+            ⚙ Configurações
+          </NavLink>
+        </nav>
 
         <div className="sidebar-footer">
           <div className="sidebar-user">

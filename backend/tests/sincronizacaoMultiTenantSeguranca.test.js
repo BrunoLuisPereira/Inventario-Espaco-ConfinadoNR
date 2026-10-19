@@ -175,6 +175,20 @@ function preparar(t) {
   return {estado,u,repo,service,dados};
 }
 
+test('regressao 42P08: finalizacao usa varchar(20) consistente e confirma escrita autorizada', async t => {
+  const s=preparar(t);
+  const r=await s.service.processarSincronizacao(10,s.u);
+  assert.equal(r.status,'SINCRONIZADO');
+  const q=s.estado.consultas.find(q=>q.sql.includes('data_sincronizacao = CASE'));
+  assert.ok(q);
+  assert.match(q.sql,/SET status = \$4::varchar\(20\)/);
+  assert.match(q.sql,/CASE WHEN \$4::varchar\(20\) = 'SINCRONIZADO'/);
+  assert.equal(q.params[3],'SINCRONIZADO');
+  assert.equal(q.params[0],s.u.id_ambiente);
+  assert.equal(q.params[1],s.u.id_usuario);
+  assert.ok(s.estado.eventos.includes('COMMIT'));
+});
+
 for (const e of Object.keys(especificacoes)) for (const ambiente of [A,B]) for (const papel of ['admin','responsavel','naoResponsavel','externo']) test(`${e}: registro contextual ${ambiente} ${papel}`, async t=>{
   const s=preparar(t), base=ambiente===A?10:20; s.u.id_ambiente=ambiente; s.u.id_usuario=base+(papel==='admin'?1:papel==='naoResponsavel'?3:2);
   const alvo=papel==='externo'?(base===10?20:10):base;

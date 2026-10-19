@@ -18,6 +18,17 @@ const request = criarHttp({
 const requestArquivo = endpoint => request(endpoint, { method: 'GET' }, true)
 
 // Autenticação
+export function cadastrarAmbiente({ nome, nome_ambiente, email, senha }) {
+  return request('/cadastro/ambiente', { method: 'POST', body: JSON.stringify({ nome, nome_ambiente, email, senha }) })
+}
+export function aceitarConvite({ token, nome, senha }) {
+  return request('/convites/aceitar', { method: 'POST', body: JSON.stringify({ token, nome, senha }) })
+}
+export function emitirConvite({ email, perfilAcesso }) {
+  return request('/convites', { method: 'POST', body: JSON.stringify({ email, perfilAcesso }) })
+}
+export const listarUsuarios = () => request('/usuarios')
+export const listarRelatorios = () => request('/relatorios')
 
 export async function login(email, senha) {
   return request('/auth/login', {

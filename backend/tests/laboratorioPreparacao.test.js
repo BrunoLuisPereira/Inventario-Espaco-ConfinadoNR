@@ -76,3 +76,47 @@ test('app de laboratorio rejeita banco real antes de carregar routers', () => {
   const s=fs.readFileSync(path.resolve(__dirname,'../laboratorio/app.cjs'),'utf8');
   assert.doesNotMatch(s,/require\(['"]\.\.\/src\/app|require\(['"]dotenv/);
 });
+
+test('destino de desenvolvimento tem banco, papel e volume exclusivos', () => {
+  const dev = destino('inventario_nr33_multitenant_dev');
+  assert.equal(dev.papel, 'nr33_dev_app');
+  assert.equal(dev.persistente, true);
+  assert.equal(dev.volume, 'nr33-multitenant-dev-710-dados');
+  assert.equal(dev.autorizacao, 'PASSO710');
+  assert.equal(dev.host, '127.0.0.1');
+  assert.equal(dev.porta, 55432);
+  assert.throws(() => validarAmbiente({ ...env, DB_NAME: dev.banco }));
+  assert.equal(validarAmbiente({ ...env, DB_NAME: dev.banco, DB_USER: dev.papel, NR33_LAB_AUTORIZADO: dev.autorizacao }).banco, dev.banco);
+});
+
+test('desenvolvimento exige o volume exclusivo e recusa bind ou tmpfs', () => {
+  const dev = destino('inventario_nr33_multitenant_dev');
+  const i = { ...info(), labels: { 'nr33.lab.id': dev.id },
+    mounts: [{ Type: 'volume', Name: dev.volume, Destination: '/var/lib/postgresql/data' }] };
+  assert.strictEqual(validarContainer(dev, i), dev);
+  for (const mounts of [[], undefined, [{ Type: 'bind', Name: dev.volume, Destination: '/var/lib/postgresql/data' }],
+    [{ Type: 'volume', Name: 'volume-existente', Destination: '/var/lib/postgresql/data' }]]) {
+    assert.throws(() => validarContainer(dev, { ...i, mounts }));
+  }
+});
+
+test('composicao para desenvolvimento adapta somente a guarda conhecida em memoria', () => {
+  const originais = [...fontes];
+  const sql = montarSQL('inventario_nr33_multitenant_dev', fontes);
+  assert.deepEqual(fontes, originais);
+  assert.equal((sql.match(/current_database\(\) <> 'inventario_nr33_multitenant_dev'/g) || []).length, 4);
+  assert.equal((sql.match(/IS DISTINCT FROM 'passo710'/g) || []).length, 3);
+  assert.doesNotMatch(sql, /IS DISTINCT FROM 'passo702'/);
+  assert.equal((sql.match(/^BEGIN;/gm) || []).length, 1);
+  assert.equal((sql.match(/^COMMIT;/gm) || []).length, 1);
+  assert.throws(() => montarSQL('inventario_nr33_multitenant_dev', [fontes[0].replace('DO $seguranca$', 'DO $diferente$'), ...fontes.slice(1)]), /Guarda/);
+});
+
+test('novo destino nao permite nomes protegidos, variantes ou injecao', () => {
+  for (const nome of ['inventario_espacos_confinados', 'inventario_espacos_confinados_homolog',
+    'inventario_nr33_multitenant_dev\n', 'inventario_nr33_multitenant_dev ', 'INVENTARIO_NR33_MULTITENANT_DEV',
+    "inventario_nr33_multitenant_dev'; SELECT 1;"]) {
+    assert.throws(() => destino(nome));
+    assert.throws(() => montarSQL(nome, fontes));
+  }
+});

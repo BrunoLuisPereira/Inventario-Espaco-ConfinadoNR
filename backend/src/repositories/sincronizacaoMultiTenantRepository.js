@@ -254,8 +254,8 @@ async function aplicar(client, s, dados, u) {
   if (!r.rows[0]) throw erro('Falha interna ao aplicar atualização.', 500); return r.rows[0];
 }
 async function finalizar(client, s, u, dados) {
-  const r = await client.query(`UPDATE sincronizacao s SET status = $4, id_entidade = COALESCE($5, s.id_entidade), versao_servidor = $6,
-    dados_servidor = $7::jsonb, mensagem_erro = $8, data_sincronizacao = CASE WHEN $4::text = 'SINCRONIZADO' THEN CURRENT_TIMESTAMP ELSE s.data_sincronizacao END,
+  const r = await client.query(`UPDATE sincronizacao s SET status = $4::varchar(20), id_entidade = COALESCE($5, s.id_entidade), versao_servidor = $6,
+    dados_servidor = $7::jsonb, mensagem_erro = $8, data_sincronizacao = CASE WHEN $4::varchar(20) = 'SINCRONIZADO' THEN CURRENT_TIMESTAMP ELSE s.data_sincronizacao END,
     resolucao = COALESCE($9::text, s.resolucao), dados_resolvidos = CASE WHEN $9::text IS NOT NULL THEN $7::jsonb ELSE s.dados_resolvidos END,
     id_usuario_resolucao = CASE WHEN $9::text IS NOT NULL THEN $2 ELSE s.id_usuario_resolucao END,
     data_resolucao = CASE WHEN $9::text IS NOT NULL THEN CURRENT_TIMESTAMP ELSE s.data_resolucao END, data_atualizacao = CURRENT_TIMESTAMP
