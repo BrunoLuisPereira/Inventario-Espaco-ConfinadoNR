@@ -1,5 +1,5 @@
 const sincronizacaoService = require(
-  "../services/sincronizacaoService"
+  "../services/sincronizacaoMultiTenantService"
 );
 
 
@@ -12,6 +12,7 @@ async function criar(
   res,
   next
 ) {
+  if (res.headersSent) return res;
   try {
     const sincronizacao =
       await sincronizacaoService
@@ -25,6 +26,7 @@ async function criar(
         ? 409
         : 201;
 
+    if (res.headersSent) return res;
     return res.status(statusHttp).json({
       status:
         sincronizacao.status === "CONFLITO"
@@ -40,7 +42,7 @@ async function criar(
         sincronizacao,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
@@ -54,6 +56,7 @@ async function listar(
   res,
   next
 ) {
+  if (res.headersSent) return res;
   try {
     const sincronizacoes =
       await sincronizacaoService
@@ -61,6 +64,7 @@ async function listar(
           req.usuario
         );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
       total:
@@ -69,7 +73,7 @@ async function listar(
         sincronizacoes,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
@@ -83,6 +87,7 @@ async function buscarPorId(
   res,
   next
 ) {
+  if (res.headersSent) return res;
   try {
     const sincronizacao =
       await sincronizacaoService
@@ -91,13 +96,14 @@ async function buscarPorId(
           req.usuario
         );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
       data:
         sincronizacao,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
@@ -111,6 +117,7 @@ async function buscarPorEntidade(
   res,
   next
 ) {
+  if (res.headersSent) return res;
   try {
     const sincronizacoes =
       await sincronizacaoService
@@ -120,6 +127,7 @@ async function buscarPorEntidade(
           req.usuario
         );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
       total:
@@ -128,7 +136,7 @@ async function buscarPorEntidade(
         sincronizacoes,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
@@ -142,6 +150,7 @@ async function buscarPendentes(
   res,
   next
 ) {
+  if (res.headersSent) return res;
   try {
     const sincronizacoes =
       await sincronizacaoService
@@ -149,6 +158,7 @@ async function buscarPendentes(
           req.usuario
         );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
       total:
@@ -157,7 +167,7 @@ async function buscarPendentes(
         sincronizacoes,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
@@ -171,6 +181,7 @@ async function buscarConflitos(
   res,
   next
 ) {
+  if (res.headersSent) return res;
   try {
     const sincronizacoes =
       await sincronizacaoService
@@ -178,6 +189,7 @@ async function buscarConflitos(
           req.usuario
         );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
       total:
@@ -186,7 +198,7 @@ async function buscarConflitos(
         sincronizacoes,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
@@ -200,6 +212,7 @@ async function atualizarStatus(
   res,
   next
 ) {
+  if (res.headersSent) return res;
   try {
     const sincronizacao =
       await sincronizacaoService
@@ -209,6 +222,7 @@ async function atualizarStatus(
           req.usuario
         );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
 
@@ -219,7 +233,7 @@ async function atualizarStatus(
         sincronizacao,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
@@ -233,6 +247,7 @@ async function excluir(
   res,
   next
 ) {
+  if (res.headersSent) return res;
   try {
     const sincronizacao =
       await sincronizacaoService
@@ -241,6 +256,7 @@ async function excluir(
           req.usuario
         );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
 
@@ -251,7 +267,7 @@ async function excluir(
         sincronizacao,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
@@ -265,6 +281,7 @@ async function resolverConflito(
   res,
   next
 ) {
+  if (res.headersSent) return res;
   try {
     const sincronizacao =
       await sincronizacaoService
@@ -274,6 +291,7 @@ async function resolverConflito(
           req.usuario
         );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
 
@@ -284,7 +302,7 @@ async function resolverConflito(
         sincronizacao,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
@@ -298,6 +316,7 @@ async function processarSincronizacao(
   res,
   next
 ) {
+  if (res.headersSent) return res;
   try {
     const resultado =
       await sincronizacaoService
@@ -311,6 +330,7 @@ async function processarSincronizacao(
         ? 409
         : 200;
 
+    if (res.headersSent) return res;
     return res.status(statusHttp).json({
       status:
         resultado.status === "CONFLITO"
@@ -326,7 +346,7 @@ async function processarSincronizacao(
         resultado,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 

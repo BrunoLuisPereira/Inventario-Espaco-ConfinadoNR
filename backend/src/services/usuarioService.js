@@ -1,10 +1,7 @@
 const bcrypt = require("bcryptjs");
 const usuarioRepository = require("../repositories/usuarioRepository");
 
-const PERFIS_PERMITIDOS = [
-  "ADMINISTRADOR",
-  "ENGENHEIRO_SEGURANCA",
-];
+const { perfis: PERFIS_PERMITIDOS } = require('../utils/permissoes');
 
 /**
  * Valida e cria um usuário.
@@ -76,20 +73,44 @@ async function criarUsuario(dados) {
     perfilAcesso,
   });
 }
-async function listarUsuarios() {
-  return usuarioRepository.listarTodos();
+// Identidade vem de req.usuario, revalidada pelo middleware, nunca do cliente.
+// Nas escritas, o repositório revalida novamente dentro da transação.
+function validarAdministradorConsulta(usuarioAutenticado) {
+  if (
+    !usuarioAutenticado ||
+    !Number.isSafeInteger(usuarioAutenticado.id_usuario) ||
+    usuarioAutenticado.id_usuario <= 0 ||
+    typeof usuarioAutenticado.id_ambiente !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(usuarioAutenticado.id_ambiente)
+  ) {
+    const error = new Error("Usuário não autenticado.");
+    error.statusCode = 401;
+    throw error;
+  }
+  if (usuarioAutenticado.perfil_acesso !== "ADMINISTRADOR") {
+    const error = new Error("Você não possui permissão para acessar este recurso.");
+    error.statusCode = 403;
+    throw error;
+  }
+  return usuarioAutenticado.id_ambiente;
 }
 
-async function buscarUsuarioPorId(idUsuario) {
+async function listarUsuarios(usuarioAutenticado) {
+  const idAmbiente = validarAdministradorConsulta(usuarioAutenticado);
+  return usuarioRepository.listarPorAmbiente(idAmbiente);
+}
+
+async function buscarUsuarioPorId(idUsuario, usuarioAutenticado) {
+  const idAmbiente = validarAdministradorConsulta(usuarioAutenticado);
   const id = Number(idUsuario);
 
-  if (!Number.isInteger(id) || id <= 0) {
+  if (!Number.isSafeInteger(id) || id <= 0) {
     const error = new Error("O ID do usuário é inválido.");
     error.statusCode = 400;
     throw error;
   }
 
-  const usuario = await usuarioRepository.buscarPorId(id);
+  const usuario = await usuarioRepository.buscarPorIdEAmbiente(id, idAmbiente);
 
   if (!usuario) {
     const error = new Error("Usuário não encontrado.");
@@ -99,21 +120,19 @@ async function buscarUsuarioPorId(idUsuario) {
 
   return usuario;
 }
-async function atualizarUsuario(idUsuario, dados) {
+async function atualizarUsuario(idUsuario, dados, usuarioAutenticado) {
+  validarAdministradorConsulta(usuarioAutenticado);
   const id = Number(idUsuario);
 
-  if (!Number.isInteger(id) || id <= 0) {
+  if (!Number.isSafeInteger(id) || id <= 0) {
     const error = new Error("O ID do usuário é inválido.");
     error.statusCode = 400;
     throw error;
   }
 
-  const usuarioAtual =
-    await usuarioRepository.buscarPorId(id);
-
-  if (!usuarioAtual) {
-    const error = new Error("Usuário não encontrado.");
-    error.statusCode = 404;
+  if (!dados || typeof dados !== "object" || Array.isArray(dados)) {
+    const error = new Error("Dados do usuário inválidos.");
+    error.statusCode = 400;
     throw error;
   }
 
@@ -146,37 +165,24 @@ async function atualizarUsuario(idUsuario, dados) {
   const nomeNormalizado = nome.trim();
   const emailNormalizado = email.trim().toLowerCase();
 
-  const usuarioMesmoEmail =
-    await usuarioRepository.buscarPorEmail(emailNormalizado);
-
-  if (
-    usuarioMesmoEmail &&
-    Number(usuarioMesmoEmail.id_usuario) !== id
-  ) {
-    const error = new Error(
-      "Já existe outro usuário com este e-mail."
-    );
-    error.statusCode = 409;
-    throw error;
-  }
-
-  return usuarioRepository.atualizar(id, {
+  return usuarioRepository.atualizarNoAmbiente(id, {
     nome: nomeNormalizado,
     email: emailNormalizado,
     perfilAcesso,
-  });
+  }, usuarioAutenticado);
 }
 
-async function alterarStatusUsuario(idUsuario, dados) {
+async function alterarStatusUsuario(idUsuario, dados, usuarioAutenticado) {
+  validarAdministradorConsulta(usuarioAutenticado);
   const id = Number(idUsuario);
 
-  if (!Number.isInteger(id) || id <= 0) {
+  if (!Number.isSafeInteger(id) || id <= 0) {
     const error = new Error("O ID do usuário é inválido.");
     error.statusCode = 400;
     throw error;
   }
 
-  if (typeof dados.ativo !== "boolean") {
+  if (!dados || typeof dados !== "object" || Array.isArray(dados) || typeof dados.ativo !== "boolean") {
     const error = new Error(
       "O campo ativo deve ser verdadeiro ou falso."
     );
@@ -184,17 +190,10 @@ async function alterarStatusUsuario(idUsuario, dados) {
     throw error;
   }
 
-  const usuario = await usuarioRepository.buscarPorId(id);
-
-  if (!usuario) {
-    const error = new Error("Usuário não encontrado.");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  return usuarioRepository.atualizarStatus(
+  return usuarioRepository.atualizarStatusNoAmbiente(
     id,
-    dados.ativo
+    dados.ativo,
+    usuarioAutenticado
   );
 }
 

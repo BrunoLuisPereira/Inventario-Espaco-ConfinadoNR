@@ -1,3 +1,4 @@
+const { autorizarModulo } = require('../utils/permissoes');
 const express = require("express");
 
 const sincronizacaoController = require(
@@ -5,7 +6,7 @@ const sincronizacaoController = require(
 );
 
 const {
-  autenticar,
+  autenticarMultiTenant,
 } = require("../middlewares/autenticacaoMiddleware");
 
 const router = express.Router();
@@ -15,7 +16,8 @@ const router = express.Router();
 // Todas as rotas de sincronização exigem autenticação
 // ======================================================
 
-router.use(autenticar);
+router.use(autenticarMultiTenant);
+router.use(autorizarModulo('sincronizacao'));
 
 
 // ======================================================

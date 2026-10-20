@@ -2466,7 +2466,8 @@ async function resolverConflitoExclusao({
   }
 }
 async function processarSincronizacaoPendente(
-  sincronizacao
+  sincronizacao,
+  usuarioAutenticado
 ) {
   const client =
     await pool.connect();
@@ -3174,6 +3175,15 @@ else {
 
 
     // ==================================================
+    // Revalida antes de ler os dados e antes do bloqueio de versão: os bloqueios
+    // de usuário, campanha e vínculos permanecem até COMMIT ou ROLLBACK.
+    await verificarAcessoAtualizacaoComBloqueio(
+      client,
+      registro,
+      idEntidade,
+      usuarioAutenticado
+    );
+
     // Consultar versão OFICIAL atual
     // ==================================================
 
@@ -3450,6 +3460,85 @@ else {
 
   }
 }
+// Exclusiva do processamento ATUALIZAR. Não usa identidade gravada no payload
+// como substituta do contexto autenticado recebido do serviço.
+async function verificarAcessoAtualizacaoComBloqueio(
+  client,
+  registro,
+  idEntidade,
+  usuarioAutenticado
+) {
+  const idUsuario = usuarioAutenticado?.id_usuario;
+  const perfil = usuarioAutenticado?.perfil_acesso;
+  if (
+    !Number.isSafeInteger(idUsuario) || idUsuario <= 0 ||
+    !["ADMINISTRADOR", "ENGENHEIRO_SEGURANCA"].includes(perfil)
+  ) {
+    throw criarErro("Usuário autenticado inválido.", 401);
+  }
+
+  const identidade = await client.query(
+    `
+      SELECT id_usuario, perfil_acesso
+      FROM usuario
+      WHERE id_usuario = $1
+        AND ativo = TRUE
+      FOR SHARE;
+    `,
+    [idUsuario]
+  );
+  const usuarioAtual = identidade.rows[0];
+  if (!usuarioAtual || !["ADMINISTRADOR", "ENGENHEIRO_SEGURANCA"].includes(usuarioAtual.perfil_acesso)) {
+    throw criarErro("Você não possui permissão para acessar esta entidade.", 403);
+  }
+  // Perfil antigo do JWT não mantém privilégios revogados, nem concede uma
+  // promoção nova sem a identidade autenticada correspondente.
+  const administrador = perfil === "ADMINISTRADOR" && usuarioAtual.perfil_acesso === "ADMINISTRADOR";
+  if (!administrador && Number(registro.id_usuario) !== idUsuario) {
+    throw criarErro("Você não possui permissão para acessar esta sincronização.", 403);
+  }
+
+  // Fragmentos exclusivamente estáticos: nenhum nome de tabela vem do cliente.
+  const consultas = {
+    CAMPANHA: `
+      SELECT 1 FROM campanha c
+      WHERE c.id_campanha = $1
+        AND (c.id_usuario = $2 OR $3::boolean)
+      FOR UPDATE OF c;
+    `,
+    LOCAL: `
+      SELECT 1 FROM local l
+      INNER JOIN campanha c ON c.id_campanha = l.id_campanha
+      WHERE l.id_local = $1
+        AND (c.id_usuario = $2 OR $3::boolean)
+      FOR UPDATE OF c, l;
+    `,
+    CHECKLIST_NR33: `
+      SELECT 1 FROM checklist_nr33 ch
+      INNER JOIN local l ON l.id_local = ch.id_local
+      INNER JOIN campanha c ON c.id_campanha = l.id_campanha
+      WHERE ch.id_checklist = $1
+        AND (c.id_usuario = $2 OR $3::boolean)
+      FOR UPDATE OF c, l, ch;
+    `,
+    DADOS_TECNICOS: `
+      SELECT 1 FROM dados_tecnicos dt
+      INNER JOIN local l ON l.id_local = dt.id_local
+      INNER JOIN campanha c ON c.id_campanha = l.id_campanha
+      WHERE dt.id_dados = $1
+        AND (c.id_usuario = $2 OR $3::boolean)
+      FOR UPDATE OF c, l, dt;
+    `,
+  };
+  if (!Object.hasOwn(consultas, registro.entidade)) {
+    throw criarErro("Processamento automático ainda não implementado para esta entidade.", 400);
+  }
+  const acesso = await client.query(consultas[registro.entidade], [idEntidade, idUsuario, administrador]);
+  if (acesso.rows.length === 0) {
+    throw criarErro("Você não possui permissão para acessar esta entidade.", 403);
+  }
+}
+
 async function verificarAcessoEntidade(
   client,
   entidade,

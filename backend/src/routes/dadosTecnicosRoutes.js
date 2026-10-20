@@ -1,3 +1,4 @@
+const { autorizarModulo } = require('../utils/permissoes');
 const express = require("express");
 
 const dadosTecnicosController = require(
@@ -5,7 +6,7 @@ const dadosTecnicosController = require(
 );
 
 const {
-  autenticar,
+  autenticarMultiTenant,
 } = require("../middlewares/autenticacaoMiddleware");
 
 const router = express.Router();
@@ -14,7 +15,8 @@ const router = express.Router();
  * Todas as rotas de dados técnicos
  * exigem autenticação JWT.
  */
-router.use(autenticar);
+router.use(autenticarMultiTenant);
+router.use(autorizarModulo('dados_tecnicos'));
 
 
 /*

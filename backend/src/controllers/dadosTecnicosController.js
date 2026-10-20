@@ -1,5 +1,5 @@
 const dadosTecnicosService = require(
-  "../services/dadosTecnicosService"
+  "../services/dadosTecnicosMultiTenantService"
 );
 
 
@@ -7,6 +7,7 @@ const dadosTecnicosService = require(
  * Cria os dados técnicos de um local.
  */
 async function criar(req, res, next) {
+  if (res.headersSent) return res;
   try {
     const dadosTecnicos =
       await dadosTecnicosService.criarDadosTecnicos(
@@ -14,6 +15,7 @@ async function criar(req, res, next) {
         req.usuario
       );
 
+    if (res.headersSent) return res;
     return res.status(201).json({
       status: "success",
       message:
@@ -21,7 +23,7 @@ async function criar(req, res, next) {
       data: dadosTecnicos,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
@@ -30,17 +32,19 @@ async function criar(req, res, next) {
  * Lista todos os registros de dados técnicos.
  */
 async function listar(req, res, next) {
+  if (res.headersSent) return res;
   try {
     const dados =
-      await dadosTecnicosService.listarDadosTecnicos();
+      await dadosTecnicosService.listarDadosTecnicos(req.usuario);
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
       total: dados.length,
       data: dados,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
@@ -49,18 +53,21 @@ async function listar(req, res, next) {
  * Busca dados técnicos pelo ID.
  */
 async function buscarPorId(req, res, next) {
+  if (res.headersSent) return res;
   try {
     const dados =
       await dadosTecnicosService.buscarDadosTecnicosPorId(
-        req.params.id
+        req.params.id,
+        req.usuario
       );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
       data: dados,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
@@ -69,18 +76,21 @@ async function buscarPorId(req, res, next) {
  * Busca os dados técnicos de determinado local.
  */
 async function buscarPorLocal(req, res, next) {
+  if (res.headersSent) return res;
   try {
     const dados =
       await dadosTecnicosService.buscarDadosTecnicosPorLocal(
-        req.params.idLocal
+        req.params.idLocal,
+        req.usuario
       );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
       data: dados,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
@@ -89,6 +99,7 @@ async function buscarPorLocal(req, res, next) {
  * Atualiza os dados técnicos.
  */
 async function atualizar(req, res, next) {
+  if (res.headersSent) return res;
   try {
     const dados =
       await dadosTecnicosService.atualizarDadosTecnicos(
@@ -97,6 +108,7 @@ async function atualizar(req, res, next) {
         req.usuario
       );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
       message:
@@ -104,7 +116,7 @@ async function atualizar(req, res, next) {
       data: dados,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 
@@ -113,6 +125,7 @@ async function atualizar(req, res, next) {
  * Exclui os dados técnicos.
  */
 async function excluir(req, res, next) {
+  if (res.headersSent) return res;
   try {
     const dados =
       await dadosTecnicosService.excluirDadosTecnicos(
@@ -120,6 +133,7 @@ async function excluir(req, res, next) {
         req.usuario
       );
 
+    if (res.headersSent) return res;
     return res.status(200).json({
       status: "success",
       message:
@@ -127,7 +141,7 @@ async function excluir(req, res, next) {
       data: dados,
     });
   } catch (erro) {
-    next(erro);
+    return next(erro);
   }
 }
 

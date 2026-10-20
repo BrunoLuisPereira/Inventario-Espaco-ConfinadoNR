@@ -1,3 +1,4 @@
+import { useCapacidade } from '../hooks/useCapacidade'
 import {
   useEffect,
   useState,
@@ -42,6 +43,7 @@ function formatarPerfil(perfil) {
 }
 
 function ResponsaveisRelatorio() {
+  const podeEditar = useCapacidade('relatorios.editar')
   const { idLocal } = useParams()
 
   const [local, setLocal] = useState(null)
@@ -110,7 +112,7 @@ function ResponsaveisRelatorio() {
 
           // Se não existir relatório, cria um
           // RASCUNHO. Isso NÃO gera o PDF.
-          try {
+          if (podeEditar) try {
             const respostaNovoRelatorio =
               await criarRelatorio({
                 id_local: Number(idLocal),
@@ -174,7 +176,7 @@ function ResponsaveisRelatorio() {
     }
 
     carregarDados()
-  }, [idLocal])
+  }, [idLocal, podeEditar])
 
   async function salvarResponsavelTecnico(
     event
@@ -364,6 +366,8 @@ function ResponsaveisRelatorio() {
                       salvarResponsavelTecnico
                     }
                   >
+        {!podeEditar && <p role="status">Seu perfil permite somente consulta nesta tela.</p>}
+        <fieldset disabled={!podeEditar} style={{border:0,padding:0,margin:0,minWidth:0}}>
                     <div className="responsaveis-form-group responsaveis-form-full">
                       <label htmlFor="nomeResponsavelTecnico">
                         Nome do engenheiro
@@ -451,7 +455,8 @@ function ResponsaveisRelatorio() {
                           : 'Salvar responsável técnico'}
                       </button>
                     </div>
-                  </form>
+                  </fieldset>
+</form>
                 </section>
               </>
             )}

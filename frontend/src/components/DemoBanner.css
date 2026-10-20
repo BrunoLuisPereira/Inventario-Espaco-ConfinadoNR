@@ -1,0 +1,6 @@
+.demo-banner { position: relative; z-index: 10000; display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; padding: .75rem 1rem; background: #fff3c4; color: #483900; border-bottom: 2px solid #a47d00; font-size: .9rem; }
+.demo-banner span { flex: 1 1 24rem; }
+.demo-banner button { padding: .5rem .75rem; border: 1px solid #806000; border-radius: .4rem; background: white; color: #483900; cursor: pointer; }
+.sessao-pendente { max-width: 34rem; margin: 4rem auto; padding: 2rem; }
+.demo-contas { padding: 1rem; border: 1px solid #a47d00; border-radius: .5rem; margin: 1rem 0; }
+.demo-contas button { display: block; margin: .5rem 0; padding: .5rem; }

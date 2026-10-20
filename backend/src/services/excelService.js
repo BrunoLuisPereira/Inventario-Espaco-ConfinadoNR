@@ -2,9 +2,28 @@ const ExcelJS = require("exceljs");
 
 const localRepository = require("../repositories/localRepository");
 
-async function gerarExcelLocais() {
+async function gerarExcelLocais(usuarioAutenticado) {
+  if (
+    !usuarioAutenticado ||
+    typeof usuarioAutenticado !== "object" ||
+    Array.isArray(usuarioAutenticado) ||
+    !Number.isSafeInteger(usuarioAutenticado.id_usuario) ||
+    usuarioAutenticado.id_usuario <= 0 ||
+    typeof usuarioAutenticado.id_ambiente !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(usuarioAutenticado.id_ambiente)
+  ) {
+    const erro = new Error("Usuário não autenticado.");
+    erro.statusCode = 401;
+    throw erro;
+  }
+
+  // Recebe exclusivamente req.usuario, definido pela autenticação multi-tenant.
+  // Sem fallback para a consulta global, inclusive na ausência de identidade.
   const registros =
-    await localRepository.listarParaExportacao();
+    await localRepository.listarParaExportacaoPorAmbiente(
+      usuarioAutenticado.id_ambiente,
+      usuarioAutenticado
+    );
 
   const workbook = new ExcelJS.Workbook();
 

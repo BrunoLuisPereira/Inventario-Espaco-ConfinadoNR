@@ -898,9 +898,10 @@ function adicionarEvidencia(
   doc,
   evidencia,
   indice,
-  dados
+  dados,
+  imagens
 ) {
-  const caminhoImagem =
+  const caminhoImagem = imagens ? imagens.get(evidencia.id_evidencia) || null :
     obterImagemEvidencia(evidencia);
 
   // Cada evidência fica agrupada.
@@ -1020,6 +1021,8 @@ function adicionarEvidencia(
         dados
       );
     }
+  } else if (imagens && evidencia.caminho_arquivo) {
+    adicionarMensagem(doc, "Imagem/arquivo indisponível para inclusão segura.", dados);
   } else if (evidencia.caminho_arquivo) {
     adicionarCampo(
       doc,
@@ -1158,16 +1161,19 @@ if (possuiCoordenadas) {
 // GERAÇÃO DO PDF
 // ==========================================================
 
-async function gerarPdfRelatorio(dados) {
+async function gerarPdfRelatorio(dados, opcoes = {}) {
+  const somenteBuffer = opcoes.somenteBuffer === true;
+  let doc;
+  let stream;
   return new Promise((resolve, reject) => {
     try {
       const diretorio =
-        garantirDiretorio();
+        somenteBuffer ? null : garantirDiretorio();
 
       const nomeArquivo =
         `relatorio-${dados.id_relatorio}-${Date.now()}.pdf`;
 
-      const caminhoCompleto =
+      const caminhoCompleto = somenteBuffer ? null :
         path.join(
           diretorio,
           nomeArquivo
@@ -1183,7 +1189,7 @@ async function gerarPdfRelatorio(dados) {
 
       const dataGeracao = new Date();
 
-      const doc = new PDFDocument({
+      doc = new PDFDocument({
         size: "A4",
 
         margins: {
@@ -1211,11 +1217,18 @@ async function gerarPdfRelatorio(dados) {
         },
       });
 
-      const stream =
-        fs.createWriteStream(
-          caminhoCompleto
-        );
-
+      stream = somenteBuffer ? new (require('node:stream').PassThrough)() : fs.createWriteStream(caminhoCompleto);
+      const partes = [];
+      if (somenteBuffer) stream.on('data', parte => partes.push(Buffer.from(parte)));
+      stream.on('error', reject);
+      doc.on('error', falha => { stream.destroy(); reject(falha); });
+      stream.on('finish', () => {
+        try {
+          const arquivo = somenteBuffer ? Buffer.concat(partes) : fs.readFileSync(caminhoCompleto);
+          if (somenteBuffer) return resolve(arquivo);
+          resolve({ caminhoCompleto, caminhoRelativo, hash: crypto.createHash('sha256').update(arquivo).digest('hex') });
+        } catch (falha) { reject(falha); }
+      });
       doc.pipe(stream);
 
       // ==================================================
@@ -1579,7 +1592,8 @@ async function gerarPdfRelatorio(dados) {
               doc,
               evidencia,
               indice,
-              dados
+              dados,
+              somenteBuffer ? opcoes.imagens || new Map() : undefined
             );
           }
         );
@@ -1603,39 +1617,12 @@ async function gerarPdfRelatorio(dados) {
 
       doc.end();
 
-      // ==================================================
-      // FINALIZAÇÃO / HASH
-      // ==================================================
-
-      stream.on("finish", () => {
-        try {
-          const arquivo =
-            fs.readFileSync(
-              caminhoCompleto
-            );
-
-          const hash = crypto
-            .createHash("sha256")
-            .update(arquivo)
-            .digest("hex");
-
-          resolve({
-            caminhoCompleto,
-            caminhoRelativo,
-            hash,
-          });
-        } catch (erro) {
-          reject(erro);
-        }
-      });
-
-      stream.on(
-        "error",
-        reject
-      );
     } catch (erro) {
+      if (doc) doc.destroy();
+      if (stream) stream.destroy();
       reject(erro);
     }
+
   });
 }
 

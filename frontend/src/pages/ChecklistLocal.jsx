@@ -1,3 +1,4 @@
+import { useCapacidade } from '../hooks/useCapacidade'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Sidebar from '../components/layout/Sidebar'
@@ -24,6 +25,7 @@ const FORMULARIO_INICIAL = {
 }
 
 function ChecklistLocal() {
+  const podeEditar = useCapacidade('checklists.editar')
   const { idLocal } = useParams()
 
   const [local, setLocal] = useState(null)
@@ -300,6 +302,8 @@ function ChecklistLocal() {
         className="checklist-form"
         onSubmit={onSubmit}
       >
+        {!podeEditar && <p role="status">Seu perfil permite somente consulta nesta tela.</p>}
+        <fieldset disabled={!podeEditar} style={{border:0,padding:0,margin:0,minWidth:0}}>
         <div className="checklist-form-header">
           <div>
             <h3>
@@ -606,7 +610,8 @@ function ChecklistLocal() {
                 : 'Salvar checklist'}
           </button>
         </div>
-      </form>
+      </fieldset>
+</form>
     )
   }
 
@@ -784,7 +789,7 @@ function ChecklistLocal() {
                       type="button"
                       className="checklist-edit-button"
                       onClick={iniciarEdicao}
-                      disabled={alterandoStatus}
+                      disabled={!podeEditar || (alterandoStatus)}
                     >
                       Editar checklist
                     </button>
@@ -797,7 +802,7 @@ function ChecklistLocal() {
                         onClick={() =>
                           mudarStatus('CONCLUIDO')
                         }
-                        disabled={alterandoStatus}
+                        disabled={!podeEditar || (alterandoStatus)}
                       >
                         {alterandoStatus
                           ? 'Alterando...'
@@ -810,7 +815,7 @@ function ChecklistLocal() {
                         onClick={() =>
                           mudarStatus('PENDENTE')
                         }
-                        disabled={alterandoStatus}
+                        disabled={!podeEditar || (alterandoStatus)}
                       >
                         {alterandoStatus
                           ? 'Alterando...'

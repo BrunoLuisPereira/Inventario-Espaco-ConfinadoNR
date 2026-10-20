@@ -1,23 +1,24 @@
+const { autorizarModulo } = require('../utils/permissoes');
 const express = require("express");
 const localController = require("../controllers/localController");
 
 const {
-  autenticar,
+  autenticarMultiTenant,
 } = require("../middlewares/autenticacaoMiddleware");
 
 const router = express.Router();
 
-router.use(autenticar);
+// Uma única autenticação atual para todas as operações montadas.
+router.use(autenticarMultiTenant);
+router.use(autorizarModulo('locais'));
+// A exportação deve preceder "/:id".
+router.get("/exportar", localController.exportar);
 
 // Criar local
 router.post("/", localController.criar);
 
 // Listar todos os locais
 router.get("/", localController.listar);
-
-// Exportar locais para Excel
-// IMPORTANTE: deve ficar antes da rota "/:id"
-router.get("/exportar", localController.exportar);
 
 // Buscar local por ID
 router.get("/:id", localController.buscarPorId);

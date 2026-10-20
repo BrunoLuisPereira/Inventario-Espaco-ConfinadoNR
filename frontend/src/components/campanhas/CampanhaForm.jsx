@@ -88,6 +88,7 @@ function CampanhaForm({
           <input
             id="nome_campanha"
             name="nome_campanha"
+            maxLength={150}
             type="text"
             value={formulario.nome_campanha}
             onChange={atualizarCampo}
@@ -103,6 +104,7 @@ function CampanhaForm({
           <input
             id="empresa"
             name="empresa"
+            maxLength={150}
             type="text"
             value={formulario.empresa}
             onChange={atualizarCampo}
@@ -118,6 +120,7 @@ function CampanhaForm({
           <input
             id="responsavel"
             name="responsavel"
+            maxLength={150}
             type="text"
             value={formulario.responsavel}
             onChange={atualizarCampo}

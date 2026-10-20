@@ -5,6 +5,7 @@ import {
 } from 'react-router-dom'
 
 import Login from './pages/Login'
+import DemoBanner from './components/DemoBanner'
 import Dashboard from './pages/Dashboard'
 import Campanhas from './pages/Campanhas'
 import LocaisCampanha from './pages/LocaisCampanha'
@@ -15,15 +16,32 @@ import EvidenciasLocal from './pages/EvidenciasLocal'
 import RelatorioLocal from './pages/RelatorioLocal'
 import ResponsaveisRelatorio from './pages/ResponsaveisRelatorio'
 import Configuracoes from './pages/Configuracoes'
+import Cadastro from './pages/Cadastro'
+import Convites from './pages/Convites'
+import Listagem from './pages/Listagem'
+import Usuarios from './pages/Usuarios'
 
 import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './hooks/useAuth'
 
 function App() {
-  const { autenticado } = useAuth()
+  const { autenticado, token, carregandoSessao, erroSessao, tentarNovamente, logout } = useAuth()
+  if (carregandoSessao || (token && erroSessao && !autenticado)) {
+    return <><DemoBanner /><main className="sessao-pendente" aria-live="polite">
+      <h1>{carregandoSessao ? 'Validando sessão...' : 'Não foi possível validar a sessão'}</h1>
+      {erroSessao && <p role="alert">{erroSessao}</p>}
+      {!carregandoSessao && <><button onClick={tentarNovamente}>Tentar novamente</button> <button onClick={logout}>Voltar ao login</button></>}
+    </main></>
+  }
 
   return (
-    <Routes>
+    <><DemoBanner /><Routes>
+      <Route path="/cadastro" element={<Cadastro />} />
+      <Route path="/convites/aceitar" element={<Cadastro convite />} />
+      <Route path="/usuarios" element={<ProtectedRoute administrador><Usuarios /></ProtectedRoute>} />
+      <Route path="/convites" element={<ProtectedRoute administrador><Convites /></ProtectedRoute>} />
+      <Route path="/locais" element={<ProtectedRoute><Listagem key="locais" tipo="locais" /></ProtectedRoute>} />
+      <Route path="/relatorios" element={<ProtectedRoute><Listagem key="relatorios" tipo="relatorios" /></ProtectedRoute>} />
       {/* Login */}
       <Route
         path="/login"
@@ -151,7 +169,7 @@ function App() {
           />
         }
       />
-    </Routes>
+    </Routes></>
   )
 }
 

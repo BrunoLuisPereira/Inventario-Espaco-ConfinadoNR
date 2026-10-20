@@ -1,3 +1,4 @@
+import { useCapacidade } from '../hooks/useCapacidade'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/layout/Sidebar'
@@ -10,6 +11,7 @@ import {
 import '../styles/Campanhas.css'
 
 function Campanhas() {
+  const podeEditar = useCapacidade('campanhas.editar')
   const navigate = useNavigate()
 
   const [campanhas, setCampanhas] = useState([])
@@ -211,7 +213,7 @@ function Campanhas() {
               type="button"
               className="campanha-button-primary"
               onClick={abrirNovaCampanha}
-              disabled={mostrarFormulario}
+              disabled={!podeEditar || (mostrarFormulario)}
             >
               + Nova campanha
             </button>
@@ -448,8 +450,8 @@ function Campanhas() {
                                       )
                                     }
                                     disabled={
-                                      mostrarFormulario ||
-                                      atualizando
+                                      !podeEditar || (mostrarFormulario ||
+                                      atualizando)
                                     }
                                   >
                                     Editar
@@ -470,8 +472,8 @@ function Campanhas() {
                                       )
                                     }
                                     disabled={
-                                      mostrarFormulario ||
-                                      atualizando
+                                      !podeEditar || (mostrarFormulario ||
+                                      atualizando)
                                     }
                                     aria-label={`Alterar status da campanha ${campanha.nome_campanha}`}
                                   >

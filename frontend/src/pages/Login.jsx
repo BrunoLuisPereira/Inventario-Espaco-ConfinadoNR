@@ -3,11 +3,14 @@ import logoInventario from '../assets/logo-inventario.png'
 import { login } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import '../styles/Login.css'
-import { useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { modoDemo } from '../services/sessao.js'
+import { contasDemo, senhaDemo } from '../services/demoApi.js'
 
 function Login() {
-  const { autenticar } = useAuth()
+  const { autenticar, erroSessao } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
@@ -56,6 +59,13 @@ function Login() {
           </p>
         </div>
 
+        {modoDemo && <section className="demo-contas" aria-label="Contas fictícias">
+          <strong>Contas fictícias para teste</strong>
+          <p>Senha: {senhaDemo}</p>
+          {contasDemo.map(conta => <button type="button" key={conta} onClick={() => { setEmail(conta); setSenha(senhaDemo); setErro('') }}>{conta}</button>)}
+        </section>}
+        {erroSessao && <p role="alert">{erroSessao}</p>}
+        {location.state?.mensagem && <p role="status">{location.state.mensagem}</p>}
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="email">E-mail</label>
@@ -66,6 +76,7 @@ function Login() {
               type="email"
               placeholder="seu@email.com"
               autoComplete="email"
+              required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
@@ -80,6 +91,7 @@ function Login() {
               type="password"
               placeholder="Digite sua senha"
               autoComplete="current-password"
+              required
               value={senha}
               onChange={(event) => setSenha(event.target.value)}
             />
@@ -92,11 +104,10 @@ function Login() {
           )}
 
           <div className="login-options">
-            <button type="button">
-              Criar conta
-            </button>
+            <Link to="/cadastro">Criar conta</Link>
+            <Link to="/convites/aceitar">Tenho um convite</Link>
 
-            <button type="button">
+            <button type="button" disabled title="Recuperação de senha ainda não disponível.">
               Esqueci minha senha
             </button>
           </div>

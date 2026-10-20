@@ -1,3 +1,4 @@
+const { sqlCapacidade } = require('../utils/permissoes');
 const pool = require("../config/database");
 
 async function criar(local) {
@@ -114,6 +115,66 @@ async function listarParaExportacao() {
   return result.rows;
 }
 
+// Consulta específica da exportação autenticada. Depende de campanha.id_ambiente
+// previsto na migração 020; a compatibilidade real exige homologação.
+async function listarParaExportacaoPorAmbiente(idAmbiente, usuarioAutenticado) {
+  if (
+    typeof idAmbiente !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idAmbiente)
+  ) {
+    const erro = new Error("Identificação do ambiente inválida.");
+    erro.statusCode = 400;
+    throw erro;
+  }
+
+  if (!usuarioAutenticado || typeof usuarioAutenticado !== "object" ||
+    Array.isArray(usuarioAutenticado) || usuarioAutenticado.id_ambiente !== idAmbiente ||
+    !Number.isSafeInteger(usuarioAutenticado.id_usuario) || usuarioAutenticado.id_usuario <= 0) {
+    const erro = new Error("Usuário não autenticado.");
+    erro.statusCode = 401;
+    throw erro;
+  }
+
+  const query = `
+    SELECT
+      c.nome_campanha,
+      l.id_local,
+      l.nome_local,
+      l.setor,
+      l.endereco,
+      l.latitude AS latitude_local,
+      l.longitude AS longitude_local,
+      l.status,
+      e.id_evidencia,
+      e.tipo AS tipo_evidencia,
+      e.descricao AS descricao_evidencia,
+      e.latitude AS latitude_foto,
+      e.longitude AS longitude_foto,
+      e.origem_coordenadas,
+      e.precisao_gps
+    FROM local l
+    INNER JOIN campanha c
+      ON c.id_campanha = l.id_campanha
+    LEFT JOIN evidencia e
+      ON e.id_local = l.id_local
+    WHERE c.id_ambiente = $1
+      AND EXISTS (
+        SELECT 1 FROM usuario AS u
+        INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente
+        WHERE u.id_usuario = $2 AND u.id_ambiente = c.id_ambiente
+          AND u.ativo = TRUE AND a.ativo = TRUE
+          AND ${sqlCapacidade('u', 'locais.exportar')}
+      )
+    ORDER BY
+      c.nome_campanha ASC,
+      l.nome_local ASC,
+      e.id_evidencia ASC
+  `;
+
+  const result = await pool.query(query, [idAmbiente, usuarioAutenticado.id_usuario]);
+  return result.rows;
+}
+
 async function buscarPorId(idLocal) {
   const query = `
     SELECT
@@ -224,6 +285,7 @@ module.exports = {
   criar,
   listarTodos,
   listarParaExportacao,
+  listarParaExportacaoPorAmbiente,
   buscarPorId,
   atualizar,
   atualizarStatus,
