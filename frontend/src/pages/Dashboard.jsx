@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Sidebar from '../components/layout/Sidebar'
 import Header from '../components/layout/Header'
 import { listarCampanhas, listarLocais } from '../services/api'
+import { indicadoresCampanhas } from '../services/dashboardIndicadores'
 import '../styles/Dashboard.css'
 
 const MESES = [
@@ -121,6 +122,7 @@ function Dashboard() {
     totalCampanhas: 0,
     campanhasEmAndamento: 0,
     campanhasConcluidas: 0,
+    campanhasCanceladas: 0,
     totalLocais: 0,
     locaisAtivos: 0,
     locaisInativos: 0,
@@ -144,13 +146,7 @@ function Dashboard() {
           listarLocais(),
         ])
 
-        const campanhasEmAndamento = campanhas.data.filter(
-          (campanha) => campanha.status === 'EM ANDAMENTO'
-        ).length
-
-        const campanhasConcluidas = campanhas.data.filter(
-          (campanha) => campanha.status === 'CONCLUIDO'
-        ).length
+        const contagemCampanhas = indicadoresCampanhas(campanhas.data)
 
         const locaisAtivos = locais.data.filter(
           (local) => local.status === 'ATIVO'
@@ -161,9 +157,8 @@ function Dashboard() {
         ).length
 
         setIndicadores({
-          totalCampanhas: campanhas.total,
-          campanhasEmAndamento,
-          campanhasConcluidas,
+          ...contagemCampanhas,
+          totalCampanhas: campanhas.total ?? contagemCampanhas.totalCampanhas,
           totalLocais: locais.total,
           locaisAtivos,
           locaisInativos,
@@ -260,7 +255,7 @@ function Dashboard() {
                     Campanhas cadastradas
                   </span>
 
-                  <div className="dashboard-card-status">
+                  <div className="dashboard-card-status dashboard-card-status-campanhas">
                     <span>
                       Em andamento
                       <strong>
@@ -272,6 +267,12 @@ function Dashboard() {
                       Concluídas
                       <strong>
                         {indicadores.campanhasConcluidas}
+                      </strong>
+                    </span>
+                    <span>
+                      Canceladas
+                      <strong>
+                        {indicadores.campanhasCanceladas}
                       </strong>
                     </span>
                   </div>

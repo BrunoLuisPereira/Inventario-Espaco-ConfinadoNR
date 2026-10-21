@@ -3,6 +3,72 @@
    LAYOUT
 ======================================== */
 
+.locais-admin .locais-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 24px; }
+.locais-admin .locais-contexto { margin: 0; color: var(--color-text-secondary); }
+.locais-admin .locais-back { margin-bottom: 10px; }
+.locais-admin .locais-card { border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface); overflow: hidden; }
+.locais-admin .locais-card-heading { display: flex; align-items: center; justify-content: space-between; padding: 22px 24px 0; gap: 12px; }
+.locais-admin .locais-card-heading h2 { margin: 0; font-size: 1.1rem; color: var(--color-text-heading); }
+.locais-admin .locais-card-heading > span { color: var(--color-text-secondary); font-size: .85rem; white-space: nowrap; }
+.locais-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 14px; padding: 22px 24px 14px; }
+.locais-filtro { display: flex; flex-direction: column; gap: 7px; flex: 1 1 150px; min-width: 0; }
+.locais-filtro label { color: var(--color-text-secondary); font-size: .8rem; font-weight: 600; }
+.locais-filtro input, .locais-filtro select, .locais-paginacao select, .locais-campanha-cadastro select { border: 1px solid var(--color-border); border-radius: 8px; padding: 10px 12px; min-height: 42px; width: 100%; background: var(--color-surface); color: var(--color-text); font: inherit; font-size: .875rem; }
+.locais-pesquisa { flex: 2 1 220px; }
+.locais-admin .locais-exportar { min-height: 42px; font-size: .875rem; }
+.locais-admin .locais-nota { margin: 0; padding: 0 24px 20px; color: var(--color-text-secondary); font-size: .78rem; line-height: 1.5; }
+.locais-admin .locais-table-container { border: 0; border-radius: 0; }
+.locais-admin .locais-table th { padding: 14px 18px; font-weight: 600; white-space: nowrap; }
+.locais-admin .locais-table td { padding: 18px; vertical-align: middle; font-size: .875rem; }
+.locais-admin .locais-table tbody tr:hover { background: var(--color-surface-secondary); }
+.locais-admin .locais-table td strong { display: block; color: var(--color-text-heading); font-weight: 650; }
+.locais-admin .locais-endereco { display: block; margin-top: 5px; color: var(--color-text-secondary); font-size: .76rem; }
+.locais-sort { display: flex; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.locais-sort span { color: var(--color-text-secondary); }
+.locais-inventario { color: var(--color-text-secondary); font-size: .8rem; white-space: nowrap; }
+.locais-admin .locais-status { border: 0; font: inherit; font-size: .78rem; font-weight: 600; padding: 6px 10px; }
+.locais-admin .locais-col-acoes { text-align: right; }
+.locais-admin .local-actions { justify-content: flex-end; flex-wrap: wrap; }
+.locais-admin .local-button-open { text-decoration: none; white-space: nowrap; color: var(--color-text-heading); }
+.locais-admin .local-button-edit { color: var(--color-text-secondary); }
+.locais-admin .locais-empty { margin: 0 24px 24px; padding: 40px 20px; border-style: dashed; }
+.locais-admin .locais-message, .locais-admin .locais-error { margin: 12px 24px 24px; }
+.locais-paginacao { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; justify-content: space-between; padding: 18px 24px; border-top: 1px solid var(--color-border); font-size: .8rem; color: var(--color-text-secondary); }
+.locais-paginacao p { margin: 0; }
+.locais-paginacao label, .locais-paginacao nav { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.locais-paginacao select { width: auto; padding: 6px 10px; min-height: 36px; }
+.locais-paginacao .local-button-secondary { padding: 8px 12px; font-size: .8rem; }
+.locais-feedback { padding: 12px 16px; border-left: 3px solid var(--color-primary); color: var(--color-text); background: var(--color-surface); border-radius: 6px; }
+.locais-campanha-cadastro { max-width: 480px; margin-bottom: 24px; }
+.locais-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.locais-admin :is(input, select, button, a):focus-visible { outline: 3px solid var(--color-primary); outline-offset: 3px; }
+.locais-ordem-mobile { display: none; }
+
+@media (max-width: 1100px) {
+  .locais-admin .locais-table td, .locais-admin .locais-table th { padding: 12px; }
+  .locais-admin .local-actions { gap: 6px; }
+}
+@media (max-width: 780px) {
+  .locais-admin .locais-heading { align-items: flex-start; flex-wrap: wrap; }
+  .locais-admin .locais-card-heading { padding: 18px 16px 0; }
+  .locais-toolbar { padding: 18px 16px 12px; gap: 12px; }
+  .locais-admin .locais-nota { padding: 0 16px 16px; }
+  .locais-admin .locais-table-container { overflow: visible; }
+  .locais-admin .locais-table, .locais-admin .locais-table tbody, .locais-admin .locais-table tr { display: block; width: 100%; }
+  .locais-admin .locais-table thead { display: none; }
+  .locais-admin .locais-table tr { padding: 16px; border-top: 1px solid var(--color-border); box-sizing: border-box; }
+  .locais-admin .locais-table td { display: grid; grid-template-columns: 90px minmax(0, 1fr); align-items: center; gap: 12px; padding: 8px 0; border: 0; overflow-wrap: anywhere; }
+  .locais-admin .locais-table td::before { content: attr(data-label); color: var(--color-text-secondary); font-size: .78rem; }
+  .locais-admin .locais-table td:first-child { display: block; padding-top: 0; font-size: 1rem; }
+  .locais-admin .locais-table td:first-child::before { content: none; }
+  .locais-admin .local-actions { justify-content: flex-start; }
+  .locais-admin .locais-status { justify-self: start; max-width: 100%; }
+  .locais-admin .locais-empty { margin: 0 16px 16px; }
+  .locais-paginacao { padding: 16px; gap: 14px; }
+  .locais-paginacao nav { justify-content: space-between; width: 100%; gap: 6px; }
+  .locais-ordem-mobile { display: flex; }
+}
+
 .locais-layout {
   display: flex;
   min-height: 100vh;
