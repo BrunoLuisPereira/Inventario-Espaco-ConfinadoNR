@@ -1,4 +1,5 @@
 import { criarHttp } from './http.js'
+import { receberAuditoriaCompleta } from './auditoriaExportacao.js'
 import { modoDemo, sessaoAtual, eventoSessaoExpirada } from './sessao.js'
 import { criarDemo } from './demoApi.js'
 let demo
@@ -34,6 +35,19 @@ export function emitirConvite({ email, perfilAcesso }) {
 export const listarUsuarios = () => request('/usuarios')
 export const alterarPermissoesUsuario = (id, perfil_acesso) => request(`/usuarios/${encodeURIComponent(id)}/permissoes`, { method: 'PATCH', body: JSON.stringify({ perfil_acesso }) })
 export const listarAuditoriaPerfis = () => request('/usuarios/auditoria/perfis')
+export async function exportarAuditoriaCompleta({ signal } = {}) {
+  if (modoDemo) throw Error('Exportação completa indisponível na demonstração.')
+  const token = sessaoAtual().ler().token
+  try {
+    return await receberAuditoriaCompleta({ obterToken: () => sessaoAtual().ler().token, fetchImpl: (...args) => fetch(...args), signal })
+  } catch (e) {
+    if (e.status === 401 && sessaoAtual().ler().token === token) {
+      sessaoAtual().limpar(); window.dispatchEvent(new Event(eventoSessaoExpirada))
+    }
+    if (e.status === 403) window.dispatchEvent(new Event('nr33-permissoes-revalidar'))
+    throw e
+  }
+}
 export const listarRelatorios = () => request('/relatorios')
 
 export async function login(email, senha) {

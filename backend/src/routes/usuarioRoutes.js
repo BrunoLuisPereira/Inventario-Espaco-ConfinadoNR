@@ -13,6 +13,8 @@ const {
 const router = express.Router();
 const { autorizarCapacidade } = require('../utils/permissoes');
 const permissoesController = require('../controllers/usuarioPermissoesController');
+const auditoriaExportacaoController = require('../controllers/auditoriaExportacaoController');
+router.get('/auditoria/perfis/exportar', autenticarMultiTenant, autorizarCapacidade('usuarios.auditoria.consultar'), auditoriaExportacaoController.historicoCompleto);
 router.get('/auditoria/entidades', autenticarMultiTenant, autorizarCapacidade('auditoria.consultar'), permissoesController.historico);
 router.get('/auditoria/perfis', autenticarMultiTenant, autorizarCapacidade('usuarios.auditoria.consultar'), permissoesController.auditoria);
 router.patch('/:id/permissoes', autenticarMultiTenant, autorizarCapacidade('usuarios.permissoes.alterar'), permissoesController.alterar);

@@ -350,7 +350,7 @@ function preparar(t) {
     Module._load = function (request, parent, ...resto) {
       // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
       if (request === '../utils/permissoes') return politicaRbac723;
-      if (request === '../controllers/usuarioPermissoesController') return new Proxy({}, { get(_t,k) { return () => { estado.inesperadas.push('permissoes.'+String(k)); throw new Error('Operacao fora do escopo deste teste'); }; } });
+      if (['../controllers/usuarioPermissoesController', '../controllers/auditoriaExportacaoController'].includes(request)) return new Proxy({}, { get(_t,k) { return () => { estado.inesperadas.push('permissoes.'+String(k)); throw new Error('Operacao fora do escopo deste teste'); }; } });
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cache.has(parent?.filename)) {

@@ -44,8 +44,8 @@ test('datas e horários seguem o fuso local da apresentação existente', () => 
   assert.ok(csv.includes('"' + data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) + '"'))
   for (const data_hora of [null, undefined, '', 'inválida']) assert.throws(() => gerarCsvAuditoria([{ ...registro, data_hora }], usuarios))
 })
-test('nome do arquivo comunica o limite e usa data local sem sobrescrever arquivos pelo código', () => {
-  assert.equal(nomeArquivoAuditoria(new Date(2026, 9, 20, 23, 10)), 'auditoria_permissoes_ultimas_200_2026-10-20.csv')
+test('nome do arquivo completo usa data local sem sobrescrever arquivos pelo código', () => {
+  assert.equal(nomeArquivoAuditoria(new Date(2026, 9, 20, 23, 10)), 'auditoria_permissoes_2026-10-20.csv')
 })
 test('200 registros são aceitos; respostas acima do contrato falham sem truncar silenciosamente', () => {
   assert.equal(gerarCsvAuditoria(Array(200).fill(registro), usuarios).split('\r\n').length, 202)

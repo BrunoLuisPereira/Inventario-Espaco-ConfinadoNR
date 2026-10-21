@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { listarAuditoriaPerfis } from '../services/api'
+import { listarAuditoriaPerfis, exportarAuditoriaCompleta } from '../services/api'
 import { nomesPerfis } from '../services/permissoes'
 import { useCapacidade } from '../hooks/useCapacidade'
 import { sessaoAtual } from '../services/sessao'
-import { gerarCsvAuditoria, nomeArquivoAuditoria } from '../services/auditoriaCsv'
+import { nomeArquivoAuditoria } from '../services/auditoriaCsv'
 import '../styles/AuditoriaPermissoes.css'
 
 function IconeAuditoria({ relogio = false }) {
@@ -18,7 +18,8 @@ export default function AuditoriaPermissoes({ usuarios }) {
   const podeExportar = useCapacidade('usuarios.auditoria.consultar')
   const operacao = useRef(false)
   const montado = useRef(false)
-  useEffect(() => { montado.current = true; return () => { montado.current = false } }, [])
+  const transferencia = useRef(null)
+  useEffect(() => { montado.current = true; return () => { montado.current = false; transferencia.current?.abort() } }, [])
   async function consultar() {
     if (operacao.current) return
     operacao.current = true
@@ -35,28 +36,28 @@ export default function AuditoriaPermissoes({ usuarios }) {
     operacao.current = true
     const token = sessaoAtual().ler().token
     setExportacao({ ocupado: true, mensagem: '', erro: '' })
+    transferencia.current = new AbortController()
     let url
     try {
       // Nova requisição: o backend revalida a autorização atual e o ambiente.
       // Não reutiliza o histórico em memória como prova de acesso.
-      const r = await listarAuditoriaPerfis()
+      const { blob, total } = await exportarAuditoriaCompleta({ signal: transferencia.current.signal })
       if (!montado.current || !token || sessaoAtual().ler().token !== token) return
-      if (!Array.isArray(r.data) || r.data.length > 200) throw Error('Resposta de auditoria inválida para exportação.')
-      if (!r.data.length) {
+      if (total === '0') {
         setExportacao({ ocupado: false, erro: '', mensagem: 'Nenhum registro disponível para exportação.' })
         return
       }
-      const csv = gerarCsvAuditoria(r.data, usuarios)
-      url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+      url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url; link.download = nomeArquivoAuditoria()
       document.body.appendChild(link); link.click(); link.remove()
-      setExportacao({ ocupado: false, erro: '', mensagem: `${r.data.length} registro(s) exportado(s). O CSV contém somente as últimas 200 alterações disponíveis na consulta.` })
+      setExportacao({ ocupado: false, erro: '', mensagem: `${total} registro(s) exportado(s). Histórico completo da consulta inicial.` })
     } catch (e) {
       if (montado.current) setExportacao({ ocupado: false, mensagem: '', erro: e.message })
     } finally {
       if (url) URL.revokeObjectURL(url)
       operacao.current = false
+      transferencia.current = null
       if (montado.current) setExportacao(s => ({ ...s, ocupado: false }))
     }
   }
@@ -71,7 +72,7 @@ export default function AuditoriaPermissoes({ usuarios }) {
         {exportacao.ocupado ? 'Exportando...' : 'Exportar histórico'}
       </button>}
     </div>
-    <p className="auditoria-exportacao-nota">CSV das últimas 200 alterações, com nova consulta ao exportar. Pode não conter o histórico completo.</p>
+    <p className="auditoria-exportacao-nota">Exporta todas as alterações armazenadas no início da consulta. Novas alterações ficam para a próxima exportação.</p>
     {exportacao.mensagem && <p role="status">{exportacao.mensagem}</p>}
     {exportacao.erro && <p role="alert">{exportacao.erro}</p>}
     {estado.erro && <p role="alert">{estado.erro}</p>}
