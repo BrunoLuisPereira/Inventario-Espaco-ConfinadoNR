@@ -92,6 +92,16 @@
   font-size: 1rem;
 }
 
+.dashboard-card-status-campanhas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dashboard-card-status-campanhas > span {
+  justify-content: space-between;
+}
+
 .dashboard-message {
   margin-top: 28px;
   color: var(--color-text);

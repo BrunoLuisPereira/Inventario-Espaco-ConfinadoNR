@@ -8,7 +8,7 @@ import Login from './pages/Login'
 import DemoBanner from './components/DemoBanner'
 import Dashboard from './pages/Dashboard'
 import Campanhas from './pages/Campanhas'
-import LocaisCampanha from './pages/LocaisCampanha'
+import Locais from './pages/Locais'
 import InventarioLocal from './pages/InventarioLocal'
 import ChecklistLocal from './pages/ChecklistLocal'
 import DadosTecnicosLocal from './pages/DadosTecnicosLocal'
@@ -40,7 +40,7 @@ function App() {
       <Route path="/convites/aceitar" element={<Cadastro convite />} />
       <Route path="/usuarios" element={<ProtectedRoute administrador><Usuarios /></ProtectedRoute>} />
       <Route path="/convites" element={<ProtectedRoute administrador><Convites /></ProtectedRoute>} />
-      <Route path="/locais" element={<ProtectedRoute><Listagem key="locais" tipo="locais" /></ProtectedRoute>} />
+      <Route path="/locais" element={<ProtectedRoute><Locais key="geral" /></ProtectedRoute>} />
       <Route path="/relatorios" element={<ProtectedRoute><Listagem key="relatorios" tipo="relatorios" /></ProtectedRoute>} />
       {/* Login */}
       <Route
@@ -82,7 +82,7 @@ function App() {
         path="/campanhas/:idCampanha/locais"
         element={
           <ProtectedRoute>
-            <LocaisCampanha />
+            <Locais key="campanha" />
           </ProtectedRoute>
         }
       />
