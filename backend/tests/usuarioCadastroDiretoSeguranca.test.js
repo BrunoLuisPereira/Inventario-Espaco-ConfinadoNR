@@ -123,7 +123,7 @@ function preparar(t) {
     Module._load = function (request, parent, ...resto) {
       // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
       if (request === '../utils/permissoes') return politicaRbac723;
-      if (request === '../controllers/usuarioPermissoesController') return new Proxy({}, { get(_t,k) { return () => { estado.inesperadas.push('permissoes.'+String(k)); throw new Error('Operacao fora do escopo deste teste'); }; } });
+      if (['../controllers/usuarioPermissoesController', '../controllers/auditoriaExportacaoController'].includes(request)) return new Proxy({}, { get(_t,k) { return () => { estado.inesperadas.push('permissoes.'+String(k)); throw new Error('Operacao fora do escopo deste teste'); }; } });
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cache.has(parent?.filename)) {
@@ -349,12 +349,13 @@ for (const endpoint of ENDPOINTS) {
   }
 }
 
-test("Router de usuários mantém somente os cinco endpoints sem incorporar cadastro ou aceite", (t) => {
+test("Router de usuários preserva administração e auditoria sem incorporar cadastro ou aceite", (t) => {
   const ctx = preparar(t);
   const rotas = ctx.router.stack.filter((camada) => camada.route).map(({ route }) => ({
     caminho: route.path, metodos: Object.keys(route.methods).filter((m) => route.methods[m]),
   }));
   assert.deepEqual(rotas, [
+    { caminho: "/auditoria/perfis/exportar", metodos: ["get"] },
     { caminho: "/auditoria/entidades", metodos: ["get"] }, { caminho: "/auditoria/perfis", metodos: ["get"] }, { caminho: "/:id/permissoes", metodos: ["patch"] },
     { caminho: "/", metodos: ["get"] }, { caminho: "/:id", metodos: ["get"] },
     { caminho: "/:id", metodos: ["put"] }, { caminho: "/:id/status", metodos: ["patch"] },

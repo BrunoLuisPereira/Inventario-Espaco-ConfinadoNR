@@ -10,7 +10,7 @@ let iniciou = false, erro, navegador
 vite.stdout.on('data', c => { if (c.toString().includes('127.0.0.1:5183')) iniciou = true })
 vite.stderr.on('data', c => { if (c.toString().includes('already in use')) erro = Error('Porta de teste indisponível') })
 vite.on('error', e => { erro = e })
-const cenarios = ['um-A', 'multiplos-B', 'vazio', 'erro', 'revogado', 'semPermissao', 'limite200', 'acimaLimite', 'novaConsulta', 'duplicada', 'trocaSessao']
+const cenarios = ['um-A', 'multiplos-B', 'vazio', 'erro', 'revogado', 'semPermissao', 'limite200', 'acimaLimite', 'muitos', 'interrompida', 'novaConsulta', 'duplicada', 'trocaSessao']
 try {
   for (let i = 0; i < 100 && !iniciou && !erro; i++) await pausa(100)
   if (erro) throw erro
@@ -20,7 +20,7 @@ try {
   await enviar('Network.setBlockedURLs', { urls: ['*/api/*', 'https://*'] })
   await enviar('Emulation.setTimezoneOverride', { timezoneId: 'America/Sao_Paulo' })
   for (const cenario of cenarios) {
-    const { identifier } = await enviar('Page.addScriptToEvaluateOnNewDocument', { source: `
+    const { identifier } = await enviar('Page.addScriptToEvaluateOnNewDocument', { source: String.raw`
       const cenario=${JSON.stringify(cenario)},ambiente=cenario==='multiplos-B'?'B':'A';
       const u={id_usuario:1,nome:'Responsável '+ambiente,perfil_acesso:cenario==='semPermissao'?'ENGENHEIRO_SEGURANCA':'ADMINISTRADOR',eh_fundador:cenario!=='semPermissao'};
       const alvo={id_usuario:2,nome:'Pessoa '+ambiente,perfil_acesso:'SUPERVISOR',ativo:true};
@@ -35,15 +35,21 @@ try {
         if(p.pathname==='/api/auth/perfil')return ok(u);
         if(p.pathname==='/api/usuarios')return ok([u,alvo]);
         if(p.pathname==='/api/campanhas'||p.pathname==='/api/locais')return ok([]);
-        if(p.pathname==='/api/usuarios/auditoria/perfis'){
+        if(p.pathname==='/api/usuarios/auditoria/perfis'||p.pathname==='/api/usuarios/auditoria/perfis/exportar'){
+          const completo=p.pathname.endsWith('/exportar');
           window.auditoriaChamadas.push([m,p.search]);
           if(cenario==='erro')return Response.json({message:'SQL_CREDENCIAL_NAO_PUBLICAR'},{status:500});
           if(cenario==='revogado')return Response.json({message:'Acesso não autorizado.'},{status:403});
-          if(cenario==='vazio')return ok([]);
-          const n=cenario==='limite200'?200:cenario==='acimaLimite'?201:cenario==='multiplos-B'||cenario==='novaConsulta'&&window.auditoriaChamadas.length>1?2:1;
-          const dados=Array.from({length:n},(_,i)=>({...h,id_auditoria:i+1}));
-          if(cenario==='duplicada'||cenario==='trocaSessao')return new Promise(resolve=>window.liberarCsv=()=>resolve(ok(dados)));
-          return ok(dados);
+          const n=cenario==='vazio'?0:cenario==='limite200'?200:cenario==='acimaLimite'?201:cenario==='muitos'?5007:cenario==='multiplos-B'||cenario==='novaConsulta'&&window.auditoriaChamadas.length>1?2:1;
+          const dados=Array.from({length:n},(_,i)=>({...h,id_auditoria:i+1,nome_usuario:alvo.nome,nome_responsavel:u.nome}));
+          const responder=()=>{
+            if(!completo)return ok(dados.slice(0,200));
+            const frames=[];for(let i=0;i<dados.length;i+=500)frames.push(JSON.stringify({tipo:'lote',registros:dados.slice(i,i+500)}));
+            if(cenario!=='interrompida')frames.push(JSON.stringify({tipo:'fim',total:String(n)}));
+            return new Response(frames.join('\n')+'\n',{headers:{'Content-Type':'application/x-ndjson'}});
+          };
+          if(cenario==='duplicada'||cenario==='trocaSessao')return new Promise(resolve=>window.liberarCsv=()=>resolve(responder()));
+          return responder();
         }
         window.inesperadas.push([m,p.pathname]);throw Error('API proibida');
       };
@@ -56,7 +62,7 @@ try {
     } else {
       await esperar('!!document.querySelector(".auditoria-exportar")')
       assert.deepEqual(await avaliar('window.auditoriaChamadas'), [])
-      assert.ok(await avaliar('document.querySelector(".auditoria-exportacao-nota").textContent.includes("não conter o histórico completo")'))
+      assert.ok(await avaliar('document.querySelector(".auditoria-exportacao-nota").textContent.includes("todas as alterações armazenadas")'))
       if (['novaConsulta', 'limite200'].includes(cenario)) {
         await avaliar('document.querySelector(".auditoria-acoes button").click()')
         await esperar(`document.querySelectorAll('.auditoria-registro').length===${cenario === 'limite200' ? 10 : 1}`)
@@ -70,7 +76,7 @@ try {
         if (cenario === 'trocaSessao') await avaliar('localStorage.setItem("token","OUTRA_SESSAO")')
         await avaliar('window.liberarCsv()')
       }
-      if (['erro', 'revogado', 'acimaLimite'].includes(cenario)) {
+      if (['erro', 'revogado', 'interrompida'].includes(cenario)) {
         await esperar('!!document.querySelector(".usuarios-auditoria [role=alert]")')
         assert.deepEqual(await avaliar('window.downloads'), [])
         assert.equal(await avaliar('document.body.textContent.includes("SQL_CREDENCIAL_NAO_PUBLICAR")'), false)
@@ -86,10 +92,10 @@ try {
         const ambiente = cenario === 'multiplos-B' ? 'B' : 'A'
         assert.ok(csv.includes('Pessoa ' + ambiente)); assert.equal(csv.includes('Pessoa ' + (ambiente === 'A' ? 'B' : 'A')), false)
         assert.ok(csv.includes('"20/10/2026";"20:57:53"'))
-        const n = cenario === 'limite200' ? 200 : ['multiplos-B', 'novaConsulta'].includes(cenario) ? 2 : 1
+        const n = cenario === 'limite200' ? 200 : cenario === 'acimaLimite' ? 201 : cenario === 'muitos' ? 5007 : ['multiplos-B', 'novaConsulta'].includes(cenario) ? 2 : 1
         assert.equal(csv.split('\r\n').length, n + 2)
         if (cenario === 'limite200') assert.equal(await avaliar('document.querySelectorAll(".auditoria-registro").length'), 10, 'Consulta visual de 10 não limita o CSV de 200')
-        assert.match(await avaliar('window.downloads[0]'), /^auditoria_permissoes_ultimas_200_\d{4}-\d{2}-\d{2}\.csv$/)
+        assert.match(await avaliar('window.downloads[0]'), /^auditoria_permissoes_\d{4}-\d{2}-\d{2}\.csv$/)
         assert.deepEqual(await avaliar('window.urlsRevogadas'), ['blob:teste-csv'])
       }
       assert.equal(await avaliar('window.auditoriaChamadas.length'), ['novaConsulta', 'limite200'].includes(cenario) ? 2 : 1)
