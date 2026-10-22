@@ -24,10 +24,10 @@ function verificarConfiguracaoJwt() {
  * @param {object} dados
  * @returns {Promise<object>}
  */
-async function login(dados) {
+async function login(dados, ip) {
   // O endpoint existente conserva seu envelope e seus campos públicos.
   // A autenticação efetiva passa pela mesma cadeia multi-tenant.
-  const resultado = await loginMultiTenant(dados);
+  const resultado = await loginMultiTenant(dados, ip);
   const { id_ambiente, ...usuario } = resultado.usuario;
   return { ...resultado, usuario };
 }
@@ -136,7 +136,7 @@ async function alterarSenha(
  * Depende da migração 020.
  * Não utilizar nas rotas antes da homologação.
  */
-async function loginMultiTenant(dados = {}) {
+async function loginMultiTenant(dados = {}, ip) {
   const { email, senha } = dados && typeof dados === "object" && !Array.isArray(dados) ? dados : {};
 
   if (
@@ -156,36 +156,39 @@ async function loginMultiTenant(dados = {}) {
   verificarConfiguracaoJwt();
 
   const emailNormalizado = email.trim().toLowerCase();
+  if (emailNormalizado.length > 180 || senha.length > 1024) {
+    throw criarErro('E-mail ou senha inválidos.', 401);
+  }
+
+  const protecao = require('./loginProtecaoService');
+  return protecao.executar(emailNormalizado, ip,
+    client => verificarCredenciais(emailNormalizado, senha, client));
+}
+
+async function verificarCredenciais(emailNormalizado, senha, client) {
 
   const autenticacaoMultiTenantRepository = require(
     "../repositories/autenticacaoMultiTenantRepository"
   );
 
-  let usuario =
-    await autenticacaoMultiTenantRepository
-      .buscarPorEmailComAmbiente(emailNormalizado);
-
-  if (!usuario) {
-    throw criarErro("E-mail ou senha inválidos.", 401);
-  }
+  const consultar = () => client
+    ? autenticacaoMultiTenantRepository.buscarPorEmailComAmbiente(emailNormalizado, client)
+    : autenticacaoMultiTenantRepository.buscarPorEmailComAmbiente(emailNormalizado);
+  let usuario = await consultar();
 
   const senhaCorreta = await bcrypt.compare(
     senha,
-    usuario.senha_hash
+    usuario?.senha_hash || ('$2b$12$' + '.'.repeat(53))
   );
-
-  if (!senhaCorreta) {
-    throw criarErro("E-mail ou senha inválidos.", 401);
-  }
 
   // bcrypt é assíncrono. Reconsulta o estado após a conferência, sem emitir
   // claims provenientes de um snapshot anterior à revogação/desativação.
   const anterior = usuario;
-  usuario = await autenticacaoMultiTenantRepository.buscarPorEmailComAmbiente(emailNormalizado);
-  if (!usuario) throw criarErro("E-mail ou senha inválidos.", 401);
+  usuario = await consultar();
+  if (!anterior || !usuario || !senhaCorreta) throw criarErro("E-mail ou senha inválidos.", 401);
 
   if (usuario.ativo !== true) {
-    throw criarErro("Usuário desativado. Entre em contato com o administrador.", 403);
+    throw criarErro("E-mail ou senha inválidos.", 401);
   }
 
   if (
@@ -195,8 +198,8 @@ async function loginMultiTenant(dados = {}) {
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(usuario.id_ambiente)
   ) {
     throw criarErro(
-      "Usuário ou ambiente desativado.",
-      403
+      "E-mail ou senha inválidos.",
+      401
     );
   }
 
@@ -206,8 +209,8 @@ async function loginMultiTenant(dados = {}) {
     !perfisPermitidos.includes(usuario.perfil_acesso)
   ) {
     throw criarErro(
-      "Perfil de acesso inválido.",
-      403
+      "E-mail ou senha inválidos.",
+      401
     );
   }
 

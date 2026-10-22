@@ -6,14 +6,15 @@ const pool = new Pool({
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
+    connectionTimeoutMillis: 5000,
 });
 
 pool.on("connect", () => {
     console.log("✅ Conectado ao PostgreSQL");
 });
 
-pool.on("error", (err) => {
-    console.error("Erro na conexão com PostgreSQL:", err);
+pool.on("error", () => {
+    console.error("Erro na conexão com PostgreSQL.");
 });
 
 module.exports = pool;

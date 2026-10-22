@@ -5,7 +5,9 @@ const authService = require("../services/authService");
  */
 async function login(req, res) {
   try {
-    const resultado = await authService.login(req.body);
+    // Sem infraestrutura de proxy definida: usa somente o par TCP.
+    // X-Forwarded-For e req.ip não são autoridades nesta etapa.
+    const resultado = await authService.login(req.body, req.socket?.remoteAddress);
 
     if (res.headersSent) return res;
 

@@ -108,7 +108,8 @@ function verificarDelegacao(contexto, req, usuarioOriginal) {
   assert.deepEqual(contexto.imports, ["../services/authService"]);
   assert.equal(contexto.service.login.mock.callCount(), 1);
   const args = contexto.service.login.mock.calls[0].arguments;
-  assert.equal(args.length, 1);
+  assert.equal(args.length, 2);
+  assert.equal(args[1], req.socket?.remoteAddress);
   assert.strictEqual(args[0], req.body);
   assert.strictEqual(req.usuario, usuarioOriginal);
   assert.strictEqual(req.body, DADOS);
@@ -217,7 +218,7 @@ test("[contrato atual] outros inteiros 4xx válidos preservam o contrato de mens
     verificarResposta(res, retorno, statusCode, { status: "error", message: erro.message });
     assert.equal(contexto.service.login.mock.callCount(), inicio + 1);
     const args = contexto.service.login.mock.calls[inicio].arguments;
-    assert.equal(args.length, 1);
+    assert.equal(args.length, 2);
     assert.strictEqual(args[0], DADOS);
   }
 });

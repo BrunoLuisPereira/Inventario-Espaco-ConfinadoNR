@@ -8,7 +8,8 @@ param(
   [string]$Psql = 'C:\Program Files\PostgreSQL\17\bin\psql.exe',
   [string]$Administrador = 'postgres',
   [Security.SecureString]$SenhaAdministrador,
-  [Security.SecureString]$SenhaAplicacao
+  [Security.SecureString]$SenhaAplicacao,
+  [Security.SecureString]$SegredoHmac
 )
 $ErrorActionPreference = 'Stop'
 if ($Banco -cne 'inventario_nr33_multitenant_dev') { throw 'Banco local nao autorizado.' }
@@ -26,12 +27,14 @@ function Converter-SegredoLocal([Security.SecureString]$Senha) {
   try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ponteiroLocal) }
   finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ponteiroLocal) }
 }
-$nomesLocal = @('PGPASSWORD','NR33_SENHA_INSTALACAO','DB_HOST','DB_PORT','DB_NAME','DB_USER','DB_PASSWORD','JWT_SECRET','JWT_ISSUER','JWT_AUDIENCE','JWT_EXPIRES_IN','NR33_LOCAL_AUTORIZADO')
-$anterioresLocal = @{}
-foreach ($nomeLocal in $nomesLocal) { $anterioresLocal[$nomeLocal] = [Environment]::GetEnvironmentVariable($nomeLocal,'Process') }
+. (Join-Path $PSScriptRoot 'ambiente-local.ps1')
+$nomesLocal = @('PGPASSWORD','NR33_SENHA_INSTALACAO','DB_HOST','DB_PORT','DB_NAME','DB_USER','DB_PASSWORD','JWT_SECRET','JWT_ISSUER','JWT_AUDIENCE','JWT_EXPIRES_IN','NR33_LOCAL_AUTORIZADO','LOGIN_HMAC_SECRET')
+$anterioresLocal = Salvar-AmbienteLocal $nomesLocal
 $encodingLocalAnterior = $OutputEncoding
 $sqlLocal = $null
 $saidaLocal = $null
+$hmacRecuperadoLocal = $null
+$jwtRecuperadoLocal = $null
 try {
   $OutputEncoding = New-Object System.Text.UTF8Encoding($false)
   $senhaAppLocal = Converter-SegredoLocal $SenhaAplicacao
@@ -49,16 +52,30 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Instalacao falhou; saida tecnica omitida para proteger credenciais. Nao repetir nem limpar automaticamente.' }
     Write-Output 'Instalacao concluida no banco novo. Validacao real de tabelas, permissoes e isolamento ainda necessaria.'
   } else {
+    if ($null -eq $SegredoHmac -and -not (Test-Path -LiteralPath Env:LOGIN_HMAC_SECRET)) {
+      . (Join-Path $PSScriptRoot 'hmac-protegido-local.ps1')
+      $hmacRecuperadoLocal=Ler-HmacProtegidoLocal $Banco
+      $env:LOGIN_HMAC_SECRET=Converter-SegredoLocal $hmacRecuperadoLocal
+    }
+    if ($null -ne $SegredoHmac) { $env:LOGIN_HMAC_SECRET = Converter-SegredoLocal $SegredoHmac }
+    if (-not (Testar-HmacLocal $env:LOGIN_HMAC_SECRET)) { throw 'Inicio local recusado [HMAC_INVALIDO]. Forneca LOGIN_HMAC_SECRET por canal privado.' }
+    . (Join-Path $PSScriptRoot 'jwt-protegido-local.ps1')
+    $jwtRecuperadoLocal=Ler-JwtProtegidoLocal $Banco
+    $env:JWT_SECRET=Converter-SegredoLocal $jwtRecuperadoLocal
+    if (-not (Testar-JwtLocal $env:JWT_SECRET) -or $env:JWT_SECRET -ceq $env:LOGIN_HMAC_SECRET) {
+      throw 'Inicio local recusado [JWT_INVALIDO]. Confira o armazenamento JWT independente.'
+    }
     $env:DB_HOST='127.0.0.1'; $env:DB_PORT='5432'; $env:DB_NAME=$Banco; $env:DB_USER='nr33_dev_app'
     $env:DB_PASSWORD=$senhaAppLocal
-    $env:JWT_SECRET=[Guid]::NewGuid().ToString('N') + [Guid]::NewGuid().ToString('N')
     $env:JWT_ISSUER='nr33-local-dev'; $env:JWT_AUDIENCE='nr33-local-browser'; $env:JWT_EXPIRES_IN='1h'
     $env:NR33_LOCAL_AUTORIZADO='PASSO712'
     & node (Join-Path $PSScriptRoot 'servidor-local.cjs')
     if ($LASTEXITCODE -ne 0) { throw 'Inicio local recusado.' }
   }
 } finally {
+  if ($null -ne $hmacRecuperadoLocal) { $hmacRecuperadoLocal.Dispose() }
+  if ($null -ne $jwtRecuperadoLocal) { $jwtRecuperadoLocal.Dispose() }
   $sqlLocal=$null; $saidaLocal=$null; $senhaAppLocal=$null
-  foreach ($nomeLocal in $nomesLocal) { [Environment]::SetEnvironmentVariable($nomeLocal,$anterioresLocal[$nomeLocal],'Process') }
+  Restaurar-AmbienteLocal $anterioresLocal
   $OutputEncoding=$encodingLocalAnterior
 }

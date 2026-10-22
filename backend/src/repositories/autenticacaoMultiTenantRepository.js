@@ -14,7 +14,7 @@ const pool = require("../config/database");
  * O hash da senha deve permanecer somente
  * no backend e nunca ser enviado ao frontend.
  */
-async function buscarPorEmailComAmbiente(email) {
+async function buscarPorEmailComAmbiente(email, client = pool) {
   if (
     typeof email !== "string" ||
     !email.trim()
@@ -42,7 +42,7 @@ async function buscarPorEmailComAmbiente(email) {
     LIMIT 1
   `;
 
-  const resultado = await pool.query(
+  const resultado = await client.query(
     query,
     [emailNormalizado]
   );

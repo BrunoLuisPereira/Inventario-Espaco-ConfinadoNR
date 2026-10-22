@@ -86,7 +86,7 @@ try {
     resultados.push({ largura: width, links: normal })
   }
   assert.deepEqual(await avaliar('Array.from(document.querySelectorAll(".login-options a")).map(e=>e.getAttribute("href"))'), ['/cadastro', '/convites/aceitar'])
-  assert.equal(await avaliar('document.querySelector(".login-options button").disabled'), true)
+  assert.equal(await avaliar('document.querySelector(".login-options button").disabled'), false)
   console.log(JSON.stringify({ resultado: 'APROVADO', pasta, resultados }))
 } finally {
   if (ws?.readyState === WebSocket.OPEN) { await enviar('Browser.close', {}, null).catch(() => {}); ws.close() }

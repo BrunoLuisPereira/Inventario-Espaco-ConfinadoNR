@@ -1,5 +1,6 @@
 // Preparacao pura: importar este modulo nao conecta nem carrega pg/dotenv.
 const { montarSQL } = require('./montar-sql.cjs');
+const { hmacValido } = require('../src/utils/loginHmac');
 const BANCO = 'inventario_nr33_multitenant_dev';
 const PAPEL = 'nr33_dev_app';
 function destinoLocal(banco) {
@@ -17,6 +18,8 @@ function validarAmbienteLocal(env) {
   if (env.NR33_BACKEND_PORT !== undefined && !['3000', '3001'].includes(env.NR33_BACKEND_PORT)) {
     throw Error('Porta HTTP local nao autorizada.');
   }
+  if (!env.LOGIN_HMAC_SECRET) throw Object.assign(Error('Inicio local recusado [HMAC_AUSENTE]. Configure LOGIN_HMAC_SECRET por canal privado.'),{codigoPreflight:'HMAC_AUSENTE'});
+  if (!hmacValido(env.LOGIN_HMAC_SECRET)) throw Object.assign(Error('Inicio local recusado [HMAC_INVALIDO]. Exige Base64 canonico de 32 bytes.'),{codigoPreflight:'HMAC_INVALIDO'});
   return { ...d, portaHTTP: Number(env.NR33_BACKEND_PORT ?? d.portaHTTP) };
 }
 function sqlInstalacaoLocal(banco, fontes, senha, revisao = false) {
