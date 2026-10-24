@@ -143,6 +143,9 @@ function preparar(t, opcoes = {}) {
     return load.call(this, r, parent, ...args);
   });
   function carregar(nome, deps) {
+    if (nome === 'services/authService') {
+      deps['./loginProtecaoService'] = { executar: async (_email, _ip, verificar) => verificar() };
+    }
     if (['services/authService', 'middlewares/autenticacaoMiddleware', 'services/relatorioMultiTenantService'].includes(nome)) {
       deps['../utils/normalizarIdDominio'] = require('../../src/utils/normalizarIdDominio');
     }

@@ -17,6 +17,10 @@ const ID_AMBIENTE =
   "11111111-1111-4111-8111-111111111111";
 
 function configurarAmbiente(t) {
+  // Testes unitários das credenciais. A proteção persistente é exercitada
+  // separadamente em loginProtecao.test.js, sem PostgreSQL real.
+  t.mock.method(require('../src/services/loginProtecaoService'), 'executar',
+    async (_email, _ip, verificar) => verificar());
   const anterior = process.env.JWT_SECRET;
 
   process.env.JWT_SECRET = SEGREDO_TESTE;
@@ -154,7 +158,7 @@ test(
         email: "admin@exemplo.com",
         senha: "SenhaSegura123",
       }),
-      { statusCode: 403 }
+      { statusCode: 401 }
     );
   }
 );
@@ -175,7 +179,7 @@ test(
         email: "admin@exemplo.com",
         senha: "SenhaSegura123",
       }),
-      { statusCode: 403 }
+      { statusCode: 401 }
     );
   }
 );
@@ -196,7 +200,7 @@ test(
         email: "admin@exemplo.com",
         senha: "SenhaSegura123",
       }),
-      { statusCode: 403 }
+      { statusCode: 401 }
     );
   }
 );
@@ -217,7 +221,7 @@ test(
         email: "admin@exemplo.com",
         senha: "SenhaSegura123",
       }),
-      { statusCode: 403 }
+      { statusCode: 401 }
     );
   }
 );

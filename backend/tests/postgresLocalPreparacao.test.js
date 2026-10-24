@@ -7,7 +7,7 @@ const { arquivos } = require('../laboratorio/montar-sql.cjs');
 const banco = 'inventario_nr33_multitenant_dev';
 const fontes = arquivos.map(a => fs.readFileSync(path.resolve(__dirname,'../database',a),'utf8'));
 const senha = 'x'.repeat(64);
-const env = { DB_HOST:'127.0.0.1',DB_PORT:'5432',DB_NAME:banco,DB_USER:'nr33_dev_app',DB_PASSWORD:senha,JWT_SECRET:'s'.repeat(64),NR33_LOCAL_AUTORIZADO:'PASSO712' };
+const env = { DB_HOST:'127.0.0.1',DB_PORT:'5432',DB_NAME:banco,DB_USER:'nr33_dev_app',DB_PASSWORD:senha,JWT_SECRET:'s'.repeat(64),NR33_LOCAL_AUTORIZADO:'PASSO712',LOGIN_HMAC_SECRET:Buffer.alloc(32,7).toString('base64') };
 for (const invalido of ['inventario_espacos_confinados','inventario_espacos_confinados_homolog','postgres','nr33_lab_20261018_702a9f', banco+'\n',banco+' ',banco.toUpperCase(),null,{},"x'; DROP DATABASE x;"]) {
   test('local recusa destino nao autorizado: '+String(invalido), () => {
     assert.throws(() => destinoLocal(invalido));

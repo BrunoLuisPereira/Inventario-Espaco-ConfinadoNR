@@ -87,6 +87,10 @@ function preparar(t, opcoes = {}) {
   }
   // A dependência carregada dinamicamente pelo serviço permanece simulada.
   t.mock.method(Module, '_load', function (request, parent, ...args) {
+    if (parent?.filename === caminhos[1] && request === './loginProtecaoService') {
+      // Esta suíte verifica credenciais/JWT; limitador real tem suíte própria.
+      return { executar: async (_email, _ip, verificar) => verificar() };
+    }
       // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
       if (request === '../utils/permissoes') return politicaRbac723;
     if (parent?.filename === caminhos[1] && request === '../repositories/autenticacaoMultiTenantRepository') {
@@ -116,7 +120,7 @@ function preparar(t, opcoes = {}) {
 
 test('login montado recusa ambiente inativo', async t => {
   const c = preparar(t, { usuario: { ambiente_ativo: false } }); await c.login();
-  assert.equal(c.res.statusCode, 403); assert.equal(c.res.body.status, 'error');
+  assert.equal(c.res.statusCode, 401); assert.equal(c.res.body.status, 'error');
 });
 test('login não emite privilégios anteriores à revogação durante bcrypt', async t => {
   const c = preparar(t, { duranteCompare: u => { u.perfil_acesso = 'ENGENHEIRO_SEGURANCA'; } });
@@ -126,7 +130,7 @@ test('login não emite privilégios anteriores à revogação durante bcrypt', a
 });
 test('login recusa desativação durante bcrypt', async t => {
   const c = preparar(t, { duranteCompare: u => { u.ativo = false; } }); await c.login();
-  assert.equal(c.res.statusCode, 403); assert.equal(c.res.body.status, 'error');
+  assert.equal(c.res.statusCode, 401); assert.equal(c.res.body.status, 'error');
 });
 
 for (const ambiente of [A, B]) for (const perfil of ['ADMINISTRADOR', 'ENGENHEIRO_SEGURANCA']) {
@@ -157,11 +161,11 @@ for (const tipo of ['senha', 'inexistente']) {
   });
 }
 for (const [usuario, status, message] of [
-  [{ ativo: false }, 403, 'Usuário desativado. Entre em contato com o administrador.'],
-  [{ ambiente_ativo: false }, 403, 'Usuário ou ambiente desativado.'],
-  [{ id_ambiente: null }, 403, 'Usuário ou ambiente desativado.'],
-  [{ id_ambiente: 'nao-uuid' }, 403, 'Usuário ou ambiente desativado.'],
-  [{ perfil_acesso: 'PERFIL_INVALIDO' }, 403, 'Perfil de acesso inválido.'],
+  [{ ativo: false }, 401, 'E-mail ou senha inválidos.'],
+  [{ ambiente_ativo: false }, 401, 'E-mail ou senha inválidos.'],
+  [{ id_ambiente: null }, 401, 'E-mail ou senha inválidos.'],
+  [{ id_ambiente: 'nao-uuid' }, 401, 'E-mail ou senha inválidos.'],
+  [{ perfil_acesso: 'PERFIL_INVALIDO' }, 401, 'E-mail ou senha inválidos.'],
   [{ id_usuario: Number.MAX_SAFE_INTEGER + 1 }, 401, 'E-mail ou senha inválidos.'],
 ]) {
   test('identidade de login inválida: ' + JSON.stringify(usuario), async t => {
@@ -185,7 +189,7 @@ for (const alteracao of ['ambiente', 'hash', 'identidade', 'ambienteOrigem']) {
       if (alteracao === 'ambienteOrigem') u.id_ambiente = B;
     } });
     await c.login();
-    assert.equal(c.res.statusCode, alteracao === 'ambiente' ? 403 : 401);
+    assert.equal(c.res.statusCode, 401);
     assert.equal(c.res.body.status, 'error'); assert.equal(c.res.body.data, undefined);
   });
 }
