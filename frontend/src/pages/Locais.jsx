@@ -4,6 +4,7 @@ import { useCapacidade } from '../hooks/useCapacidade'
 import Sidebar from '../components/layout/Sidebar'
 import Header from '../components/layout/Header'
 import LocalForm from '../components/locais/LocalForm'
+import BotaoPdfLocal from '../components/locais/BotaoPdfLocal'
 import { listarLocais, listarCampanhas, alterarStatusLocal, exportarLocaisExcel } from '../services/api'
 import { prepararLocais, consultarLocais } from '../services/locaisTabela'
 import '../styles/Locais.css'
@@ -14,6 +15,7 @@ export default function Locais() {
   const podeEditar = useCapacidade('locais.editar')
   const podeStatus = useCapacidade('locais.status')
   const podeExportar = useCapacidade('locais.exportar')
+  const podeConsultarRelatorio = useCapacidade('relatorios.consultar')
   const [estado, setEstado] = useState({ carregando: true, locais: [], campanhas: [], erro: '' })
   const [tentativa, setTentativa] = useState(0)
   const [busca, setBusca] = useState('')
@@ -125,12 +127,13 @@ export default function Locais() {
           {pronto && !estado.campanhas.length && podeCriar && <p className="locais-message">Cadastre uma <Link to="/campanhas">campanha</Link> antes de adicionar locais.</p>}
           {pronto && (resultado.total ? <div className="locais-table-container"><table className="locais-table">
             <caption className="locais-sr-only">Espaços confinados autorizados para consulta</caption>
-            <thead><tr>{[['nome_local', 'Local'], ['nome_campanha', 'Campanha'], ['setor', 'Setor']].map(([campo, label]) => <th key={campo} scope="col" aria-sort={ordem.campo === campo ? ordem.direcao === 'asc' ? 'ascending' : 'descending' : 'none'}><button className="locais-sort" onClick={() => ordenar(campo)}>{label} <span aria-hidden="true">{ordem.campo === campo ? ordem.direcao === 'asc' ? '↑' : '↓' : '↕'}</span></button></th>)}<th scope="col">Inventário</th><th scope="col">Situação</th><th scope="col" className="locais-col-acoes">Ações</th></tr></thead>
+            <thead><tr>{[['nome_local', 'Local'], ['nome_campanha', 'Campanha'], ['setor', 'Setor']].map(([campo, label]) => <th key={campo} scope="col" aria-sort={ordem.campo === campo ? ordem.direcao === 'asc' ? 'ascending' : 'descending' : 'none'}><button className="locais-sort" onClick={() => ordenar(campo)}>{label} <span aria-hidden="true">{ordem.campo === campo ? ordem.direcao === 'asc' ? '↑' : '↓' : '↕'}</span></button></th>)}<th scope="col">Inventário</th><th scope="col">Situação</th>{idCampanha && <th scope="col">Relatório</th>}<th scope="col" className="locais-col-acoes">Ações</th></tr></thead>
             <tbody>{resultado.registros.map(local => <tr key={local.id_local}>
               <td data-label="Local"><strong>{local.nome_local}</strong>{local.endereco && <small className="locais-endereco">{local.endereco}</small>}</td>
               <td data-label="Campanha">{local.nome_campanha}</td><td data-label="Setor">{local.setor || '—'}</td>
               <td data-label="Inventário"><span className="locais-inventario">Não informado</span></td>
               <td data-label="Situação">{podeStatus ? <select className={`local-status-select locais-status locais-status-${local.status === 'ATIVO' ? 'ativo' : 'inativo'}`} value={local.status || ''} aria-label={`Situação de ${local.nome_local}`} disabled={!!formulario || ocupado === String(local.id_local)} onChange={e => mudarStatus(local, e.target.value)}><option value="ATIVO">Ativo</option><option value="INATIVO">Inativo</option></select> : <span className={`locais-status locais-status-${local.status === 'ATIVO' ? 'ativo' : 'inativo'}`}>{local.status === 'ATIVO' ? 'Ativo' : local.status === 'INATIVO' ? 'Inativo' : 'Não informado'}</span>}</td>
+              {idCampanha && <td data-label="Relatório"><BotaoPdfLocal key={`${local.id_local}:${tentativa}:${podeConsultarRelatorio}`} local={local} podeConsultar={podeConsultarRelatorio} /></td>}
               <td data-label="Ações"><div className="local-actions"><Link className="local-button-open" to={`/locais/${local.id_local}/inventario`}>Abrir inventário</Link>{podeEditar && <button className="local-button-edit" aria-label={`Editar ${local.nome_local}`} disabled={!!formulario || ocupado === String(local.id_local)} onClick={() => { setFormulario({ local }); setErroAcao(''); setMensagem('') }}>Editar</button>}</div></td>
             </tr>)}</tbody>
           </table></div> : <div className="locais-empty"><h3>{totalContexto ? 'Nenhum resultado encontrado' : 'Nenhum local cadastrado'}</h3><p>{totalContexto ? 'Ajuste a pesquisa ou os filtros para encontrar um local.' : 'Os locais cadastrados aparecerão aqui.'}</p></div>)}

@@ -31,6 +31,11 @@
 .locais-admin .local-actions { justify-content: flex-end; flex-wrap: wrap; }
 .locais-admin .local-button-open { text-decoration: none; white-space: nowrap; color: var(--color-text-heading); }
 .locais-admin .local-button-edit { color: var(--color-text-secondary); }
+.locais-admin .local-button-pdf { display: inline-flex; align-items: center; justify-content: center; min-width: 54px; min-height: 36px; box-sizing: border-box; text-decoration: none; font: inherit; font-size: .8rem; }
+.locais-admin .local-button-pdf:disabled { opacity: .5; cursor: not-allowed; }
+.local-pdf-indisponivel { display: inline-flex; border-radius: 8px; }
+.local-pdf-indisponivel:focus-visible { outline: 2px solid var(--color-text-heading); outline-offset: 3px; }
+.local-pdf-erro { display: block; max-width: 230px; margin-top: 6px; font-size: .76rem; color: var(--color-text); }
 .locais-admin .locais-empty { margin: 0 24px 24px; padding: 40px 20px; border-style: dashed; }
 .locais-admin .locais-message, .locais-admin .locais-error { margin: 12px 24px 24px; }
 .locais-paginacao { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; justify-content: space-between; padding: 18px 24px; border-top: 1px solid var(--color-border); font-size: .8rem; color: var(--color-text-secondary); }
