@@ -28,6 +28,11 @@ try {
       window.campanhas=[{id_campanha:1,nome_campanha:'Inspeção anual'},{id_campanha:2,nome_campanha:'Manutenção'}];
       window.locais=Array.from({length:27},(_,i)=>({id_local:i+1,id_campanha:i<20?1:2,nome_local:'Tanque '+String(i+1).padStart(2,'0'),setor:i%2?'Oficina':'Produção',status:i%2?'INATIVO':'ATIVO'}));
       window.modo='normal';window.chamadas=[];window.inesperadas=[];
+      window.pdfModo='aguardar';window.downloads=[];window.revogadas=[];window.pdfAutenticado=false;
+      window.botaoPdf=()=>Array.from(document.querySelectorAll('.locais-table tbody tr')).find(r=>r.querySelector('strong')?.textContent==='Tanque 01')?.querySelector('.local-button-pdf');
+      URL.createObjectURL=()=> 'blob:fixture-pdf';URL.revokeObjectURL=url=>window.revogadas.push(url);
+      const clickOriginal=HTMLAnchorElement.prototype.click;
+      HTMLAnchorElement.prototype.click=function(){if(this.download&&this.href==='blob:fixture-pdf'){window.downloads.push(this.download);return}return clickOriginal.call(this)};
       window.fetch=async(input,init={})=>{
         const p=new URL(input,location.origin).pathname,m=init.method||'GET';window.chamadas.push([m,p,init.body]);
         const ok=data=>Response.json({status:'success',data,total:Array.isArray(data)?data.length:undefined});
@@ -42,7 +47,20 @@ try {
         if(m==='GET'&&p==='/api/locais/exportar')return new Response(new Blob(['XLSX_SINTETICO']),{status:200});
         if(m==='GET'&&/^\/api\/locais\/\d+$/.test(p))return ok(window.locais.find(l=>l.id_local===Number(p.split('/').pop())));
         if(m==='GET'&&(p==='/api/checklists'||/^\/api\/evidencias\/local\/\d+$/.test(p)))return ok([]);
-        if(m==='GET'&&/^\/api\/(dados-tecnicos|relatorios)\/local\/\d+$/.test(p))return Response.json({message:'Ainda não cadastrado.'},{status:404});
+        if(m==='GET'&&/^\/api\/relatorios\/local\/\d+$/.test(p)){
+          const id=Number(p.split('/').pop());
+          if(id===4)return Response.json({message:'Falha'},{status:503});
+          if(id<=3)return ok({id_local:id,id_relatorio:100+id,status:'GERADO',caminho_pdf:id===2?null:'uploads/relatorios/fixture.pdf'});
+          return Response.json({message:'Ainda não cadastrado.'},{status:404});
+        }
+        if(m==='HEAD'&&/^\/api\/relatorios\/\d+\/pdf$/.test(p))return new Response(null,{status:p.includes('/101/')?200:404,headers:{'Content-Type':'application/pdf'}});
+        if(m==='GET'&&p==='/api/relatorios/101/pdf'){
+          window.pdfAutenticado=init.headers.Authorization==='Bearer SOMENTE_FIXTURE';
+          const resposta=()=>window.pdfModo==='ausente'?Response.json({message:'Arquivo indisponível'},{status:404}):window.pdfModo==='proibido'?Response.json({message:'Sem permissão'},{status:403}):new Response('%PDF-1.7 fixture',{headers:{'Content-Type':'application/pdf'}});
+          if(window.pdfModo==='aguardar')return new Promise(resolve=>{window.resolverPdf=()=>resolve(resposta())});
+          return resposta();
+        }
+        if(m==='GET'&&/^\/api\/dados-tecnicos\/local\/\d+$/.test(p))return Response.json({message:'Ainda não cadastrado.'},{status:404});
         if(m==='POST'&&p==='/api/locais'){const d=JSON.parse(init.body);const l={...d,id_local:99};window.locais.push(l);return ok(l)}
         if(m==='PUT'&&p==='/api/locais/1'){const d=JSON.parse(init.body);Object.assign(window.locais[0],d);return ok(window.locais[0])}
         if(m==='PATCH'&&p==='/api/locais/1/status'){Object.assign(window.locais[0],JSON.parse(init.body));return ok(window.locais[0])}
@@ -106,6 +124,47 @@ try {
       await esperar('document.body.textContent.includes("Exportação dos locais autorizados concluída")')
       assert.equal(await avaliar('window.chamadas.filter(c=>c[1]==="/api/locais/exportar").length'), 1)
     }
+    // Coluna exclusiva da campanha; consultas de existencia nunca geram PDF.
+    await avaliar('window.locais[0].nome_local="Tanque 01";window.downloads=[];window.revogadas=[]')
+    await avaliar('history.pushState({},"","/campanhas/1/locais");window.dispatchEvent(new PopStateEvent("popstate"))')
+    await esperar('document.querySelectorAll(".locais-table th").length===7')
+    await esperar('!!document.querySelector(".local-button-pdf:not(:disabled)") && document.querySelectorAll(".local-pdf-indisponivel[title*=Verificando]").length===0')
+    assert.deepEqual(await avaliar('Array.from(document.querySelectorAll(".locais-table th")).slice(-3).map(e=>e.textContent)'), ['Situação','Relatório','Ações'])
+    assert.equal(await avaliar('document.querySelector(".local-button-pdf:not(:disabled)").getAttribute("aria-label")'), 'Baixar PDF de Tanque 01')
+    assert.equal(await avaliar('document.querySelectorAll(".local-button-pdf:not(:disabled)").length'), 1)
+    assert.equal(await avaliar('window.chamadas.some(c=>c[0]==="GET"&&c[1].startsWith("/api/relatorios/")&&c[1].endsWith("/pdf"))'), false)
+    assert.ok(await avaliar('window.chamadas.some(c=>c[0]==="HEAD"&&c[1]==="/api/relatorios/103/pdf")'))
+    assert.ok(await avaliar('Array.from(document.querySelectorAll(".local-pdf-indisponivel")).some(e=>e.title==="Gere primeiro o relatório no inventário"&&e.tabIndex===0&&e.querySelector("button").disabled)'))
+    assert.ok(await avaliar('Array.from(document.querySelectorAll(".local-pdf-indisponivel")).some(e=>e.title.includes("Não foi possível verificar"))'))
+    assert.equal(await avaliar('window.chamadas.some(c=>c[0]==="HEAD"&&c[1]==="/api/relatorios/102/pdf")'), false)
+    assert.ok(await avaliar('document.documentElement.scrollWidth<=innerWidth'), 'Campanha mobile sem overflow')
+    assert.ok(await avaliar('!!document.querySelector(".local-button-open")'))
+    assert.equal(await avaliar('!!document.querySelector(".local-button-edit")'), edita)
+    await avaliar('(()=>{const b=document.querySelector(".local-button-pdf:not(:disabled)");b.click();b.click()})()')
+    await esperar('!!window.resolverPdf && window.botaoPdf().disabled')
+    assert.equal(await avaliar('window.chamadas.filter(c=>c[0]==="GET"&&c[1]==="/api/relatorios/101/pdf").length'), 1)
+    await avaliar('window.pdfModo="normal";window.resolverPdf()')
+    await esperar('window.downloads.length===1&&!window.botaoPdf().disabled')
+    assert.equal(await avaliar('window.pdfAutenticado'), true)
+    assert.deepEqual(await avaliar('window.downloads'), ['relatorio-101.pdf'])
+    assert.equal(await avaliar('location.pathname'), '/campanhas/1/locais')
+    await avaliar('window.pdfModo="ausente"')
+    await click('.local-button-pdf:not(:disabled)')
+    await esperar('document.querySelector(".local-pdf-erro")?.textContent.includes("não está mais disponível")')
+    assert.equal(await avaliar('window.botaoPdf().disabled'), true)
+    assert.equal(await avaliar('window.downloads.length'), 1)
+    assert.equal(await avaliar('window.chamadas.some(c=>c[1].includes("gerar-pdf")||c[0]==="POST"&&c[1]==="/api/relatorios")'), false)
+    await avaliar('history.pushState({},"","/locais");window.dispatchEvent(new PopStateEvent("popstate"))')
+    await esperar('document.querySelectorAll(".locais-table th").length===6')
+    assert.deepEqual(await avaliar('window.revogadas'), ['blob:fixture-pdf'])
+    await avaliar('history.pushState({},"","/campanhas/1/locais");window.dispatchEvent(new PopStateEvent("popstate"))')
+    await esperar('!!document.querySelector(".local-button-pdf:not(:disabled)")')
+    await avaliar('window.pdfModo="proibido"')
+    await click('.local-button-pdf:not(:disabled)')
+    await esperar('document.querySelector(".local-pdf-erro")?.textContent.includes("Sem permissão")')
+    assert.equal(await avaliar('window.botaoPdf().disabled'), true)
+    await avaliar('history.pushState({},"","/locais");window.dispatchEvent(new PopStateEvent("popstate"))')
+    await esperar('document.querySelectorAll(".locais-table th").length===6')
     if (perfil === 'ADMINISTRADOR') {
       for (const [modo, texto] of [['vazio', 'Nenhum local cadastrado'], ['erro', 'Não foi possível concluir'], ['proibido', 'Acesso não autorizado'], ['carregando', 'Carregando locais']]) {
         await avaliar(`window.modo=${JSON.stringify(modo)}`)
@@ -119,7 +178,7 @@ try {
     }
     // /relatorios é um desvio do teste, sem API correspondente deliberadamente.
     assert.deepEqual(await avaliar('window.inesperadas.filter(c=>c[1]!=="/api/relatorios")'), [])
-    resultados.push({ perfil, tabela: true, filtros: true, paginacao: true, rbac: true, mobile: true })
+    resultados.push({ perfil, tabela: true, filtros: true, paginacao: true, rbac: true, mobile: true, pdf: true, semGeracaoAutomatica: true })
     await enviar('Page.removeScriptToEvaluateOnNewDocument', { identifier })
   }
   console.log(JSON.stringify({ resultado: 'APROVADO', resultados, capturas: navegador.pasta }))

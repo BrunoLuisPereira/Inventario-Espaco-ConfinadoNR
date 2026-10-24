@@ -395,6 +395,11 @@ export async function buscarRelatorioPorLocal(
   return request(`/relatorios/local/${idLocal}`)
 }
 
+// Express atende HEAD pela rota GET existente; confirma o arquivo sem gerar PDF.
+export function verificarPdfRelatorio(idRelatorio) {
+  return request(`/relatorios/${idRelatorio}/pdf`, { method: 'HEAD', cache: 'no-store' }, true)
+}
+
 export async function criarRelatorio(dados) {
   return request('/relatorios', {
     method: 'POST',
