@@ -1,1631 +1,313 @@
-const PDFDocument = require("pdfkit");
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 
-// ==========================================================
-// CONFIGURAÇÕES VISUAIS
-// ==========================================================
-
-const CORES = {
-  primaria: "#1F4E78",
-  primariaClara: "#DCE6F1",
-  secundaria: "#5B6573",
-  texto: "#222222",
-  textoClaro: "#666666",
-  borda: "#D9DEE5",
-  fundo: "#F5F7FA",
-  branco: "#FFFFFF",
-
-  sucesso: "#2E7D32",
-  sucessoFundo: "#E8F5E9",
-
-  alerta: "#ED6C02",
-  alertaFundo: "#FFF4E5",
-
-  perigo: "#C62828",
-  perigoFundo: "#FDECEC",
-
-  neutro: "#616161",
-  neutroFundo: "#EEEEEE",
-};
-
-const PAGINA = {
-  margemEsquerda: 50,
-  margemDireita: 50,
-  margemSuperior: 75,
-  margemInferior: 55,
-};
-
-// ==========================================================
-// UTILITÁRIOS
-// ==========================================================
-
-function valorOuNaoInformado(valor) {
-  if (
-    valor === null ||
-    valor === undefined ||
-    valor === ""
-  ) {
-    return "Não informado";
-  }
-
-  return String(valor);
+// Recursos visuais vetoriais locais. No fluxo multi-tenant somente os buffers
+// previamente autorizados podem fornecer fotografias.
+const C = { navy: '#073451', blue: '#07517B', yellow: '#FFCD16', ink: '#102C46',
+  line: '#D6E0E9', pale: '#EFF4F8', white: '#FFFFFF' };
+const M = 28, TOP = 119, BOTTOM = 776, LINE = 11;
+const presente = v => v !== null && v !== undefined && v !== '';
+const texto = v => presente(v) ? String(v) : 'Não informado';
+function numero(v, casas = 2) {
+  return presente(v) && Number.isFinite(Number(v))
+    ? Number(v).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas }) : texto(v);
 }
-
-function formatarNumero(valor, casas = 2) {
-  if (
-    valor === null ||
-    valor === undefined ||
-    valor === ""
-  ) {
-    return "Não informado";
-  }
-
-  const numero = Number(valor);
-
-  if (Number.isNaN(numero)) {
-    return String(valor);
-  }
-
-  return numero.toLocaleString("pt-BR", {
-    minimumFractionDigits: casas,
-    maximumFractionDigits: casas,
-  });
+function data(v, hora = false) {
+  if (!presente(v)) return 'Não informado';
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? String(v) : hora ? d.toLocaleString('pt-BR') : d.toLocaleDateString('pt-BR');
 }
-
-function formatarData(valor) {
-  if (!valor) {
-    return "Não informado";
-  }
-
-  const data = new Date(valor);
-
-  if (Number.isNaN(data.getTime())) {
-    return String(valor);
-  }
-
-  return data.toLocaleDateString("pt-BR");
+function corStatus(v) {
+  const s = String(v).toUpperCase();
+  if (['SIM', 'ATIVO', 'CONCLUIDO', 'CONCLUÍDO', 'GERADO'].includes(s)) return ['#C7F1D2', '#123D28'];
+  if (['NAO', 'NÃO', 'INATIVO', 'INATIVA', 'CANCELADO'].includes(s)) return ['#FFD5D2', '#852320'];
+  if (s === 'RASCUNHO') return [C.yellow, C.ink];
+  if (['EM ANDAMENTO', 'EM_ANDAMENTO'].includes(s)) return ['#D0EDFF', C.blue];
+  return [C.pale, C.ink];
 }
-
-function formatarDataHora(valor = new Date()) {
-  const data =
-    valor instanceof Date
-      ? valor
-      : new Date(valor);
-
-  if (Number.isNaN(data.getTime())) {
-    return "Não informado";
-  }
-
-  return data.toLocaleString("pt-BR");
-}
-
-function larguraUtil(doc) {
-  return (
-    doc.page.width -
-    PAGINA.margemEsquerda -
-    PAGINA.margemDireita
-  );
-}
-
-function limiteInferior(doc) {
-  return doc.page.height - PAGINA.margemInferior;
-}
-
-// ==========================================================
-// DIRETÓRIO
-// ==========================================================
-
-function garantirDiretorio() {
-  const diretorio = path.join(
-    __dirname,
-    "../../uploads/relatorios"
-  );
-
-  if (!fs.existsSync(diretorio)) {
-    fs.mkdirSync(diretorio, {
-      recursive: true,
-    });
-  }
-
-  return diretorio;
-}
-
-// ==========================================================
-// EVIDÊNCIAS / SEGURANÇA
-// ==========================================================
-
-function obterCaminhoSeguroEvidencia(caminhoArquivo) {
-  if (
-    !caminhoArquivo ||
-    typeof caminhoArquivo !== "string"
-  ) {
-    return null;
-  }
-
-  const diretorioUploads = path.resolve(
-    __dirname,
-    "../../uploads"
-  );
-
-  const caminhoCompleto = path.resolve(
-    __dirname,
-    "../../",
-    caminhoArquivo
-  );
-
-  const caminhoRelativo = path.relative(
-    diretorioUploads,
-    caminhoCompleto
-  );
-
-  if (
-    caminhoRelativo.startsWith("..") ||
-    path.isAbsolute(caminhoRelativo)
-  ) {
-    return null;
-  }
-
-  return caminhoCompleto;
-}
-
-function obterImagemEvidencia(evidencia) {
-  if (
-    !evidencia ||
-    evidencia.tipo !== "FOTO"
-  ) {
-    return null;
-  }
-
-  const caminhoCompleto =
-    obterCaminhoSeguroEvidencia(
-      evidencia.caminho_arquivo
-    );
-
-  if (
-    !caminhoCompleto ||
-    !fs.existsSync(caminhoCompleto)
-  ) {
-    return null;
-  }
-
-  const extensao = path
-    .extname(caminhoCompleto)
-    .toLowerCase();
-
-  const extensoesPermitidas = [
-    ".jpg",
-    ".jpeg",
-    ".png",
-  ];
-
-  if (!extensoesPermitidas.includes(extensao)) {
-    return null;
-  }
-
-  return caminhoCompleto;
-}
-
-// ==========================================================
-// CONTROLE DE PÁGINA
-// ==========================================================
-
-function garantirEspaco(
-  doc,
-  alturaNecessaria,
-  dados
-) {
-  if (
-    doc.y + alturaNecessaria >
-    limiteInferior(doc)
-  ) {
-    doc.addPage();
-    adicionarCabecalhoPagina(doc, dados);
-  }
-}
-
-// ==========================================================
-// CABEÇALHO
-// ==========================================================
-
-function adicionarCabecalhoPagina(doc, dados) {
-  const largura = larguraUtil(doc);
-
-  doc
-    .save()
-    .rect(
-      PAGINA.margemEsquerda,
-      30,
-      largura,
-      38
-    )
-    .fill(CORES.primaria);
-
-  doc
-    .fillColor(CORES.branco)
-    .font("Helvetica-Bold")
-    .fontSize(13)
-    .text(
-      "INVENTÁRIO DE ESPAÇOS CONFINADOS",
-      PAGINA.margemEsquerda + 12,
-      39,
-      {
-        width: largura - 24,
-      }
-    );
-
-  doc
-    .font("Helvetica")
-    .fontSize(8)
-    .text(
-      "Relatório Técnico • NR-33",
-      PAGINA.margemEsquerda + 12,
-      55,
-      {
-        width: largura - 24,
-      }
-    );
-
+function capacete(doc, x, y, escala = 1) {
+  doc.save().translate(x, y).scale(escala).fillColor(C.yellow);
+  doc.path('M 2 28 C 2 12 10 5 20 5 L 20 1 L 27 1 L 27 5 C 39 7 44 16 44 28 Z').fill();
+  doc.roundedRect(0, 28, 47, 5, 2).fill();
+  doc.lineWidth(3).strokeColor(C.yellow).path('M 9 35 L 9 41 Q 23 47 38 41 L 38 35').stroke();
+  doc.strokeColor(C.navy).lineWidth(2).moveTo(17, 8).lineTo(17, 20).moveTo(30, 8).lineTo(30, 20).stroke();
   doc.restore();
-
-  doc.y = PAGINA.margemSuperior;
-
-  if (dados && dados.id_relatorio) {
-    doc
-      .fillColor(CORES.textoClaro)
-      .font("Helvetica")
-      .fontSize(8)
-      .text(
-        `Relatório nº ${dados.id_relatorio}`,
-        PAGINA.margemEsquerda,
-        69,
-        {
-          align: "right",
-          width: largura,
-        }
-      );
+}
+class Layout {
+  constructor(doc, dados) { this.doc = doc; this.dados = dados; this.w = doc.page.width - 2 * M; this.y = TOP; this.cabecalho(); }
+  escrever(s, x, y, largura, { bold = false, size = 9, color = C.ink, align = 'left' } = {}) {
+    this.doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(size).fillColor(color)
+      .text(String(s), x, y, { width: largura, height: Math.max(LINE + 3, size * 1.3), lineBreak: false, align });
   }
-
-  doc.y = 82;
-}
-
-// ==========================================================
-// RODAPÉ
-// ==========================================================
-
-function adicionarRodapes(doc, dados, dataGeracao) {
-  const range = doc.bufferedPageRange();
-
-  for (
-    let i = range.start;
-    i < range.start + range.count;
-    i++
-  ) {
-    doc.switchToPage(i);
-
-    const largura = larguraUtil(doc);
-    const yLinha = doc.page.height - 42;
-
-    // Linha superior do rodapé
-    doc
-      .save()
-      .strokeColor(CORES.borda)
-      .lineWidth(0.5)
-      .moveTo(
-        PAGINA.margemEsquerda,
-        yLinha
-      )
-      .lineTo(
-        doc.page.width -
-          PAGINA.margemDireita,
-        yLinha
-      )
-      .stroke();
-
-    // Informação do relatório
-    doc
-      .fillColor(CORES.textoClaro)
-      .font("Helvetica")
-      .fontSize(7.5)
-      .text(
-        `Relatório nº ${valorOuNaoInformado(
-          dados.id_relatorio
-        )} • Gerado em ${formatarDataHora(
-          dataGeracao
-        )}`,
-        PAGINA.margemEsquerda,
-        yLinha + 7,
-        {
-          width: largura * 0.7,
-          height: 12,
-          lineBreak: false,
-        }
-      );
-
-    // Número da página
-    doc
-      .fillColor(CORES.textoClaro)
-      .font("Helvetica-Bold")
-      .fontSize(7.5)
-      .text(
-        `Página ${i + 1} de ${range.count}`,
-        PAGINA.margemEsquerda +
-          largura * 0.7,
-        yLinha + 7,
-        {
-          width: largura * 0.3,
-          height: 12,
-          align: "right",
-          lineBreak: false,
-        }
-      );
-
-    doc.restore();
-  }
-}
-
-// ==========================================================
-// TÍTULOS DAS SEÇÕES
-// ==========================================================
-
-function adicionarTitulo(
-  doc,
-  texto,
-  dados
-) {
-  garantirEspaco(doc, 45, dados);
-
-  doc.moveDown(0.6);
-
-  const largura = larguraUtil(doc);
-  const y = doc.y;
-
-  doc
-    .save()
-    .roundedRect(
-      PAGINA.margemEsquerda,
-      y,
-      largura,
-      27,
-      4
-    )
-    .fill(CORES.primariaClara);
-
-  doc
-    .fillColor(CORES.primaria)
-    .font("Helvetica-Bold")
-    .fontSize(11)
-    .text(
-      texto,
-      PAGINA.margemEsquerda + 10,
-      y + 8,
-      {
-        width: largura - 20,
-        lineBreak: false,
+  // Quebra explícita inclusive de palavras extensas: nenhuma página é criada
+  // automaticamente pelo texto, sem os elementos de continuação.
+  linhas(valor, largura, bold = false, size = 9) {
+    this.doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(size);
+    const linhas = [];
+    for (const paragrafo of (valor === '' ? '' : texto(valor)).split(/\r\n|\n|\r/)) {
+      let linha = '';
+      for (const caractere of paragrafo) {
+        if (linha && this.doc.widthOfString(linha + caractere) > largura) {
+          const espaco = linha.lastIndexOf(' ');
+          if (espaco > 0) { linhas.push(linha.slice(0, espaco)); linha = linha.slice(espaco + 1) + caractere; }
+          else { linhas.push(linha); linha = caractere; }
+        } else linha += caractere;
       }
-    );
-
-  doc.restore();
-
-  doc.y = y + 36;
-}
-
-// ==========================================================
-// CAMPOS
-// ==========================================================
-
-function adicionarCampo(
-  doc,
-  titulo,
-  valor,
-  dados
-) {
-  garantirEspaco(doc, 22, dados);
-
-  const larguraTitulo = 205;
-  const largura = larguraUtil(doc);
-  const y = doc.y;
-
-  const textoValor =
-    valorOuNaoInformado(valor);
-
-  const alturaTitulo = doc
-    .font("Helvetica-Bold")
-    .fontSize(9)
-    .heightOfString(titulo, {
-      width: larguraTitulo,
-    });
-
-  const alturaValor = doc
-    .font("Helvetica")
-    .fontSize(9)
-    .heightOfString(textoValor, {
-      width:
-        largura -
-        larguraTitulo -
-        15,
-    });
-
-  const altura =
-    Math.max(
-      alturaTitulo,
-      alturaValor
-    ) + 7;
-
-  garantirEspaco(
-    doc,
-    altura + 2,
-    dados
-  );
-
-  doc
-    .fillColor(CORES.textoClaro)
-    .font("Helvetica-Bold")
-    .fontSize(9)
-    .text(
-      titulo,
-      PAGINA.margemEsquerda,
-      doc.y,
-      {
-        width: larguraTitulo,
-      }
-    );
-
-  doc
-    .fillColor(CORES.texto)
-    .font("Helvetica")
-    .fontSize(9)
-    .text(
-      textoValor,
-      PAGINA.margemEsquerda +
-        larguraTitulo,
-      y,
-      {
-        width:
-          largura -
-          larguraTitulo,
-      }
-    );
-
-  doc.y = y + altura;
-
-  doc
-    .strokeColor("#ECEFF3")
-    .lineWidth(0.3)
-    .moveTo(
-      PAGINA.margemEsquerda,
-      doc.y
-    )
-    .lineTo(
-      doc.page.width -
-        PAGINA.margemDireita,
-      doc.y
-    )
-    .stroke();
-
-  doc.y += 4;
-}
-
-// ==========================================================
-// STATUS
-// ==========================================================
-
-function obterCorStatus(status) {
-  const valor = String(
-    status || ""
-  ).toUpperCase();
-
-  if (
-    [
-      "CONCLUIDO",
-      "CONCLUÍDO",
-      "ATIVO",
-      "SIM",
-    ].includes(valor)
-  ) {
-    return {
-      fundo: CORES.sucessoFundo,
-      texto: CORES.sucesso,
-    };
-  }
-
-  if (
-    [
-      "PENDENTE",
-      "EM ANDAMENTO",
-      "ALERTA",
-    ].includes(valor)
-  ) {
-    return {
-      fundo: CORES.alertaFundo,
-      texto: CORES.alerta,
-    };
-  }
-
-  if (
-    [
-      "INATIVA",
-      "INATIVO",
-      "CANCELADO",
-      "NÃO",
-      "NAO",
-    ].includes(valor)
-  ) {
-    return {
-      fundo: CORES.perigoFundo,
-      texto: CORES.perigo,
-    };
-  }
-
-  return {
-    fundo: CORES.neutroFundo,
-    texto: CORES.neutro,
-  };
-}
-
-function adicionarStatus(
-  doc,
-  titulo,
-  status,
-  dados
-) {
-  garantirEspaco(doc, 28, dados);
-
-  const y = doc.y;
-  const largura = larguraUtil(doc);
-  const larguraTitulo = 205;
-
-  const texto =
-    valorOuNaoInformado(status);
-
-  const cores =
-    obterCorStatus(status);
-
-  doc
-    .fillColor(CORES.textoClaro)
-    .font("Helvetica-Bold")
-    .fontSize(9)
-    .text(
-      titulo,
-      PAGINA.margemEsquerda,
-      y + 4,
-      {
-        width: larguraTitulo,
-      }
-    );
-
-  const larguraBadge = Math.min(
-    Math.max(
-      doc.widthOfString(texto) + 22,
-      70
-    ),
-    180
-  );
-
-  doc
-    .save()
-    .roundedRect(
-      PAGINA.margemEsquerda +
-        larguraTitulo,
-      y,
-      larguraBadge,
-      20,
-      5
-    )
-    .fill(cores.fundo);
-
-  doc
-    .fillColor(cores.texto)
-    .font("Helvetica-Bold")
-    .fontSize(8)
-    .text(
-      texto,
-      PAGINA.margemEsquerda +
-        larguraTitulo +
-        10,
-      y + 6,
-      {
-        width: larguraBadge - 20,
-        align: "center",
-        lineBreak: false,
-      }
-    );
-
-  doc.restore();
-
-  doc.y = y + 27;
-
-  doc
-    .strokeColor("#ECEFF3")
-    .lineWidth(0.3)
-    .moveTo(
-      PAGINA.margemEsquerda,
-      doc.y
-    )
-    .lineTo(
-      PAGINA.margemEsquerda + largura,
-      doc.y
-    )
-    .stroke();
-
-  doc.y += 4;
-}
-
-// ==========================================================
-// MENSAGEM INFORMATIVA
-// ==========================================================
-
-function adicionarMensagem(
-  doc,
-  texto,
-  dados
-) {
-  garantirEspaco(doc, 45, dados);
-
-  const largura = larguraUtil(doc);
-  const y = doc.y;
-
-  const alturaTexto = doc
-    .font("Helvetica")
-    .fontSize(9)
-    .heightOfString(texto, {
-      width: largura - 24,
-    });
-
-  const altura = alturaTexto + 20;
-
-  doc
-    .save()
-    .roundedRect(
-      PAGINA.margemEsquerda,
-      y,
-      largura,
-      altura,
-      4
-    )
-    .fill(CORES.fundo);
-
-  doc
-    .fillColor(CORES.textoClaro)
-    .font("Helvetica")
-    .fontSize(9)
-    .text(
-      texto,
-      PAGINA.margemEsquerda + 12,
-      y + 10,
-      {
-        width: largura - 24,
-      }
-    );
-
-  doc.restore();
-
-  doc.y = y + altura + 8;
-}
-
-// ==========================================================
-// DADOS TÉCNICOS
-// ==========================================================
-
-function adicionarDadosTecnicos(
-  doc,
-  dados
-) {
-  const itens = [
-    {
-      titulo: "Pressão atmosférica",
-      valor: formatarNumero(
-        dados.pressao_atmosferica
-      ),
-    },
-    {
-      titulo: "Ventilação",
-      valor: valorOuNaoInformado(
-        dados.ventilacao
-      ),
-    },
-    {
-      titulo: "Oxigênio",
-      valor:
-        dados.oxigenio !== null &&
-        dados.oxigenio !== undefined &&
-        dados.oxigenio !== ""
-          ? `${formatarNumero(
-              dados.oxigenio
-            )} %`
-          : "Não informado",
-    },
-    {
-      titulo: "Gás inflamável",
-      valor:
-        dados.gas_inflamavel !== null &&
-        dados.gas_inflamavel !== undefined &&
-        dados.gas_inflamavel !== ""
-          ? `${formatarNumero(
-              dados.gas_inflamavel
-            )} %`
-          : "Não informado",
-    },
-    {
-      titulo: "Monóxido de carbono",
-      valor: formatarNumero(
-        dados.monoxido_carbono
-      ),
-    },
-    {
-      titulo: "Sulfeto de hidrogênio",
-      valor: formatarNumero(
-        dados.sulfeto_hidrogenio
-      ),
-    },
-    {
-      titulo: "Temperatura",
-      valor:
-        dados.temperatura !== null &&
-        dados.temperatura !== undefined &&
-        dados.temperatura !== ""
-          ? `${formatarNumero(
-              dados.temperatura
-            )} °C`
-          : "Não informado",
-    },
-    {
-      titulo: "Umidade",
-      valor:
-        dados.umidade !== null &&
-        dados.umidade !== undefined &&
-        dados.umidade !== ""
-          ? `${formatarNumero(
-              dados.umidade
-            )} %`
-          : "Não informado",
-    },
-  ];
-
-  const largura = larguraUtil(doc);
-  const espaco = 10;
-  const larguraColuna =
-    (largura - espaco) / 2;
-
-  itens.forEach((item, indice) => {
-    if (indice % 2 === 0) {
-      garantirEspaco(doc, 50, dados);
-
-      const y = doc.y;
-
-      desenharCardTecnico(
-        doc,
-        item,
-        PAGINA.margemEsquerda,
-        y,
-        larguraColuna
-      );
-
-      const proximo =
-        itens[indice + 1];
-
-      if (proximo) {
-        desenharCardTecnico(
-          doc,
-          proximo,
-          PAGINA.margemEsquerda +
-            larguraColuna +
-            espaco,
-          y,
-          larguraColuna
-        );
-      }
-
-      doc.y = y + 47;
+      linhas.push(linha);
     }
+    return linhas;
+  }
+  cabecalho() {
+    const d = this.doc;
+    d.save();
+    d.roundedRect(M, 18, this.w, 87, 5).fill(C.yellow);
+    const gradiente = d.linearGradient(M, 18, M + this.w, 95).stop(0, C.blue).stop(1, '#041D36');
+    d.roundedRect(M, 16, this.w, 86, 5).fill(gradiente);
+    // Silhueta industrial discreta, sem fotografia ou serviço externo.
+    d.save().fillOpacity(0.10).fillColor(C.white);
+    for (let i = 0; i < 4; i++) d.rect(340 + i * 25, 53 - i * 5, 20, 49 + i * 5).fill();
+    d.restore();
+    capacete(d, M + 13, 33, 0.88);
+    this.escrever('INVENTÁRIO DE', M + 70, 29, 330, { bold: true, size: 19, color: C.white });
+    this.escrever('ESPAÇOS CONFINADOS', M + 70, 52, 345, { bold: true, size: 19, color: C.yellow });
+    this.escrever('Relatório Técnico • NR-33', M + 70, 78, 310, { size: 12, color: C.white });
+    d.strokeColor('#9BB4C8').lineWidth(0.6).moveTo(470, 29).lineTo(470, 88).stroke();
+    this.escrever('Relatório nº', 477, 27, 85, { size: 9, color: C.white, align: 'center' });
+    const id = texto(this.dados.id_relatorio);
+    this.escrever(id, 475, 44, 88, { bold: true, size: Math.min(25, 130 / id.length), color: C.white, align: 'center' });
+    const status = texto(this.dados.status_relatorio);
+    d.roundedRect(477, 77, 82, 17, 3).fill(corStatus(status)[0]);
+    this.escrever(status, 480, 81, 76, { bold: true, size: Math.min(8, 90 / status.length), align: 'center' });
+    d.restore(); this.y = TOP;
+  }
+  pagina() { this.doc.addPage(); this.cabecalho(); }
+  espaco(altura, continuar) { if (this.y + altura > BOTTOM) { this.pagina(); if (continuar) continuar(); } }
+  secao(titulo) {
+    this.espaco(56);
+    this.doc.roundedRect(M, this.y, this.w, 29, 4).fill(C.navy);
+    this.doc.rect(M, this.y + 4, 3, 21).fill(C.yellow);
+    this.escrever(titulo, M + 14, this.y + 8, this.w - 25, { bold: true, size: 12, color: C.white });
+    this.y += 37;
+  }
+  tabela(larguras, linhas, { cabecalho, titulo } = {}) {
+    const repetir = () => { if (titulo) this.secao(`${titulo} (continuação)`); if (cabecalho) desenharCabecalho(); };
+    const desenharCabecalho = () => {
+      let x = M;
+      cabecalho.forEach((c, i) => {
+        this.doc.rect(x, this.y, larguras[i], 25).fillAndStroke('#DDE8F1', C.line);
+        this.escrever(c, x + 8, this.y + 7, larguras[i] - 16, { bold: true }); x += larguras[i];
+      }); this.y += 25;
+    };
+    if (cabecalho) { this.espaco(51, titulo ? () => this.secao(`${titulo} (continuação)`) : undefined); desenharCabecalho(); }
+    for (const linha of linhas) {
+      const celulas = linha.map((v, i) => this.linhas(v?.valor ?? v, larguras[i] - 16, v?.rotulo === true));
+      let offset = 0;
+      const total = Math.max(...celulas.map(c => c.length));
+      while (offset < total) {
+        const alturaRestante = (total - offset) * LINE + 10;
+        // Linhas curtas permanecem inteiras. Blocos extensos precisam de espaço
+        // para duas linhas, não de uma reserva fixa que descarte área utilizável.
+        this.espaco(alturaRestante <= 92 ? alturaRestante : Math.min(total - offset, 2) * LINE + 10, repetir);
+        const quantidade = Math.max(1, Math.min(total - offset, Math.floor((BOTTOM - this.y - 10) / LINE)));
+        const altura = quantidade * LINE + 10;
+        let x = M;
+        linha.forEach((v, i) => {
+          const rotulo = v?.rotulo === true;
+          this.doc.rect(x, this.y, larguras[i], altura).fillAndStroke(rotulo ? C.pale : C.white, C.line);
+          if (v?.status && offset === 0 && celulas[i].length === 1) {
+            const [fundo, cor] = corStatus(v.valor);
+            const bw = Math.min(larguras[i] - 16, Math.max(54, this.doc.font('Helvetica-Bold').fontSize(9).widthOfString(texto(v.valor)) + 18));
+            this.doc.roundedRect(x + 8, this.y + 2, bw, 17, 3).fill(fundo);
+            this.escrever(texto(v.valor), x + 10, this.y + 5, bw - 4, { bold: true, color: cor, align: 'center' });
+          } else celulas[i].slice(offset, offset + quantidade).forEach((s, j) => this.escrever(s, x + 8, this.y + 5 + j * LINE, larguras[i] - 16, { bold: rotulo }));
+          x += larguras[i];
+        });
+        this.y += altura; offset += quantidade;
+        if (offset < total) { this.pagina(); repetir(); }
+      }
+    }
+    this.y += 9;
+  }
+  campos(linhas, titulo) {
+    let normais = [];
+    const descarregar = () => {
+      if (normais.length) this.tabela([145, this.w - 145], normais, { titulo });
+      normais = [];
+    };
+    for (const [k, v, status] of linhas) {
+      const valor = texto(v);
+      if (!status && this.linhas(valor, this.w - 145 - 16).length > 8) {
+        descarregar();
+        // A coluna vazia de rótulo não acompanha várias páginas de prosa.
+        // Mantém fonte, entrelinha e margens; somente amplia a largura do texto.
+        const alturaTexto = this.linhas(valor, this.w - 16).length * LINE + 10;
+        this.espaco(21 + (alturaTexto <= 92 ? alturaTexto : 2 * LINE + 10), () => this.secao(`${titulo} (continuação)`));
+        this.tabela([this.w], [[{ valor: k, rotulo: true }], [valor]], { titulo });
+      } else normais.push([{ valor: k, rotulo: true }, status ? { valor, status: true } : valor]);
+    }
+    descarregar();
+  }
+  pares(esquerda, direita, titulo) {
+    const linhas = Array.from({ length: Math.max(esquerda.length, direita.length) }, (_, i) => {
+      const a = esquerda[i], b = direita[i];
+      const valor = item => item ? item[2] ? { valor: texto(item[1]), status: true } : texto(item[1]) : '';
+      return [a ? { valor: a[0], rotulo: true } : '', valor(a), b ? { valor: b[0], rotulo: true } : '', valor(b)];
+    });
+    this.tabela([113, 151, 118, this.w - 382], linhas, { titulo });
+  }
+  cartes(itens) {
+    const largura = (this.w - 8) / 2;
+    for (let i = 0; i < itens.length; i += 2) {
+      const par = itens.slice(i, i + 2);
+      const valores = par.map(item => this.linhas(item[1], largura - 58, true, 12));
+      const total = Math.max(...valores.map(v => v.length));
+      for (let offset = 0; offset < total;) {
+        this.espaco(Math.max(44, Math.min(total - offset, 2) * 16 + 28), () => this.secao('5. Dados Técnicos (continuação)'));
+        const quantidade = Math.min(total - offset, Math.max(1, Math.floor((BOTTOM - this.y - 28) / 16)));
+        const altura = Math.max(44, quantidade * 16 + 28);
+        par.forEach((item, j) => {
+          const x = M + j * (largura + 8);
+          this.doc.roundedRect(x, this.y, largura, altura, 4).fillAndStroke(C.pale, C.line);
+          this.doc.circle(x + 23, this.y + 25, 14).lineWidth(1.5).strokeColor(C.blue).stroke();
+          // Subscritos vetoriais: não dependem de glifos ausentes em Helvetica.
+          const formula = item[2];
+          if (formula === 'O2' || formula === 'H2S') {
+            this.escrever(formula[0], x + 13, this.y + 18, 12, { bold: true, size: 11 });
+            this.escrever('2', x + 22, this.y + 24, 7, { bold: true, size: 7 });
+            if (formula === 'H2S') this.escrever('S', x + 27, this.y + 18, 10, { bold: true, size: 10 });
+          } else this.escrever(formula, x + 10, this.y + 20, 26, { bold: true, size: 9, align: 'center' });
+          this.escrever(item[0], x + 47, this.y + 8, largura - 55, { bold: true, size: 9 });
+          valores[j].slice(offset, offset + quantidade).forEach((s, k) => this.escrever(s, x + 47, this.y + 25 + k * 16, largura - 55, { bold: true, size: 12 }));
+        });
+        this.y += altura + 5; offset += quantidade;
+      }
+    }
+  }
+  rodapes(geracao) {
+    const range = this.doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      this.doc.switchToPage(i);
+      this.doc.strokeColor(C.line).lineWidth(0.7).moveTo(M, 791).lineTo(M + this.w, 791).stroke();
+      capacete(this.doc, M + 2, 801, 0.48);
+      this.escrever('INVENTÁRIO DE', M + 34, 803, 160, { bold: true, size: 8 });
+      this.escrever('ESPAÇOS CONFINADOS', M + 34, 814, 165, { bold: true, size: 8 });
+      this.escrever('Relatório Técnico • NR-33', M + 34, 825, 160, { size: 6 });
+      this.escrever(`Relatório nº ${texto(this.dados.id_relatorio)} • Gerado em ${data(geracao, true)}`, 267, 804, 300, { size: 7, align: 'right' });
+      this.escrever(`Página ${i + 1} de ${range.count}`, 367, 818, 200, { bold: true, size: 8, align: 'right' });
+    }
+  }
+}
+function identificacao(l, d) {
+  const t1 = '1. Identificação e Responsabilidade'; l.secao(t1);
+  l.pares([['Número do relatório', d.id_relatorio], ['Status do relatório', d.status_relatorio, true], ['Data de emissão', data(d.data_emissao)],
+    ['Usuário responsável', d.responsavel], ['E-mail', d.email_responsavel], ['Perfil', d.perfil_responsavel]],
+  [['Responsável técnico', d.nome_responsavel_tecnico], ['CREA', d.crea], ['Número da ART', d.numero_art], ['Data da ART', data(d.data_art)]], t1);
+  const t2 = '2. Dados da Campanha'; l.secao(t2);
+  l.pares([['Campanha', d.nome_campanha], ['Empresa', d.empresa], ['Responsável pela campanha', d.responsavel_campanha]],
+    [['Data de início', data(d.data_inicio)], ['Status', d.status_campanha, true]], t2);
+  const t3 = '3. Identificação do Local'; l.secao(t3);
+  l.campos([['Local', d.nome_local], ['Setor', d.setor], ['Descrição', d.descricao_local], ['Endereço', d.endereco],
+    ['Latitude', d.latitude], ['Longitude', d.longitude], ['Status', d.status_local, true]], t3);
+}
+function checklistTecnicos(l, d) {
+  l.pagina(); const t = '4. Checklist NR-33'; l.secao(t);
+  if (d.id_checklist) {
+    const itens = [['A', 'Não projetado para ocupação humana contínua', d.criterio_a], ['B', 'Meios limitados de entrada/saída', d.criterio_b],
+      ['C', 'Atmosfera perigosa existente OU potencial', d.criterio_c], ['D', 'Acesso controlado', d.acesso_controlado],
+      ['E', 'Ventilação adequada', d.ventilacao_adequada], ['F', 'Monitoramento atmosférico', d.monitoramento_atmosferico],
+      ['G', 'Procedimento de emergência', d.procedimento_emergencia]];
+    l.tabela([56, l.w - 151, 95], itens.map(([a, b, c]) => [{ valor: a, rotulo: true }, b, { valor: texto(c), status: true }]), { cabecalho: ['Critério', 'Descrição', 'Atende'], titulo: t });
+    l.campos([['Observações', d.observacoes_checklist], ['Status', d.status_checklist, true]], t);
+  } else l.campos([['Checklist', 'Checklist não cadastrado para este local.']], t);
+  const tt = '5. Dados Técnicos'; l.secao(tt);
+  const unidade = (v, u) => presente(v) ? `${numero(v)} ${u}` : 'Não informado';
+  if (d.id_dados) {
+    l.cartes([['Pressão atmosférica', numero(d.pressao_atmosferica), 'P'], ['Ventilação', texto(d.ventilacao), 'V'],
+      ['Oxigênio', unidade(d.oxigenio, '%'), 'O2'], ['Gás inflamável', unidade(d.gas_inflamavel, '%'), '%'],
+      ['Monóxido de carbono', numero(d.monoxido_carbono), 'CO'], ['Sulfeto de hidrogênio', numero(d.sulfeto_hidrogenio), 'H2S'],
+      ['Temperatura', unidade(d.temperatura, '°C'), '°C'], ['Umidade', unidade(d.umidade, '%'), '%']]);
+    l.campos([['Observações', d.observacoes_dados_tecnicos], ['Status', d.status_dados_tecnicos, true]], tt);
+  } else l.campos([['Dados técnicos', 'Dados técnicos não cadastrados para este local.']], tt);
+}
+function evidencias(l, d, imagens) {
+  l.pagina(); const titulo = '6. Evidências'; l.secao(titulo);
+  if (!Array.isArray(d.evidencias) || !d.evidencias.length) { l.campos([['Evidências', 'Nenhuma evidência cadastrada.']], titulo); return; }
+  d.evidencias.forEach((e, indice) => {
+    if (indice > 0) { l.pagina(); l.secao(titulo); }
+    l.tabela([l.w - 100, 100], [[{ valor: `EVIDÊNCIA ${String(indice + 1).padStart(2, '0')} • ID ${texto(e.id_evidencia)}`, rotulo: true }, { valor: texto(e.tipo), rotulo: true }]]);
+    const imagem = e.tipo === 'FOTO' ? imagens.get(e.id_evidencia) : null;
+    if (imagem) {
+      let aberta;
+      try { aberta = l.doc.openImage(imagem); } catch { /* Preservar metadados de imagem inválida. */ }
+      if (aberta) {
+        const escala = Math.min(l.w / aberta.width, 345 / aberta.height);
+        const w = aberta.width * escala, h = aberta.height * escala;
+        l.espaco(h + 10, () => l.secao(titulo));
+        let inserida = false;
+        try {
+          l.doc.image(imagem, M + (l.w - w) / 2, l.y, { width: w, height: h });
+          inserida = true;
+        } catch { /* Somente a inserção síncrona desta imagem é recuperável. */ }
+        if (inserida) l.y += h + 10;
+        else l.campos([['Fotografia', 'Não foi possível inserir esta imagem no relatório.']], titulo);
+      } else l.campos([['Fotografia', 'Não foi possível inserir esta imagem no relatório.']], titulo);
+    } else if (e.caminho_arquivo || e.tipo === 'FOTO') l.campos([['Arquivo', 'Imagem/arquivo indisponível para inclusão segura.']], titulo);
+    const campos = [['Descrição', e.descricao]];
+    if (presente(e.latitude) || presente(e.longitude)) {
+      campos.push(['Localização da evidência', 'Coordenadas registradas'], ['Latitude', numero(e.latitude, 7)], ['Longitude', numero(e.longitude, 7)]);
+    } else campos.push(['Localização da evidência', 'Não informada']);
+    if (presente(e.origem_coordenadas)) campos.push(['Origem das coordenadas', e.origem_coordenadas]);
+    if (e.origem_coordenadas === 'GPS' || presente(e.precisao_gps)) campos.push(['Precisão estimada', presente(e.precisao_gps) ? `${numero(e.precisao_gps)} m` : 'Não informado']);
+    if (presente(e.data_captura_gps)) campos.push(['Captura GPS', data(e.data_captura_gps, true)]);
+    if (presente(e.data_criacao)) campos.push(['Registro da evidência', data(e.data_criacao, true)]);
+    const continuacao = `6. Evidências • ${String(indice + 1).padStart(2, '0')}`;
+    if (l.linhas(e.descricao, l.w - 145 - 16).length > 8) {
+      l.campos([campos[0]], continuacao);
+      // Após prosa extensa, os metadados usam os mesmos quadros em duas
+      // colunas da identificação, evitando uma página só para uma data.
+      const metadados = campos.slice(1), meio = Math.ceil(metadados.length / 2);
+      l.pares(metadados.slice(0, meio), metadados.slice(meio), continuacao);
+    } else l.campos(campos, continuacao);
   });
-
-  doc.y += 4;
-
-  adicionarCampo(
-    doc,
-    "Observações",
-    dados.observacoes_dados_tecnicos,
-    dados
-  );
-
-  adicionarStatus(
-    doc,
-    "Status",
-    dados.status_dados_tecnicos,
-    dados
-  );
 }
-
-function desenharCardTecnico(
-  doc,
-  item,
-  x,
-  y,
-  largura
-) {
-  doc
-    .save()
-    .roundedRect(
-      x,
-      y,
-      largura,
-      39,
-      4
-    )
-    .fillAndStroke(
-      CORES.fundo,
-      CORES.borda
-    );
-
-  doc
-    .fillColor(CORES.textoClaro)
-    .font("Helvetica-Bold")
-    .fontSize(7.5)
-    .text(
-      item.titulo,
-      x + 9,
-      y + 7,
-      {
-        width: largura - 18,
-        lineBreak: false,
-      }
-    );
-
-  doc
-    .fillColor(CORES.texto)
-    .font("Helvetica-Bold")
-    .fontSize(10)
-    .text(
-      item.valor,
-      x + 9,
-      y + 21,
-      {
-        width: largura - 18,
-        lineBreak: false,
-      }
-    );
-
-  doc.restore();
-}
-
-// ==========================================================
-// EVIDÊNCIAS
-// ==========================================================
-
-function adicionarEvidencia(
-  doc,
-  evidencia,
-  indice,
-  dados,
-  imagens
-) {
-  const caminhoImagem = imagens ? imagens.get(evidencia.id_evidencia) || null :
-    obterImagemEvidencia(evidencia);
-
-  // Cada evidência fica agrupada.
-  // Se não houver espaço suficiente,
-  // começa em uma nova página.
-  garantirEspaco(
-    doc,
-    caminhoImagem ? 330 : 105,
-    dados
-  );
-
-  const largura = larguraUtil(doc);
-  const x = PAGINA.margemEsquerda;
-  const yInicial = doc.y;
-
-  // Cabeçalho da evidência
-  doc
-    .save()
-    .roundedRect(
-      x,
-      yInicial,
-      largura,
-      28,
-      4
-    )
-    .fill(CORES.fundo);
-
-  doc
-    .fillColor(CORES.primaria)
-    .font("Helvetica-Bold")
-    .fontSize(10)
-    .text(
-      `EVIDÊNCIA ${String(
-        indice + 1
-      ).padStart(2, "0")}`,
-      x + 10,
-      yInicial + 9,
-      {
-        width: largura / 2,
-        lineBreak: false,
-      }
-    );
-
-  const tipo =
-    valorOuNaoInformado(
-      evidencia.tipo
-    );
-
-  doc
-    .fillColor(CORES.textoClaro)
-    .font("Helvetica-Bold")
-    .fontSize(8)
-    .text(
-      tipo,
-      x + largura / 2,
-      yInicial + 9,
-      {
-        width:
-          largura / 2 - 10,
-        align: "right",
-        lineBreak: false,
-      }
-    );
-
-  doc.restore();
-
-  doc.y = yInicial + 38;
-
-  // Imagem
-  if (caminhoImagem) {
+// Compatibilidade do consumidor interno legado; nunca imprime o caminho.
+function imagensLegadas(dados) {
+  const imagens = new Map(), raiz = path.resolve(__dirname, '../../uploads');
+  for (const e of dados.evidencias || []) {
+    if (e.tipo !== 'FOTO' || typeof e.caminho_arquivo !== 'string') continue;
+    const alvo = path.resolve(__dirname, '../../', e.caminho_arquivo), relativo = path.relative(raiz, alvo);
+    if (relativo.startsWith('..') || path.isAbsolute(relativo) || !/\.(jpe?g|png)$/i.test(alvo)) continue;
     try {
-      const imagem = doc.openImage(
-        caminhoImagem
-      );
-
-      const maxLargura = 420;
-      const maxAltura = 235;
-
-      const escala = Math.min(
-        maxLargura / imagem.width,
-        maxAltura / imagem.height,
-        1
-      );
-
-      const larguraImagem =
-        imagem.width * escala;
-
-      const alturaImagem =
-        imagem.height * escala;
-
-      garantirEspaco(
-        doc,
-        alturaImagem + 85,
-        dados
-      );
-
-      const xImagem =
-        x +
-        (largura - larguraImagem) /
-          2;
-
-      doc.image(
-        caminhoImagem,
-        xImagem,
-        doc.y,
-        {
-          width: larguraImagem,
-          height: alturaImagem,
-        }
-      );
-
-      doc.y += alturaImagem + 12;
+      if (fs.existsSync(alvo)) imagens.set(e.id_evidencia, fs.readFileSync(alvo));
     } catch (erro) {
-      adicionarMensagem(
-        doc,
-        "Não foi possível inserir esta imagem no relatório.",
-        dados
-      );
+      // Apenas falhas locais de leitura da foto. Autorização, erros inesperados
+      // e a persistência do PDF continuam propagando fora deste tratamento.
+      if (erro.statusCode || erro.status || !['ENOENT', 'EACCES', 'EPERM', 'EISDIR', 'EIO', 'ENOTDIR'].includes(erro.code)) throw erro;
     }
-  } else if (imagens && evidencia.caminho_arquivo) {
-    adicionarMensagem(doc, "Imagem/arquivo indisponível para inclusão segura.", dados);
-  } else if (evidencia.caminho_arquivo) {
-    adicionarCampo(
-      doc,
-      "Arquivo",
-      evidencia.caminho_arquivo,
-      dados
-    );
   }
-
-  // Descrição abaixo da imagem
-  const descricao =
-    valorOuNaoInformado(
-      evidencia.descricao
-    );
-
-  const alturaDescricao = doc
-    .font("Helvetica")
-    .fontSize(9)
-    .heightOfString(descricao, {
-      width: largura - 100,
-    });
-
-  garantirEspaco(
-    doc,
-    alturaDescricao + 35,
-    dados
-  );
-
-  const yDescricao = doc.y;
-
-  doc
-    .fillColor(CORES.textoClaro)
-    .font("Helvetica-Bold")
-    .fontSize(8)
-    .text(
-      "Descrição",
-      x,
-      yDescricao,
-      {
-        width: 85,
-      }
-    );
-
-  doc
-    .fillColor(CORES.texto)
-    .font("Helvetica")
-    .fontSize(9)
-    .text(
-      descricao,
-      x + 85,
-      yDescricao,
-      {
-        width: largura - 85,
-      }
-    );
-
-  doc.y =
-    yDescricao +
-    Math.max(
-      alturaDescricao,
-      12
-    ) +
-    13;
-// Localização da fotografia
-const possuiCoordenadas =
-  evidencia.latitude !== null &&
-  evidencia.latitude !== undefined &&
-  evidencia.latitude !== '' &&
-  evidencia.longitude !== null &&
-  evidencia.longitude !== undefined &&
-  evidencia.longitude !== '';
-
-if (possuiCoordenadas) {
-  garantirEspaco(doc, 145, dados);
-
-  doc.moveDown(0.5);
-
-  doc
-    .fillColor(CORES.primaria)
-    .font('Helvetica-Bold')
-    .fontSize(9)
-    .text('Localização da evidência');
-
-  doc.moveDown(0.4);
-
-  adicionarCampo(
-    doc,
-    'Latitude',
-    formatarNumero(evidencia.latitude, 7),
-    dados
-  );
-
-  adicionarCampo(
-    doc,
-    'Longitude',
-    formatarNumero(evidencia.longitude, 7),
-    dados
-  );
-
-  adicionarCampo(
-    doc,
-    'Origem das coordenadas',
-    evidencia.origem_coordenadas,
-    dados
-  );
-
-  if (evidencia.origem_coordenadas === 'GPS') {
-    adicionarCampo(
-      doc,
-      'Precisão estimada',
-      evidencia.precisao_gps != null
-        ? `${formatarNumero(evidencia.precisao_gps, 2)} m`
-        : 'Não informado',
-      dados
-    );
-  }
-} else {
-  adicionarCampo(
-    doc,
-    'Localização da evidência',
-    'Não informada',
-    dados
-  );
+  return imagens;
 }
-  doc
-    .strokeColor(CORES.borda)
-    .lineWidth(0.5)
-    .moveTo(x, doc.y)
-    .lineTo(x + largura, doc.y)
-    .stroke();
-
-  doc.y += 14;
-}
-
-// ==========================================================
-// GERAÇÃO DO PDF
-// ==========================================================
-
 async function gerarPdfRelatorio(dados, opcoes = {}) {
   const somenteBuffer = opcoes.somenteBuffer === true;
-  let doc;
-  let stream;
-  return new Promise((resolve, reject) => {
+  const doc = new PDFDocument({ size: 'A4', margins: { top: TOP, bottom: 55, left: M, right: M }, bufferPages: true,
+    info: { Title: `Relatório - ${texto(dados.nome_local)}`, Author: dados.responsavel || 'Inventário de Espaços Confinados', Subject: 'Relatório Técnico de Inventário de Espaço Confinado' } });
+  const buffer = await new Promise((resolve, reject) => {
+    const partes = [];
+    doc.on('data', p => partes.push(p)); doc.on('end', () => resolve(Buffer.concat(partes))); doc.on('error', reject);
     try {
-      const diretorio =
-        somenteBuffer ? null : garantirDiretorio();
-
-      const nomeArquivo =
-        `relatorio-${dados.id_relatorio}-${Date.now()}.pdf`;
-
-      const caminhoCompleto = somenteBuffer ? null :
-        path.join(
-          diretorio,
-          nomeArquivo
-        );
-
-      const caminhoRelativo = path
-        .join(
-          "uploads",
-          "relatorios",
-          nomeArquivo
-        )
-        .replace(/\\/g, "/");
-
-      const dataGeracao = new Date();
-
-      doc = new PDFDocument({
-        size: "A4",
-
-        margins: {
-          top: PAGINA.margemSuperior,
-          bottom:
-            PAGINA.margemInferior,
-          left: PAGINA.margemEsquerda,
-          right:
-            PAGINA.margemDireita,
-        },
-
-        bufferPages: true,
-
-        info: {
-          Title: `Relatório - ${valorOuNaoInformado(
-            dados.nome_local
-          )}`,
-
-          Author:
-            dados.responsavel ||
-            "Inventário de Espaços Confinados",
-
-          Subject:
-            "Relatório Técnico de Inventário de Espaço Confinado",
-        },
-      });
-
-      stream = somenteBuffer ? new (require('node:stream').PassThrough)() : fs.createWriteStream(caminhoCompleto);
-      const partes = [];
-      if (somenteBuffer) stream.on('data', parte => partes.push(Buffer.from(parte)));
-      stream.on('error', reject);
-      doc.on('error', falha => { stream.destroy(); reject(falha); });
-      stream.on('finish', () => {
-        try {
-          const arquivo = somenteBuffer ? Buffer.concat(partes) : fs.readFileSync(caminhoCompleto);
-          if (somenteBuffer) return resolve(arquivo);
-          resolve({ caminhoCompleto, caminhoRelativo, hash: crypto.createHash('sha256').update(arquivo).digest('hex') });
-        } catch (falha) { reject(falha); }
-      });
-      doc.pipe(stream);
-
-      // ==================================================
-      // CABEÇALHO INICIAL
-      // ==================================================
-
-      adicionarCabecalhoPagina(
-        doc,
-        dados
-      );
-
-      // ==================================================
-           // ==================================================
-      // 1. IDENTIFICAÇÃO E RESPONSABILIDADE
-      // ==================================================
-
-      adicionarTitulo(
-        doc,
-        "1. Identificação e Responsabilidade",
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Número do relatório",
-        dados.id_relatorio,
-        dados
-      );
-
-      adicionarStatus(
-        doc,
-        "Status do relatório",
-        dados.status_relatorio,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Data de emissão",
-        formatarData(dados.data_emissao),
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Usuário responsável",
-        dados.responsavel,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "E-mail",
-        dados.email_responsavel,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Perfil",
-        dados.perfil_responsavel,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Responsável técnico",
-        dados.nome_responsavel_tecnico,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "CREA",
-        dados.crea,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Número da ART",
-        dados.numero_art,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Data da ART",
-        formatarData(dados.data_art),
-        dados
-      );
-      // ==================================================
-      // 2. CAMPANHA
-      // ==================================================
-
-      adicionarTitulo(
-        doc,
-        "2. Dados da Campanha",
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Campanha",
-        dados.nome_campanha,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Empresa",
-        dados.empresa,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Responsável pela campanha",
-        dados.responsavel_campanha,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Data de início",
-        formatarData(
-          dados.data_inicio
-        ),
-        dados
-      );
-
-      adicionarStatus(
-        doc,
-        "Status",
-        dados.status_campanha,
-        dados
-      );
-
-      // ==================================================
-      // 3. LOCAL
-      // ==================================================
-
-      adicionarTitulo(
-        doc,
-        "3. Identificação do Local",
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Local",
-        dados.nome_local,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Setor",
-        dados.setor,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Descrição",
-        dados.descricao_local,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Endereço",
-        dados.endereco,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Latitude",
-        dados.latitude,
-        dados
-      );
-
-      adicionarCampo(
-        doc,
-        "Longitude",
-        dados.longitude,
-        dados
-      );
-
-      adicionarStatus(
-        doc,
-        "Status",
-        dados.status_local,
-        dados
-      );
-
-
-            // ==================================================
-      // 4. CHECKLIST NR-33
-      // ==================================================
-
-      // Mantém o título e os três critérios de identificação
-      // agrupados na mesma página sempre que possível.
-      garantirEspaco(
-        doc,
-        180,
-        dados
-      );
-
-      adicionarTitulo(
-        doc,
-        "4. Checklist NR-33",
-        dados
-      );
-
-      if (dados.id_checklist) {
-        // --------------------------------------------------
-        // Critérios de identificação do espaço confinado
-        // --------------------------------------------------
-
-        adicionarStatus(
-          doc,
-          "Critério A - Não projetado para ocupação humana contínua",
-          dados.criterio_a,
-          dados
-        );
-
-        adicionarStatus(
-          doc,
-          "Critério B - Meios limitados de entrada/saída",
-          dados.criterio_b,
-          dados
-        );
-
-        adicionarStatus(
-          doc,
-          "Critério C - Atmosfera perigosa existente OU potencial",
-          dados.criterio_c,
-          dados
-        );
-
-        // --------------------------------------------------
-        // Demais itens do Checklist NR-33
-        // --------------------------------------------------
-
-        adicionarStatus(
-          doc,
-          "Acesso controlado",
-          dados.acesso_controlado,
-          dados
-        );
-
-        adicionarStatus(
-          doc,
-          "Ventilação adequada",
-          dados.ventilacao_adequada,
-          dados
-        );
-
-        adicionarStatus(
-          doc,
-          "Monitoramento atmosférico",
-          dados.monitoramento_atmosferico,
-          dados
-        );
-
-        adicionarStatus(
-          doc,
-          "Procedimento de emergência",
-          dados.procedimento_emergencia,
-          dados
-        );
-
-        adicionarCampo(
-          doc,
-          "Observações",
-          dados.observacoes_checklist,
-          dados
-        );
-
-        adicionarStatus(
-          doc,
-          "Status",
-          dados.status_checklist,
-          dados
-        );
-      } else {
-        adicionarMensagem(
-          doc,
-          "Checklist não cadastrado para este local.",
-          dados
-        );
-      }
-
-      // ==================================================
-      // 5. DADOS TÉCNICOS
-      // ==================================================
-
-      adicionarTitulo(
-        doc,
-        "5. Dados Técnicos",
-        dados
-      );
-
-      if (dados.id_dados) {
-        adicionarDadosTecnicos(
-          doc,
-          dados
-        );
-      } else {
-        adicionarMensagem(
-          doc,
-          "Dados técnicos não cadastrados para este local.",
-          dados
-        );
-      }
-
-            // ==================================================
-      // 6. EVIDÊNCIAS
-      // ==================================================
-
-      if (
-        Array.isArray(
-          dados.evidencias
-        ) &&
-        dados.evidencias.length > 0
-      ) {
-        // Reserva espaço para manter o título da seção
-        // junto com o início da primeira evidência.
-        garantirEspaco(
-          doc,
-          390,
-          dados
-        );
-      } else {
-        // Quando não existem evidências, reserva apenas
-        // espaço para o título e a mensagem informativa.
-        garantirEspaco(
-          doc,
-          100,
-          dados
-        );
-      }
-
-      adicionarTitulo(
-        doc,
-        "6. Evidências",
-        dados
-      );
-
-      if (
-        Array.isArray(
-          dados.evidencias
-        ) &&
-        dados.evidencias.length > 0
-      ) {
-        dados.evidencias.forEach(
-          (evidencia, indice) => {
-            adicionarEvidencia(
-              doc,
-              evidencia,
-              indice,
-              dados,
-              somenteBuffer ? opcoes.imagens || new Map() : undefined
-            );
-          }
-        );
-      } else {
-        adicionarMensagem(
-          doc,
-          "Nenhuma evidência cadastrada.",
-          dados
-        );
-      }
-
-      // ==================================================
-      // RODAPÉS
-      // ==================================================
-
-      adicionarRodapes(
-        doc,
-        dados,
-        dataGeracao
-      );
-
-      doc.end();
-
-    } catch (erro) {
-      if (doc) doc.destroy();
-      if (stream) stream.destroy();
-      reject(erro);
-    }
-
+      const geracao = new Date(), layout = new Layout(doc, dados);
+      identificacao(layout, dados); checklistTecnicos(layout, dados);
+      evidencias(layout, dados, opcoes.imagens || (somenteBuffer ? new Map() : imagensLegadas(dados)));
+      layout.rodapes(geracao); doc.end();
+    } catch (erro) { doc.destroy(); reject(erro); }
   });
+  if (somenteBuffer) return buffer;
+  const diretorio = path.resolve(__dirname, '../../uploads/relatorios');
+  fs.mkdirSync(diretorio, { recursive: true });
+  const nome = `relatorio-${dados.id_relatorio}-${Date.now()}.pdf`, caminhoCompleto = path.join(diretorio, nome);
+  fs.writeFileSync(caminhoCompleto, buffer, { flag: 'wx' });
+  return { caminhoCompleto, caminhoRelativo: `uploads/relatorios/${nome}`, hash: crypto.createHash('sha256').update(buffer).digest('hex') };
 }
-
-module.exports = {
-  gerarPdfRelatorio,
-};
+module.exports = { gerarPdfRelatorio };
