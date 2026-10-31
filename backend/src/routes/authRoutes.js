@@ -5,6 +5,9 @@ const { autenticarMultiTenant } = require('../middlewares/autenticacaoMiddleware
 
 const router = express.Router();
 router.post('/login', authController.login);
+const recuperacao = require('../controllers/recuperacaoSenhaController');
+router.post('/recuperacao-senha', recuperacao.solicitar);
+router.post('/redefinir-senha', recuperacao.redefinir);
 
 // Apenas erros gerados pela conta possuem mensagens públicas controladas.
 function handler(operacao, message, mensagemInterna, incluirData = true) {

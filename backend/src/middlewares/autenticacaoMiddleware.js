@@ -73,6 +73,7 @@ function validarToken(req) {
 
   if (
     !payload ||
+    (payload.sv !== undefined && (!Number.isSafeInteger(payload.sv) || payload.sv < 0)) ||
     typeof payload !== "object" ||
     !Number.isSafeInteger(idUsuario) ||
     idUsuario <= 0 ||
@@ -86,6 +87,7 @@ function validarToken(req) {
   return {
     id_usuario: idUsuario,
     perfil_acesso: payload.perfil,
+    sessao_versao: payload.sv ?? 0,
   };
 }
 
@@ -131,9 +133,14 @@ function responderErroAutenticacao(res, error) {
  * IMPORTANTE:
  * Não fornece isolamento multi-tenant.
  */
-function autenticar(req, res, next) {
+async function autenticar(req, res, next) {
   try {
-    req.usuario = validarToken(req);
+    const identidade = validarToken(req);
+    const usuario = await usuarioRepository.buscarIdentidadeAutenticada(identidade.id_usuario);
+    if (!usuario || (usuario.sessao_versao ?? 0) !== identidade.sessao_versao) {
+      return res.status(401).json({ status: 'error', message: 'Token inválido.' });
+    }
+    req.usuario = { id_usuario: identidade.id_usuario, perfil_acesso: identidade.perfil_acesso };
     return next();
   } catch (error) {
     return responderErroAutenticacao(res, error);
@@ -183,7 +190,8 @@ async function autenticarMultiTenant(req, res, next) {
     }
 
     const idUsuario = normalizarIdDominio(usuario.id_usuario);
-    if (idUsuario !== identidadeToken.id_usuario) {
+    if (idUsuario !== identidadeToken.id_usuario ||
+        (usuario.sessao_versao ?? 0) !== identidadeToken.sessao_versao) {
       return res.status(401).json({ status: "error", message: "Token inválido." });
     }
     req.usuario = {

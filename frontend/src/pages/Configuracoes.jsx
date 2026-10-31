@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/layout/Sidebar'
 import Header from '../components/layout/Header'
 import { useTheme } from '../hooks/useTheme'
@@ -13,7 +14,8 @@ import '../styles/Configuracoes.css'
 
 function Configuracoes() {
   const { tema, setTema } = useTheme()
-  const { atualizarUsuario } = useAuth()
+  const { atualizarUsuario, logout } = useAuth()
+  const navigate = useNavigate()
 
   const [perfil, setPerfil] = useState({
     nome: '',
@@ -159,6 +161,8 @@ function Configuracoes() {
 
     try {
       await alterarMinhaSenha(senha)
+      logout()
+      navigate('/login', { replace: true, state: { mensagem: 'Senha alterada com sucesso. Entre novamente.' } })
 
       setSenha({
         senhaAtual: '',

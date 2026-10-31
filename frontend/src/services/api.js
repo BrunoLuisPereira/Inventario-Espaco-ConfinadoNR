@@ -23,6 +23,12 @@ const request = criarHttp({
 const requestArquivo = endpoint => request(endpoint, { method: 'GET' }, true)
 
 // Autenticação
+export function solicitarRecuperacaoSenha(email) {
+  return request('/auth/recuperacao-senha', { method: 'POST', body: JSON.stringify({ email }) })
+}
+export function redefinirSenha({ token, novaSenha, confirmarSenha }) {
+  return request('/auth/redefinir-senha', { method: 'POST', body: JSON.stringify({ token, novaSenha, confirmarSenha }) })
+}
 export function cadastrarAmbiente({ nome, nome_ambiente, email, senha }) {
   return request('/cadastro/ambiente', { method: 'POST', body: JSON.stringify({ nome, nome_ambiente, email, senha }) })
 }

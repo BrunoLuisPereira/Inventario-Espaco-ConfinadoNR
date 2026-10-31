@@ -327,7 +327,7 @@ async function buscarIdentidadeAutenticada(idUsuario) {
       u.id_ambiente,
       u.nome,
       u.email,
-      u.perfil_acesso, u.eh_fundador
+      u.perfil_acesso, u.eh_fundador, u.sessao_versao
     FROM usuario AS u
     INNER JOIN ambiente AS a
       ON a.id_ambiente = u.id_ambiente

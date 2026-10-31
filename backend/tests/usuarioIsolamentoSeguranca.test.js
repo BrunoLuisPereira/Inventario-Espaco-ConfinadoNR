@@ -23,7 +23,7 @@ const COLUNAS_PUBLICAS = [
   "id_usuario", "nome", "email", "perfil_acesso", "eh_fundador", "id_convite_origem", "ativo", "data_criacao", "data_atualizacao",
 ];
 const SELECAO_PUBLICA = "SELECT " + COLUNAS_PUBLICAS.join(", ") + " FROM usuario";
-const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
+const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador, u.sessao_versao FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
 const CONTEXTOS = [
   { nome: "A", ambiente: AMBIENTE_A, outroAmbiente: AMBIENTE_B, admin: 11, outroAdmin: 22, alvo: 101, externo: 202, token: "admin-a" },
   { nome: "B", ambiente: AMBIENTE_B, outroAmbiente: AMBIENTE_A, admin: 22, outroAdmin: 11, alvo: 202, externo: 101, token: "admin-b" },

@@ -31,6 +31,7 @@ async function buscarPorEmailComAmbiente(email, client = pool) {
       u.nome,
       u.email,
       u.senha_hash,
+      u.sessao_versao,
       u.perfil_acesso,
       u.eh_fundador,
       u.ativo,

@@ -17,7 +17,7 @@ const B = "22222222-2222-4222-8222-222222222222";
 const SEGREDO = "SEGREDO_FICTICIO_EXCLUSIVO_DO_TESTE";
 const SENSIVEL = "SQL_STACK_TOKEN_CREDENCIAL_FICTICIOS_NAO_PUBLICAR";
 const COLUNAS = "id_usuario, nome, email, perfil_acesso, eh_fundador, id_convite_origem, ativo, data_criacao, data_atualizacao";
-const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
+const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador, u.sessao_versao FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
 const CONTEXTOS = [
   { nome: "A", ambiente: A, outro: B, admin: 11, alvo: 101, externo: 202, token: "admin-a" },
   { nome: "B", ambiente: B, outro: A, admin: 22, alvo: 202, externo: 101, token: "admin-b" },

@@ -8,7 +8,7 @@ async function iniciar() {
     password: process.env.DB_PASSWORD, connectionTimeoutMillis: 5000,
     options: '-c search_path=pg_catalog,public' });
   pool.on('error', () => console.error('Falha de conexao do desenvolvimento local.'));
-  let server;
+  let server, pararRecuperacao;
   let etapa = 'PREFLIGHT_FALHOU';
   let encerrado = false;
   let database, cacheAnterior;
@@ -17,6 +17,7 @@ async function iniciar() {
     if (encerrado) return;
     encerrado = true;
     for (const signal of ['SIGINT','SIGTERM']) process.removeListener(signal,aoSinal);
+    if (pararRecuperacao) await pararRecuperacao();
     if (server?.listening) await new Promise(resolve => server.close(resolve));
     try { await pool.end(); } finally {
       if (database) {
@@ -46,6 +47,9 @@ async function iniciar() {
     server = criarApp(d.banco).listen(d.portaHTTP, d.host);
     await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
     console.log(`DESENVOLVIMENTO LOCAL: http://${d.host}:${d.portaHTTP} — ${d.banco}`);
+    if (process.env.EMAIL_TRANSPORT === 'local-smtp') {
+      pararRecuperacao = require('../src/services/recuperacaoSenhaWorker').iniciarWorker();
+    }
     for (const signal of ['SIGINT','SIGTERM']) process.once(signal,aoSinal);
     return { encerrar, destino:d };
   } catch (erro) {

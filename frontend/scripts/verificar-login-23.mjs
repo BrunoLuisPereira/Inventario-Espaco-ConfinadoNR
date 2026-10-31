@@ -22,7 +22,7 @@ try {
     await esperar('!!document.querySelector("dialog[open]")')
     assert.equal(await avaliar('document.activeElement.id'), 'email-recuperacao')
     assert.equal(await avaliar('document.querySelector("dialog").getAttribute("aria-labelledby")'), 'recuperacao-titulo')
-    assert.equal(await avaliar('document.querySelector("dialog button[type=submit]").disabled'), true)
+    assert.equal(await avaliar('document.querySelector("dialog button[type=submit]").disabled'), false)
     await preencher('email-recuperacao','invalido')
     await avaliar('document.querySelector(".recuperacao-fechar").focus()')
     await esperar('!!document.getElementById("recuperacao-erro")')
@@ -61,5 +61,5 @@ try {
   await esperar('document.querySelector(".login-error")?.textContent.trim()==="Muitas tentativas de login. Aguarde antes de tentar novamente."')
   assert.equal(await avaliar('document.querySelector(".login-error").getAttribute("role")'),'alert')
   assert.equal(await avaliar('document.querySelector(".login-form button[type=submit]").disabled'),false)
-  console.log('APROVADO: olho, teclado, preservação da senha, modal, foco, Escape, validação, responsividade, indisponibilidade sem requisição, loading/erro/429 do login e payload original. Recuperação: loading não aplicável sem envio real.')
+  console.log('APROVADO: olho, teclado, preservação da senha, modal, foco, Escape, validação, responsividade, ausência de envio sem submissão, loading/erro/429 do login e payload original.')
 } finally { await b.fechar() }

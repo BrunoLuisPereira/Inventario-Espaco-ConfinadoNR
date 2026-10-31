@@ -27,7 +27,7 @@ const CONTEXTOS = [
   { nome: "B", ambiente: B, outro: A, admin: 21, responsavel: 22, engenheiro: 23, criador: 24, campanha: 2, local: 201, evidencia: 601, externa: 501 },
 ];
 const normalizar = (sql) => sql.replace(/\s+/g, " ").trim().replace(/;$/, "");
-const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
+const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador, u.sessao_versao FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
 const SQL_LOCAL = "SELECT l.id_local, l.nome_local, l.setor, l.descricao, l.endereco, l.latitude, l.longitude, l.status, l.id_campanha, c.nome_campanha, l.data_criacao, l.data_atualizacao FROM local l INNER JOIN campanha c ON c.id_campanha = l.id_campanha WHERE l.id_local = $1 LIMIT 1";
 const SQL_CAMPANHA = "SELECT c.id_campanha, c.nome_campanha, c.empresa, c.responsavel, c.data_inicio, c.status, c.id_usuario, u.nome AS usuario_responsavel, c.data_criacao, c.data_atualizacao FROM campanha c INNER JOIN usuario u ON u.id_usuario = c.id_usuario WHERE c.id_campanha = $1 LIMIT 1";
 const SQL_OPERACAO = "SELECT e.*, l.nome_local, u.nome AS usuario_responsavel FROM evidencia e INNER JOIN local l ON l.id_local = e.id_local INNER JOIN usuario u ON u.id_usuario = e.id_usuario WHERE e.id_operacao_cliente = $1";
