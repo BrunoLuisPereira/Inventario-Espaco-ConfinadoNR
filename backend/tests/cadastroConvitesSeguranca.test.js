@@ -176,6 +176,7 @@ function preparar(t, opcoes = {}) {
       // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
       if (request === '../utils/permissoes') return politicaRbac723;
       if (caminhos.includes(parent?.filename)) {
+        if (request === './emailService') return { emailService: opcoes.email || { disponivel: () => false } };
         if (request === '../config/database') return pool;
         if (request === 'bcryptjs') return { hash: async (senha, rounds) => { assert.equal(rounds, 12); return 'hash-simulado'; } };
         if (request === 'crypto' || request.startsWith('../repositories/') || request.startsWith('../services/')) return load.call(this, request, parent, ...args);
@@ -226,6 +227,48 @@ for (const operacao of ['cadastro', 'emitir', 'aceitar']) {
 
 const comandos = c => c.eventos.filter(e => ['BEGIN', 'COMMIT', 'ROLLBACK'].includes(e.sql)).map(e => e.sql);
 const escritas = c => c.eventos.filter(e => /^(INSERT|UPDATE)/.test(e.sql || ''));
+for (const modo of ['enviado', 'falhou', 'indisponivel']) test('envio de convite após liberar transação: ' + modo, async t => {
+  let c, enviados = 0, tokenEnviado, liberar;
+  const espera = new Promise(resolve => { liberar = resolve; });
+  const email = {
+    disponivel: () => modo !== 'indisponivel',
+    criarLinkConvite: token => `http://127.0.0.1:5174/convites/aceitar#token=${token}`,
+    async enviarConvite(para, token) {
+      enviados++; tokenEnviado = token;
+      assert.equal(para, 'nova@example.invalid');
+      assert.equal(c.eventos.at(-1).release.length, 0);
+      assert.ok(c.eventos.some(e => e.sql === 'COMMIT'));
+      await espera;
+      if (modo === 'falhou') throw new Error('SMTP_INTERNO ' + token);
+    },
+  };
+  c = preparar(t, { email });
+  const inicio = Date.now();
+  let concluido = false;
+  const pendente = c.convites.emitirConvite(10, { ...conviteDados, id_ambiente: B, url: 'https://nao-confiavel.invalid' })
+    .then(r => { concluido = true; return r; });
+  if (modo !== 'indisponivel') {
+    for (let i = 0; i < 30 && !enviados; i++) await new Promise(resolve => setImmediate(resolve));
+    assert.equal(enviados, 1);
+    assert.equal(concluido, false, 'não confirma envio enquanto SMTP não respondeu');
+  }
+  liberar();
+  const resultado = await pendente;
+  assert.equal(resultado.envio.status, modo);
+  assert.equal(resultado.convite.id_ambiente, A);
+  assert.equal(resultado.convite.perfil_acesso, conviteDados.perfilAcesso);
+  assert.ok(resultado.convite.data_expiracao.getTime() >= inicio + 48 * 3600000);
+  assert.equal(resultado.link, email.criarLinkConvite(resultado.token));
+  if (modo !== 'indisponivel') assert.equal(tokenEnviado, resultado.token);
+  assert.equal(c.estado.convites.length, 1);
+  assert.equal(c.estado.convites[0].data_aceite, null);
+  assert.equal(c.estado.convites[0].data_cancelamento, null);
+  assert.ok(!JSON.stringify(c.logs).includes(resultado.token));
+  assert.ok(!JSON.stringify(c.logs).includes('SMTP_INTERNO'));
+  await assert.rejects(c.convites.emitirConvite(10, conviteDados), { statusCode: 409 });
+  assert.equal(c.estado.convites.length, 1);
+  assert.equal(enviados, modo === 'indisponivel' ? 0 : 1);
+});
 test('cadastro cria ambiente e primeiro administrador atomicamente, ignorando identidade forjada', async t => {
   const c = preparar(t);
   const resultado = await c.cadastro.cadastrarAmbiente({ ...dados, id_ambiente: A, perfil_acesso: 'GLOBAL', perfilAcesso: 'ENGENHEIRO_SEGURANCA', id_usuario: 10 });

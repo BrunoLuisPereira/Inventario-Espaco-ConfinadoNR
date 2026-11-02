@@ -7,6 +7,7 @@ const administradorRepository = require("../repositories/administradorRepository
 const ambienteRepository = require("../repositories/ambienteRepository");
 const conviteRepository = require("../repositories/conviteRepository");
 const emailLockRepository = require("../repositories/emailLockRepository");
+const { emailService } = require('./emailService');
 
 const { perfisConvite: PERFIS_PERMITIDOS } = require('../utils/permissoes');
 
@@ -117,6 +118,7 @@ async function emitirConvite(idUsuarioAdministrador, dados) {
   }
 
   const { email, perfilAcesso } = validarDadosConvite(dados);
+  let resultado;
 
   const client = await pool.connect();
   let iniciada = false;
@@ -199,7 +201,7 @@ async function emitirConvite(idUsuarioAdministrador, dados) {
     await client.query("COMMIT");
     iniciada = false;
 
-    return {
+    resultado = {
       convite,
       token,
     };
@@ -217,6 +219,21 @@ async function emitirConvite(idUsuarioAdministrador, dados) {
   } finally {
     if (descartar) client.release(true); else client.release();
   }
+  // SMTP acontece somente após COMMIT e liberação da conexão. Uma falha não
+  // desfaz o convite: ele continua pendente, sujeito à mesma reserva de e-mail.
+  let link = null;
+  try { link = emailService.criarLinkConvite(resultado.token); } catch { /* URL não configurada. */ }
+  let status = 'indisponivel';
+  if (emailService.disponivel()) {
+    try {
+      await emailService.enviarConvite(resultado.convite.email, resultado.token);
+      status = 'enviado';
+    } catch {
+      // Erros de transporte podem conter destinatário, credenciais ou link.
+      status = 'falhou';
+    }
+  }
+  return { ...resultado, link, envio: { status } };
 }
 
 /**
@@ -475,7 +492,21 @@ async function aceitarConvite(token, dados = {}) {
   }
 }
 
+// Consulta sem locks ou escrita. O aceite continua revalidando sob transação.
+async function preValidarConvite(token) {
+  const tokenHash = calcularHashTokenConvite(token);
+  const client = await pool.connect();
+  try {
+    const convite = await conviteRepository.buscarConvitePorTokenHash(client, tokenHash, { bloquear: false });
+    validarConviteParaAceite(convite);
+    return { valido: true };
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
+  preValidarConvite,
   criarErro,
   gerarTokenConvite,
   validarDadosConvite,

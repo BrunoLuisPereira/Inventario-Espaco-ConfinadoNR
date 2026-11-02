@@ -52,7 +52,7 @@ try {
   await enviar('Page.navigate', { url: base + '/login' })
   let pronto = false
   for (let i = 0; i < 100; i++) {
-    pronto = await avaliar('document.querySelectorAll(".login-options > *").length === 3 && [...document.images].every(i => i.complete)')
+    pronto = await avaliar('document.querySelectorAll(".login-options > *").length === 2 && [...document.images].every(i => i.complete)')
     if (pronto) break
     await pausa(100)
   }
@@ -63,13 +63,13 @@ try {
     await pausa(250)
     const obter = () => avaliar(`Array.from(document.querySelectorAll('.login-options > *')).map(e => {const s=getComputedStyle(e),r=e.getBoundingClientRect(); return {texto:e.textContent.trim(),cor:s.color,fonte:s.fontSize,peso:s.fontWeight,familia:s.fontFamily,sublinhado:s.textDecorationLine,top:r.top,left:r.left,right:r.right}})`)
     const normal = await obter()
-    assert.deepEqual(normal.map(x => x.texto), ['Criar conta', 'Tenho um convite', 'Esqueci minha senha'])
+    assert.deepEqual(normal.map(x => x.texto), ['Criar conta', 'Esqueci minha senha'])
     for (const x of normal) {
-      for (const campo of ['cor', 'fonte', 'peso', 'familia', 'sublinhado']) assert.equal(x[campo], normal[2][campo])
+      for (const campo of ['cor', 'fonte', 'peso', 'familia', 'sublinhado']) assert.equal(x[campo], normal[1][campo])
       assert.equal(x.sublinhado, 'none'); assert.ok(x.left >= 0 && x.right <= width)
     }
     assert.equal(await avaliar('document.documentElement.scrollWidth <= innerWidth'), true)
-    if (width === 1440) assert.ok(normal.every(x => Math.abs(x.top - normal[0].top) < 2), 'Desktop deve manter os tres links na mesma linha')
+    if (width === 1440) assert.ok(normal.every(x => Math.abs(x.top - normal[0].top) < 2), 'Desktop deve manter os links na mesma linha')
     await enviar('DOM.enable'); await enviar('CSS.enable')
     const { root } = await enviar('DOM.getDocument')
     const { nodeIds } = await enviar('DOM.querySelectorAll', { nodeId: root.nodeId, selector: '.login-options > *' })
@@ -77,7 +77,7 @@ try {
       for (const nodeId of nodeIds) await enviar('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [estado] })
       await pausa(250)
       const estilos = await obter()
-      assert.ok(estilos.every(x => x.cor === estilos[2].cor && x.sublinhado === estilos[2].sublinhado))
+      assert.ok(estilos.every(x => x.cor === estilos[1].cor && x.sublinhado === estilos[1].sublinhado))
       for (const nodeId of nodeIds) await enviar('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [] })
       await pausa(250)
     }
@@ -85,7 +85,7 @@ try {
     await fs.writeFile(path.join(pasta, `login-${width}.png`), Buffer.from(captura.data, 'base64'))
     resultados.push({ largura: width, links: normal })
   }
-  assert.deepEqual(await avaliar('Array.from(document.querySelectorAll(".login-options a")).map(e=>e.getAttribute("href"))'), ['/cadastro', '/convites/aceitar'])
+  assert.deepEqual(await avaliar('Array.from(document.querySelectorAll(".login-options a")).map(e=>e.getAttribute("href"))'), ['/cadastro'])
   assert.equal(await avaliar('document.querySelector(".login-options button").disabled'), false)
   console.log(JSON.stringify({ resultado: 'APROVADO', pasta, resultados }))
 } finally {

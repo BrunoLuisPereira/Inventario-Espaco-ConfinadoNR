@@ -19,6 +19,7 @@ const ROUTERS = [
   "./routes/authRoutes", "./routes/usuarioRoutes", "./routes/campanhaRoutes",
   "./routes/localRoutes", "./routes/checklistRoutes", "./routes/evidenciaRoutes",
   "./routes/dadosTecnicosRoutes", "./routes/relatorioRoutes", "./routes/sincronizacaoRoutes",
+  "./routes/cadastroRoutes", "./routes/conviteRoutes",
 ];
 
 // Testes unitários do handler REAL registrado pelo app REAL. Não emulam sua
@@ -170,7 +171,7 @@ function executarHandler(t, contexto, erro, req = {}) {
 }
 
 // CONTRATOS ATUAIS A PRESERVAR: estas expectativas já são sustentadas pelo app.
-test("[contrato atual] carrega o app real com nove routers simulados e sem servidor", (t) => {
+test("[contrato atual] carrega o app real com onze routers simulados e sem servidor", (t) => {
   const contexto = carregarAppIsolado(t);
   assert.equal(typeof contexto.app, "function");
   assert.deepEqual(contexto.imports, ["express", "cors", ...ROUTERS]);

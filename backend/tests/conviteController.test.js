@@ -702,7 +702,7 @@ test("[segurança pendente] emitir com headersSent não envia nem a rejeição l
 });
 
 test("[contrato preservado] exports e import isolado permanecem limitados ao controller de convites", () => {
-  assert.deepEqual(Object.keys(conviteController).sort(), ["aceitar", "emitir"]);
+  assert.deepEqual(Object.keys(conviteController).sort(), ["aceitar", "emitir", "preValidar"]);
   assert.deepEqual(importsController, ["../services/conviteService"]);
 });
 
