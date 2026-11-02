@@ -12,12 +12,13 @@ const env={DB_NAME:'inventario_nr33_multitenant_dev',DB_HOST:'127.0.0.1',DB_PORT
   NR33_LOCAL_AUTORIZADO:'PASSO712',LOGIN_HMAC_SECRET:HMAC};
 
 function inicializador(t,catalogo=fixture(),overrides={}) {
-  const nomes=[...Object.keys(env),'NR33_BACKEND_PORT'];
+  const nomes=[...Object.keys(env),'NR33_BACKEND_PORT','EMAIL_TRANSPORT'];
   const anteriores=Object.fromEntries(nomes.map(n=>[n,process.env[n]]));
   for (const [k,v] of Object.entries({...env,...overrides})) {
     if (v===undefined) delete process.env[k]; else process.env[k]=v;
   }
   if (!Object.hasOwn(overrides,'NR33_BACKEND_PORT')) delete process.env.NR33_BACKEND_PORT;
+  if (!Object.hasOwn(overrides,'EMAIL_TRANSPORT')) delete process.env.EMAIL_TRANSPORT;
   t.after(()=>{for(const [k,v] of Object.entries(anteriores)){if(v===undefined)delete process.env[k];else process.env[k]=v;}});
   const client=clientSimulado(catalogo), eventos=[];
   const pool={on(){return this;},async connect(){eventos.push('connect');return client;},async end(){eventos.push('end');}};
@@ -29,6 +30,7 @@ function inicializador(t,catalogo=fixture(),overrides={}) {
   t.mock.method(Module,'_load',function(nome,parent,...args){
     if(parent?.filename===caminho && nome==='pg')return {Pool:class{constructor(config){eventos.push('pool');assert.equal(config.database,env.DB_NAME);return pool;}}};
     if(parent?.filename===caminho && nome==='./app.cjs')return {criarApp(){assert.equal(client.queries.at(-1).sql,'COMMIT');eventos.push('app');return app;}};
+    if(parent?.filename===caminho && nome==='../src/services/recuperacaoSenhaWorker')return {iniciarWorker(){eventos.push('worker');return async()=>eventos.push('pararWorker');}};
     return load.call(this,nome,parent,...args);
   });
   t.mock.method(console,'log',()=>{});
@@ -43,6 +45,14 @@ for(const [nome,valor,codigo] of [['ausente',undefined,'HMAC_AUSENTE'],['vazio',
     assert.deepEqual(c.eventos,[]);
   });
 }
+for (const modo of ['disabled','local-smtp','external-smtp']) test('entrada local preserva worker para transporte: '+modo,async t=>{
+  const c=inicializador(t,fixture(),{EMAIL_TRANSPORT:modo});
+  const iniciado=await c.iniciar();
+  assert.equal(c.eventos.includes('worker'),modo!=='disabled');
+  await iniciado.encerrar();
+  assert.equal(c.eventos.includes('pararWorker'),modo!=='disabled');
+});
+
 test('validação HMAC compartilhada aceita apenas Base64 canônico de 32 bytes',()=>{
   assert.equal(hmacValido(HMAC),true);
   for(const valor of [null,{},HMAC+' ',Buffer.alloc(31,7).toString('base64'),Buffer.alloc(33,7).toString('base64')])assert.equal(hmacValido(valor),false);

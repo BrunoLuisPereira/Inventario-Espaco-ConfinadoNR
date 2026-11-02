@@ -75,8 +75,8 @@ automatizados simulam SMTP e PostgreSQL e não precisam iniciar esse supervisor.
 
 ## Para entrega externa futura
 
-O adaptador atual aceita somente SMTP em loopback. Entrega externa exige outro
-adaptador/configuração aprovada com TLS, autenticação ou API do provedor,
-remetente/domínio verificado e origem HTTPS pública. Também será necessário
-validar a entrega, política de falhas e implantação sem alterar os contratos de
-recuperação. Nenhuma dependência ou credencial foi adicionada nesta etapa.
+A Etapa C acrescenta um adaptador SMTP externo independente de provedor,
+desabilitado por padrão. Consulte [configuração e limites do envio externo](email-externo.md).
+Mailpit continua restrito ao loopback e não muda de comportamento. Para entrega
+externa ainda são necessários configuração autorizada, remetente verificado e
+origem HTTPS pública. Nenhuma dependência ou credencial foi adicionada.

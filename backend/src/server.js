@@ -8,7 +8,7 @@ const server = app.listen(PORT, () => {
   console.log(`Servidor iniciado na porta ${PORT}`);
   console.log(`API disponível em http://localhost:${PORT}`);
 });
-const pararRecuperacao = process.env.EMAIL_TRANSPORT === 'local-smtp'
+const pararRecuperacao = ['local-smtp', 'external-smtp'].includes(process.env.EMAIL_TRANSPORT)
   ? require('./services/recuperacaoSenhaWorker').iniciarWorker() : null;
 if (pararRecuperacao) for (const sinal of ['SIGINT', 'SIGTERM']) process.once(sinal, async () => {
   await pararRecuperacao();

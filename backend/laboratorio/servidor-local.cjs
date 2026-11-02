@@ -47,7 +47,7 @@ async function iniciar() {
     server = criarApp(d.banco).listen(d.portaHTTP, d.host);
     await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
     console.log(`DESENVOLVIMENTO LOCAL: http://${d.host}:${d.portaHTTP} — ${d.banco}`);
-    if (process.env.EMAIL_TRANSPORT === 'local-smtp') {
+    if (['local-smtp', 'external-smtp'].includes(process.env.EMAIL_TRANSPORT)) {
       pararRecuperacao = require('../src/services/recuperacaoSenhaWorker').iniciarWorker();
     }
     for (const signal of ['SIGINT','SIGTERM']) process.once(signal,aoSinal);
