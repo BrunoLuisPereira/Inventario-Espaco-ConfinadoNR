@@ -558,7 +558,7 @@ function ChecklistLocal() {
             value={formulario.observacoes}
             onChange={alterarCampo}
             disabled={salvando}
-            placeholder="Digite observações sobre o checklist..."
+            placeholder="Digite observações sobre o local, meios de acesso e informações importantes sobre o local..."
           />
         </div>
 
