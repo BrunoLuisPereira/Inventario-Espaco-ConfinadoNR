@@ -7,6 +7,7 @@ const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const C = '33333333-3333-4333-8333-333333333333';
 const token = 'a'.repeat(64);
+const { criarEmailConfigurado } = require('../src/services/emailService');
 const hash = crypto.createHash('sha256').update(token).digest('hex');
 const dados = { nome: 'Pessoa', email: ' NOVA@example.invalid ', senha: 'senha-simulada' };
 const conviteDados = { email: ' NOVA@example.invalid ', perfilAcesso: 'ENGENHEIRO_SEGURANCA' };
@@ -227,6 +228,31 @@ for (const operacao of ['cadastro', 'emitir', 'aceitar']) {
 
 const comandos = c => c.eventos.filter(e => ['BEGIN', 'COMMIT', 'ROLLBACK'].includes(e.sql)).map(e => e.sql);
 const escritas = c => c.eventos.filter(e => /^(INSERT|UPDATE)/.test(e.sql || ''));
+for (const falhar of [false, true]) test('SMTP externo preserva tenant e convite pendente: '+falhar, async t => {
+  let c, enviado;
+  const email = criarEmailConfigurado({ EMAIL_TRANSPORT: 'external-smtp', SMTP_HOST: 'smtp.example.invalid',
+    SMTP_PORT: '587', SMTP_USER: 'usuario-sintetico', SMTP_PASSWORD: 'senha-sintetica',
+    EMAIL_FROM: 'nr33@example.invalid', APP_PUBLIC_URL: 'https://app.example.invalid' }, () => ({
+    async sendMail(m) {
+      enviado=m;
+      assert.deepEqual(c.eventos.at(-1),{release:[]});
+      assert.ok(c.eventos.some(e=>e.sql==='COMMIT'));
+      if(falhar)throw Error('SENHA_SINTETICA '+m.text);
+      return {accepted:[m.to]};
+    },
+  }));
+  c=preparar(t,{email});
+  const resultado=await c.convites.emitirConvite(10,{...conviteDados,id_ambiente:B,url:'https://intruso.invalid'});
+  assert.equal(resultado.envio.status,falhar?'falhou':'enviado');
+  assert.equal(resultado.convite.id_ambiente,A);
+  assert.equal(resultado.convite.perfil_acesso,conviteDados.perfilAcesso);
+  assert.equal(enviado.to,'nova@example.invalid');
+  assert.ok(enviado.text.includes('https://app.example.invalid/convites/aceitar#token='+resultado.token));
+  assert.equal(c.estado.convites[0].data_aceite,null);
+  assert.equal(c.estado.convites[0].data_cancelamento,null);
+  assert.ok(!JSON.stringify(c.logs).includes(resultado.token));
+  await assert.rejects(c.convites.emitirConvite(10,conviteDados),{statusCode:409});
+});
 for (const modo of ['enviado', 'falhou', 'indisponivel']) test('envio de convite após liberar transação: ' + modo, async t => {
   let c, enviados = 0, tokenEnviado, liberar;
   const espera = new Promise(resolve => { liberar = resolve; });

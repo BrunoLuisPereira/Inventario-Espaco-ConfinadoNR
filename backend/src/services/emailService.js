@@ -56,6 +56,8 @@ function criarEmailConfigurado(env = process.env, criarTransporte) {
       const r = await cliente.sendMail({ from: env.EMAIL_FROM, to: para, subject: assunto, text: texto, html });
       if (r.accepted?.length !== 1 || r.rejected?.length) throw new Error('Entrega não confirmada.');
     } };
+  } else if (env.EMAIL_TRANSPORT === 'external-smtp') {
+    transporte = require('./smtpExterno').criarTransporteExterno(env, criarTransporte);
   } else if (env.EMAIL_TRANSPORT && env.EMAIL_TRANSPORT !== 'disabled') {
     throw new Error('Transporte de e-mail não permitido.');
   }
