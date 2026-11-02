@@ -105,6 +105,8 @@ app.get("/api/health", (req, res) => {
 // ======================================================
 
 // Autenticação
+app.use('/api/cadastro', require('./routes/cadastroRoutes'));
+app.use('/api/convites', require('./routes/conviteRoutes'));
 app.use(
   "/api/auth",
   authRoutes

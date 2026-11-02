@@ -31,7 +31,7 @@ function App() {
   const location = useLocation()
   // Recuperação pública permanece acessível mesmo com sessão antiga pendente.
   if (location.pathname === '/redefinir-senha') return <RedefinirSenha key={location.hash} />
-  if (carregandoSessao || (token && erroSessao && !autenticado)) {
+  if (location.pathname !== '/convites/aceitar' && (carregandoSessao || (token && erroSessao && !autenticado))) {
     return <><DemoBanner /><main className="sessao-pendente" aria-live="polite">
       <h1>{carregandoSessao ? 'Validando sessão...' : 'Não foi possível validar a sessão'}</h1>
       {erroSessao && <p role="alert">{erroSessao}</p>}
@@ -41,8 +41,8 @@ function App() {
 
   return (
     <><DemoBanner /><Routes>
-      <Route path="/cadastro" element={<Cadastro />} />
-      <Route path="/convites/aceitar" element={<Cadastro convite />} />
+      <Route path="/cadastro" element={<Cadastro key="publico" />} />
+      <Route path="/convites/aceitar" element={<Cadastro key={location.key + location.hash} convite />} />
       <Route path="/usuarios" element={<ProtectedRoute administrador><Usuarios /></ProtectedRoute>} />
       <Route path="/convites" element={<ProtectedRoute administrador><Convites /></ProtectedRoute>} />
       <Route path="/locais" element={<ProtectedRoute><Locais key="geral" /></ProtectedRoute>} />

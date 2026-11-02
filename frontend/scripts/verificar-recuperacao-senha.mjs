@@ -23,7 +23,7 @@ try {
   ` })
   await enviar('Page.navigate', { url: base + '/login' })
   await esperar('!!document.querySelector(".login-options")')
-  assert.equal(await avaliar('Array.from(document.querySelectorAll("a")).find(a=>a.getAttribute("href")==="/convites/aceitar").textContent'), 'Tenho um convite')
+  assert.equal(await avaliar('Array.from(document.querySelectorAll("a")).some(a=>a.getAttribute("href")==="/convites/aceitar")'), false)
   await avaliar('document.querySelector(".login-options button").click()')
   await esperar('!!document.querySelector("dialog[open]")')
   await preencher('email-recuperacao', 'invalido')

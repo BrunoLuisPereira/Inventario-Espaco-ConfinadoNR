@@ -296,7 +296,7 @@ function preparar(t) {
     modulos.router = require(CAMINHOS.router);
     dependencias.set(CAMINHOS.app, new Map([
       ["express", expressInerte], ["cors", () => neutro],
-      ...["auth", "usuario", "campanha", "local", "checklist", "evidencia", "dadosTecnicos", "relatorio", "sincronizacao"]
+      ...["cadastro", "convite", "auth", "usuario", "campanha", "local", "checklist", "evidencia", "dadosTecnicos", "relatorio", "sincronizacao"]
         .map((nome) => ["./routes/" + nome + "Routes", nome === "evidencia" ? modulos.router : neutro]),
     ]));
     assert.strictEqual(require(CAMINHOS.app), appInerte);

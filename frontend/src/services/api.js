@@ -35,6 +35,9 @@ export function cadastrarAmbiente({ nome, nome_ambiente, email, senha }) {
 export function aceitarConvite({ token, nome, senha }) {
   return request('/convites/aceitar', { method: 'POST', body: JSON.stringify({ token, nome, senha }) })
 }
+export function preValidarConvite(token) {
+  return request('/convites/validar', { method: 'POST', body: JSON.stringify({ token }) })
+}
 export function emitirConvite({ email, perfilAcesso }) {
   return request('/convites', { method: 'POST', body: JSON.stringify({ email, perfilAcesso }) })
 }

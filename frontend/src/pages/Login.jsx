@@ -117,7 +117,6 @@ function Login() {
 
           <div className="login-options">
             <Link to="/cadastro">Criar conta</Link>
-            <Link to="/convites/aceitar">Tenho um convite</Link>
 
             <button type="button" aria-haspopup="dialog" onClick={() => setRecuperacaoAberta(true)}>
               Esqueci minha senha

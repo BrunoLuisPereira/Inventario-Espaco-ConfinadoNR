@@ -11,6 +11,19 @@ function criarServicoEmail({ transporte, urlPublica } = {}) {
     return url.origin;
   }
   return {
+    criarLinkConvite(token) {
+      if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) throw new Error('Token inválido.');
+      return `${origem()}/convites/aceitar#token=${token}`;
+    },
+    async enviarConvite(para, token) {
+      const link = this.criarLinkConvite(token);
+      if (typeof para !== 'string' || para.length > 180 || !/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(para)) {
+        throw new Error('Destinatário inválido.');
+      }
+      await transporte.enviar({ para, assunto: 'Você foi convidado — Inventário de Espaços Confinados NR-33',
+        texto: `Inventário de Espaços Confinados NR-33\nVocê foi convidado para integrar um ambiente no sistema.\nAceitar convite e criar conta: ${link}\nEste convite é válido por 48 horas a partir da emissão e pode ser usado uma única vez.\nSe não reconhece este convite, ignore esta mensagem. Não compartilhe este link.`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#1f2937;padding:24px"><h1 style="font-size:22px">Inventário de Espaços Confinados NR-33</h1><p>Você foi convidado para integrar um ambiente no sistema.</p><p style="margin:28px 0"><a href="${link}" style="background:#166534;color:#fff;padding:14px 20px;border-radius:6px;text-decoration:none;display:inline-block">Aceitar convite e criar conta</a></p><p>Este convite é válido por <strong>48 horas a partir da emissão</strong> e pode ser usado uma única vez.</p><p>Se não reconhece este convite, ignore esta mensagem. Não compartilhe este link.</p></div>` });
+    },
     disponivel() {
       try { origem(); return typeof transporte?.enviar === 'function'; }
       catch { return false; }

@@ -107,7 +107,32 @@ async function aceitar(req, res) {
   }
 }
 
+async function preValidar(req, res) {
+  if (res.headersSent) return res;
+  try {
+    const data = await conviteService.preValidarConvite(req.body?.token);
+    if (res.headersSent) return res;
+    return res.status(200).json({ status: 'success', data });
+  } catch (erro) {
+    if (res.headersSent) return res;
+    const statusCode = [400, 403, 404, 409, 410].includes(erro?.statusCode) ? erro.statusCode : 500;
+    // Somente mensagens fixas: nunca expõe erro de driver ou dados do convite.
+    const mensagens = {
+      400: 'Link de convite inválido ou incompleto.',
+      403: 'O ambiente deste convite está inativo.',
+      404: 'Convite não encontrado ou inválido.',
+      409: 'Este convite não está disponível. Solicite um novo convite.',
+      410: 'Este convite expirou. Solicite um novo convite.',
+    };
+    const estados = ['Este convite já foi utilizado.', 'Este convite foi cancelado.'];
+    const message = statusCode === 409 && estados.includes(erro.message) ? erro.message :
+      mensagens[statusCode] || 'Não foi possível validar o convite. Tente novamente.';
+    return res.status(statusCode).json({ status: 'error', message });
+  }
+}
+
 module.exports = {
+  preValidar,
   emitir,
   aceitar,
 };

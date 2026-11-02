@@ -1,8 +1,26 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { validarCadastro, podeAdministrar, linkConvite } from '../src/services/conta.js'
+import { validarCadastro, podeAdministrar, linkConvite, tokenConviteDoFragmento, mensagemEnvioConvite } from '../src/services/conta.js'
 import { criarHttp } from '../src/services/http.js'
 const dados = { nome: 'Pessoa sintética', nome_ambiente: 'Empresa A', email: 'a@example.invalid', senha: 'senha-ficticia', confirmacao: 'senha-ficticia' }
+test('mensagens administrativas só confirmam envio com confirmação do transporte', () => {
+  assert.match(mensagemEnvioConvite('enviado'), /e-mail enviado/)
+  assert.match(mensagemEnvioConvite('falhou'), /Não foi possível confirmar/)
+  assert.match(mensagemEnvioConvite('indisponivel'), /indisponível/)
+  for (const status of ['falhou', 'indisponivel', undefined]) {
+    const mensagem = mensagemEnvioConvite(status)
+    assert.doesNotMatch(mensagem, /e-mail enviado/)
+    assert.match(mensagem, /pendente por 48 horas/)
+    assert.match(mensagem, /Não há reenvio automático/)
+  }
+})
+test('convite lê token exclusivo do fragmento, rejeitando duplicatas e formatos inválidos', () => {
+  const token = 'a'.repeat(64)
+  assert.equal(tokenConviteDoFragmento('#token=' + token), token)
+  for (const entrada of ['', '?token=' + token, '#token=x', '#token=' + token + '&token=' + token, '#token=' + 'A'.repeat(64)]) {
+    assert.equal(tokenConviteDoFragmento(entrada), '')
+  }
+})
 test('cadastro valido e confirmacao de senha', () => {
   assert.equal(validarCadastro(dados), '')
   assert.match(validarCadastro({ ...dados, confirmacao: 'outra' }), /confirmação/)

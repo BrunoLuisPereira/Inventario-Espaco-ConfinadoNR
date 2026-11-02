@@ -19,6 +19,8 @@ const {
 );
 
 const router = express.Router();
+// Token no corpo para evitar exposição em URLs de API e logs de acesso.
+router.post('/validar', conviteController.preValidar);
 
 /**
  * POST /api/convites/aceitar
