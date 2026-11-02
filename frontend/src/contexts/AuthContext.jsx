@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AuthContext } from './AuthContext.js'
-import { buscarMeuPerfil } from '../services/api.js'
+import { buscarMeuPerfil, atualizarNomeAmbiente } from '../services/api.js'
 import { sessaoAtual, eventoSessaoExpirada } from '../services/sessao.js'
 
 export function AuthProvider({ children }) {
@@ -69,8 +69,18 @@ export function AuthProvider({ children }) {
     setErroSessao('')
     setTentativa(n => n + 1)
   }
+  async function salvarNomeAmbiente(nome) {
+    const resposta = await atualizarNomeAmbiente(nome)
+    if (typeof resposta.data?.nome_ambiente !== 'string' || !resposta.data.nome_ambiente.trim()) {
+      throw new Error('Resposta de ambiente inválida.')
+    }
+    // Só aplica uma resposta confirmada à mesma sessão que iniciou a escrita.
+    setSessao(anterior => anterior.token === token && anterior.usuario?.id_usuario === sessao.usuario?.id_usuario
+      ? { ...anterior, usuario: { ...anterior.usuario, nome_ambiente: resposta.data.nome_ambiente } } : anterior)
+    setTentativa(n => n + 1)
+  }
   return <AuthContext.Provider value={{ usuario: sessao.usuario, token,
     autenticado: Boolean(token && validacao === token),
     carregandoSessao: Boolean(token && validacao !== token && !erroSessao),
-    erroSessao, tentarNovamente, autenticar, atualizarUsuario, logout }}>{children}</AuthContext.Provider>
+    erroSessao, tentarNovamente, autenticar, atualizarUsuario, salvarNomeAmbiente, logout }}>{children}</AuthContext.Provider>
 }

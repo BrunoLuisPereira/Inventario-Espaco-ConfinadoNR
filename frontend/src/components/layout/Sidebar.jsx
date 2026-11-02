@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import logoInventario from '../../assets/logo-inventario.png'
 import { useAuth } from '../../hooks/useAuth'
+import { useAmbienteAtual } from '../../hooks/useAmbienteAtual'
 import { useLayout } from '../../contexts/useLayout'
 import { exportarLocaisExcel } from '../../services/api'
 import { podeAdministrar } from '../../services/conta'
@@ -10,6 +11,7 @@ import '../../styles/Sidebar.css'
 
 function Sidebar() {
   const { usuario, logout } = useAuth()
+  const ambiente = useAmbienteAtual()
   const { menuAberto, fecharMenu } = useLayout()
   const location = useLocation()
 
@@ -148,6 +150,16 @@ function Sidebar() {
           >
             ×
           </button>
+        </div>
+
+        <div className="sidebar-ambiente">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M4 21V3h12v18M16 9h4v12M2 21h20M8 7h4M8 11h4M8 15h4M8 21v-3h4v3" />
+          </svg>
+          <div className="sidebar-ambiente-texto">
+            <span>AMBIENTE ATUAL</span>
+            <strong title={ambiente.nome || undefined}>{ambiente.mensagem}</strong>
+          </div>
         </div>
 
         <nav

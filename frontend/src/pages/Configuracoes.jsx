@@ -5,6 +5,7 @@ import Sidebar from '../components/layout/Sidebar'
 import Header from '../components/layout/Header'
 import { useTheme } from '../hooks/useTheme'
 import { useAuth } from '../hooks/useAuth'
+import { useAmbienteAtual } from '../hooks/useAmbienteAtual'
 import {
   buscarMeuPerfil,
   atualizarMeuPerfil,
@@ -14,7 +15,12 @@ import '../styles/Configuracoes.css'
 
 function Configuracoes() {
   const { tema, setTema } = useTheme()
-  const { atualizarUsuario, logout } = useAuth()
+  const { atualizarUsuario, salvarNomeAmbiente, logout } = useAuth()
+  const ambiente = useAmbienteAtual()
+  const [editandoAmbiente, setEditandoAmbiente] = useState(false)
+  const [nomeAmbiente, setNomeAmbiente] = useState('')
+  const [salvandoAmbiente, setSalvandoAmbiente] = useState(false)
+  const [mensagemAmbiente, setMensagemAmbiente] = useState(null)
   const navigate = useNavigate()
 
   const [perfil, setPerfil] = useState({
@@ -91,6 +97,26 @@ function Configuracoes() {
     }))
 
     setMensagemSenha(null)
+  }
+
+  async function salvarAmbiente(evento) {
+    evento.preventDefault()
+    if (salvandoAmbiente || !ambiente.podeEditar) return
+    if (!nomeAmbiente.trim() || nomeAmbiente.trim().length > 180 || /[\p{Cc}\p{Cf}]/u.test(nomeAmbiente)) {
+      setMensagemAmbiente({ tipo: 'erro', texto: 'Informe um nome válido, com até 180 caracteres e sem caracteres de controle.' })
+      return
+    }
+    setSalvandoAmbiente(true)
+    setMensagemAmbiente(null)
+    try {
+      await salvarNomeAmbiente(nomeAmbiente.trim())
+      setEditandoAmbiente(false)
+      setMensagemAmbiente({ tipo: 'sucesso', texto: 'Nome do ambiente atualizado com sucesso.' })
+    } catch (error) {
+      setMensagemAmbiente({ tipo: 'erro', texto: error.message })
+    } finally {
+      setSalvandoAmbiente(false)
+    }
   }
 
   async function salvarPerfil(evento) {
@@ -200,6 +226,35 @@ function Configuracoes() {
           </div>
 
           {/* MEU PERFIL */}
+          <section className="configuracoes-card">
+            <div className="configuracoes-card-header">
+              <span className="configuracoes-section-label">AMBIENTE ATUAL</span>
+              <h2>Empresa / Ambiente</h2>
+            </div>
+            <form className="configuracoes-form" onSubmit={salvarAmbiente}>
+            <div className="configuracoes-campo">
+              <label htmlFor="empresa-ambiente">Nome da empresa / ambiente</label>
+              <input id="empresa-ambiente" type="text"
+                value={editandoAmbiente && ambiente.podeEditar ? nomeAmbiente : ambiente.mensagem}
+                onChange={evento => { setNomeAmbiente(evento.target.value); setMensagemAmbiente(null) }}
+                maxLength={180} required={editandoAmbiente && ambiente.podeEditar}
+                disabled={salvandoAmbiente} title={ambiente.nome || undefined}
+                readOnly={!editandoAmbiente || !ambiente.podeEditar} />
+            </div>
+            {mensagemAmbiente && <div className="configuracoes-mensagem"
+              role={mensagemAmbiente.tipo === 'erro' ? 'alert' : 'status'}>{mensagemAmbiente.texto}</div>}
+            {ambiente.podeEditar && <div className="configuracoes-acoes configuracoes-ambiente-acoes">
+              {editandoAmbiente ? <>
+                <button type="button" className="configuracoes-botao configuracoes-botao-secundario"
+                  disabled={salvandoAmbiente} onClick={() => { setEditandoAmbiente(false); setMensagemAmbiente(null) }}>Cancelar</button>
+                <button type="submit" className="configuracoes-botao" disabled={salvandoAmbiente}>
+                  {salvandoAmbiente ? 'Salvando nome...' : 'Salvar nome'}</button>
+              </> : <button type="button" className="configuracoes-botao"
+                onClick={() => { setNomeAmbiente(ambiente.nome); setEditandoAmbiente(true); setMensagemAmbiente(null) }}>Editar nome</button>}
+            </div>}
+            </form>
+          </section>
+
           <section className="configuracoes-card">
             <div className="configuracoes-card-header">
               <span className="configuracoes-section-label">

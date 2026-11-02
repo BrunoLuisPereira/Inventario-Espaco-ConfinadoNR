@@ -78,6 +78,10 @@ export async function buscarMeuPerfil() {
   return request('/auth/perfil')
 }
 
+export function atualizarNomeAmbiente(nome_ambiente) {
+  return request('/auth/ambiente', { method: 'PUT', body: JSON.stringify({ nome_ambiente }) })
+}
+
 /**
  * Atualiza o nome e o e-mail do usuário autenticado.
  * O perfil de acesso não pode ser modificado.

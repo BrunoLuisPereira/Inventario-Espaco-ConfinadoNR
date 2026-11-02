@@ -236,6 +236,21 @@
   cursor: not-allowed;
 }
 
+.configuracoes-ambiente-acoes {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.configuracoes-botao-secundario {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text);
+}
+
+.configuracoes-botao-secundario:hover:not(:disabled) {
+  background-color: var(--color-surface);
+}
+
 .configuracoes-mensagem {
   padding: 12px 14px;
   border: 1px solid var(--color-border);

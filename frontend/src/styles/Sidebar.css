@@ -24,6 +24,45 @@
   object-fit: contain;
 }
 
+.sidebar-ambiente {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-ambiente svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: #f5b700;
+}
+
+.sidebar-ambiente-texto {
+  min-width: 0;
+}
+
+.sidebar-ambiente-texto span {
+  display: block;
+  margin-bottom: 6px;
+  color: #b8c0cc;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.sidebar-ambiente-texto strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow-wrap: anywhere;
+  color: #ffffff;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
 .sidebar-brand {
   min-width: 0;
   display: flex;
@@ -210,6 +249,7 @@
 @media (max-width: 1024px) {
   .sidebar {
     position: fixed;
+    overflow-y: auto;
     top: 0;
     bottom: 0;
     left: 0;
