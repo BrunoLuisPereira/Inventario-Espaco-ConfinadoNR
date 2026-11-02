@@ -22,7 +22,7 @@ function indisponivel() {
 async function buscarPerfil(usuario) {
   const parametros = validarIdentidade(usuario);
   const resultado = await pool.query(`
-    SELECT ${colunas} FROM usuario AS u
+    SELECT ${colunas}, a.nome AS nome_ambiente FROM usuario AS u
     INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente
     WHERE u.id_usuario = $1 AND u.id_ambiente = $2
       AND u.ativo = TRUE AND a.ativo = TRUE
@@ -110,7 +110,50 @@ async function escrever(usuario, dados, prepararSenha) {
   }
 }
 
+async function atualizarNomeAmbiente(usuario, nome) {
+  const parametros = validarIdentidade(usuario);
+  const client = await pool.connect();
+  let iniciada = false;
+  let descartar = false;
+  try {
+    await client.query('BEGIN');
+    iniciada = true;
+    // Mesma ordem das outras escritas: ambiente antes do usuário.
+    const ambiente = await client.query(`
+      SELECT id_ambiente FROM ambiente WHERE id_ambiente = $1 AND ativo = TRUE FOR UPDATE
+    `, [parametros[1]]);
+    if (!ambiente.rows[0]) throw indisponivel();
+    const fundador = await client.query(`
+      SELECT u.id_usuario FROM usuario AS u
+      WHERE u.id_usuario = $1 AND u.id_ambiente = $2 AND u.ativo = TRUE
+        AND u.perfil_acesso = 'ADMINISTRADOR' AND u.eh_fundador = TRUE
+      FOR SHARE OF u
+    `, parametros);
+    if (!fundador.rows[0]) throw erroConta('Somente o administrador fundador pode alterar o nome do ambiente.', 403);
+    const resultado = await client.query(`
+      UPDATE ambiente SET nome = $3
+      WHERE id_ambiente = $2 AND ativo = TRUE
+        AND EXISTS (SELECT 1 FROM usuario AS u
+          WHERE u.id_usuario = $1 AND u.id_ambiente = ambiente.id_ambiente
+            AND u.ativo = TRUE AND u.perfil_acesso = 'ADMINISTRADOR' AND u.eh_fundador = TRUE)
+      RETURNING nome AS nome_ambiente
+    `, [...parametros, nome]);
+    if (!resultado.rows[0]) throw indisponivel();
+    await client.query('COMMIT');
+    iniciada = false;
+    return resultado.rows[0];
+  } catch (erro) {
+    if (iniciada) {
+      try { await client.query('ROLLBACK'); } catch { descartar = true; }
+    } else descartar = true;
+    throw erro;
+  } finally {
+    if (descartar) client.release(true); else client.release();
+  }
+}
+
 module.exports = {
+  atualizarNomeAmbiente,
   erroConta, validarIdentidade, buscarPerfil,
   atualizarPerfil: (usuario, dados) => escrever(usuario, dados),
   alterarSenha: (usuario, prepararSenha) => escrever(usuario, {}, prepararSenha),

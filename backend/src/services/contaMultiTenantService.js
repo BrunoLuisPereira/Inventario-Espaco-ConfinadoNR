@@ -38,4 +38,13 @@ async function alterarSenha(dados, usuario) {
   });
 }
 
-module.exports = { buscarPerfil, atualizarPerfil, alterarSenha };
+async function atualizarNomeAmbiente(dados, usuario) {
+  repository.validarIdentidade(usuario);
+  const nome = dados?.nome_ambiente;
+  if (typeof nome !== 'string' || !nome.trim() || nome.trim().length > 180 || /[\p{Cc}\p{Cf}]/u.test(nome)) {
+    throw erroConta('Informe um nome de ambiente válido, com até 180 caracteres e sem caracteres de controle.', 400);
+  }
+  return repository.atualizarNomeAmbiente(usuario, nome.trim());
+}
+
+module.exports = { buscarPerfil, atualizarPerfil, alterarSenha, atualizarNomeAmbiente };

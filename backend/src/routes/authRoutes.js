@@ -48,5 +48,9 @@ router.put('/senha', autenticarMultiTenant, handler(
   (req) => contaService.alterarSenha(req.body, req.usuario),
   'Senha alterada com sucesso.', 'Erro interno ao alterar senha.', false
 ));
+router.put('/ambiente', autenticarMultiTenant, handler(
+  (req) => contaService.atualizarNomeAmbiente(req.body, req.usuario),
+  'Nome do ambiente atualizado com sucesso.', 'Erro interno ao atualizar nome do ambiente.'
+));
 
 module.exports = router;

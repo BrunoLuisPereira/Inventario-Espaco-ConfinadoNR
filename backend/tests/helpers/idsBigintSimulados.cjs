@@ -181,7 +181,14 @@ function preparar(t, opcoes = {}) {
   const administrador = carregar('repositories/administradorRepository', {});
   const ambiente = carregar('repositories/ambienteRepository', {});
   const convidado = carregar('repositories/usuarioConvidadoRepository', {});
+  // Sem URL pública ou transporte: não carrega o serviço real nem acessa SMTP.
+  const emailService = {
+    criarLinkConvite() { throw new Error('URL pública indisponível no teste.'); },
+    disponivel() { return false; },
+    async enviarConvite() { return proibido('envio de e-mail não permitido no teste'); },
+  };
   const conviteService = carregar('services/conviteService', { crypto, '../config/database': pool, bcryptjs: bcrypt,
+    './emailService': { emailService },
     '../repositories/usuarioConvidadoRepository': convidado, '../repositories/administradorRepository': administrador,
     '../repositories/ambienteRepository': ambiente, '../repositories/conviteRepository': convites, '../repositories/emailLockRepository': email });
   const conviteController = carregar('controllers/conviteController', { '../services/conviteService': conviteService });
