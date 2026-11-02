@@ -149,13 +149,25 @@ class Layout {
     }
     descarregar();
   }
-  pares(esquerda, direita, titulo) {
+  pares(esquerda, direita, titulo, { agrupar = false } = {}) {
     const linhas = Array.from({ length: Math.max(esquerda.length, direita.length) }, (_, i) => {
       const a = esquerda[i], b = direita[i];
       const valor = item => item ? item[2] ? { valor: texto(item[1]), status: true } : texto(item[1]) : '';
       return [a ? { valor: a[0], rotulo: true } : '', valor(a), b ? { valor: b[0], rotulo: true } : '', valor(b)];
     });
-    this.tabela([113, 151, 118, this.w - 382], linhas, { titulo });
+    const larguras = [113, 151, 118, this.w - 382];
+    if (agrupar) {
+      // Mesmas larguras, fontes, entrelinha e preenchimento de tabela().
+      // O espaço final de 9 pontos não contém conteúdo e não precisa caber.
+      const alturas = linhas.map(linha => Math.max(...linha.map((v, i) =>
+        this.linhas(v?.valor ?? v, larguras[i] - 16, v?.rotulo === true).length)) * LINE + 10);
+      const altura = 37 + alturas.reduce((total, h) => total + h, 0);
+      // Se exceder uma página, preservar a continuação e reservar apenas o
+      // título com a primeira linha (ou o primeiro fragmento de linha longa).
+      this.espaco(altura <= BOTTOM - TOP ? altura : 37 + (alturas[0] <= 92 ? alturas[0] : 2 * LINE + 10));
+      this.secao(titulo);
+    }
+    this.tabela(larguras, linhas, { titulo });
   }
   cartes(itens) {
     const largura = (this.w - 8) / 2;
@@ -164,7 +176,7 @@ class Layout {
       const valores = par.map(item => this.linhas(item[1], largura - 58, true, 12));
       const total = Math.max(...valores.map(v => v.length));
       for (let offset = 0; offset < total;) {
-        this.espaco(Math.max(44, Math.min(total - offset, 2) * 16 + 28), () => this.secao('5. Dados Técnicos (continuação)'));
+        this.espaco(Math.max(44, Math.min(total - offset, 2) * 16 + 28), () => this.secao('4. Dados Técnicos (continuação)'));
         const quantidade = Math.min(total - offset, Math.max(1, Math.floor((BOTTOM - this.y - 28) / 16)));
         const altura = Math.max(44, quantidade * 16 + 28);
         par.forEach((item, j) => {
@@ -200,19 +212,21 @@ class Layout {
   }
 }
 function identificacao(l, d) {
-  const t1 = '1. Identificação e Responsabilidade'; l.secao(t1);
+  const t1 = '6. Identificação e Responsabilidade';
   l.pares([['Número do relatório', d.id_relatorio], ['Status do relatório', d.status_relatorio, true], ['Data de emissão', data(d.data_emissao)],
     ['Usuário responsável', d.responsavel], ['E-mail', d.email_responsavel], ['Perfil', d.perfil_responsavel]],
-  [['Responsável técnico', d.nome_responsavel_tecnico], ['CREA', d.crea], ['Número da ART', d.numero_art], ['Data da ART', data(d.data_art)]], t1);
-  const t2 = '2. Dados da Campanha'; l.secao(t2);
+  [['Responsável técnico', d.nome_responsavel_tecnico], ['CREA', d.crea], ['Número da ART', d.numero_art], ['Data da ART', data(d.data_art)]], t1, { agrupar: true });
+}
+function campanhaLocal(l, d) {
+  const t2 = '1. Dados da Campanha'; l.secao(t2);
   l.pares([['Campanha', d.nome_campanha], ['Empresa', d.empresa], ['Responsável pela campanha', d.responsavel_campanha]],
     [['Data de início', data(d.data_inicio)], ['Status', d.status_campanha, true]], t2);
-  const t3 = '3. Identificação do Local'; l.secao(t3);
+  const t3 = '2. Identificação do Local'; l.secao(t3);
   l.campos([['Local', d.nome_local], ['Setor', d.setor], ['Descrição', d.descricao_local], ['Endereço', d.endereco],
     ['Latitude', d.latitude], ['Longitude', d.longitude], ['Status', d.status_local, true]], t3);
 }
 function checklistTecnicos(l, d) {
-  l.pagina(); const t = '4. Checklist NR-33'; l.secao(t);
+  l.pagina(); const t = '3. Checklist NR-33'; l.secao(t);
   if (d.id_checklist) {
     const itens = [['A', 'Não projetado para ocupação humana contínua', d.criterio_a], ['B', 'Meios limitados de entrada/saída', d.criterio_b],
       ['C', 'Atmosfera perigosa existente OU potencial', d.criterio_c], ['D', 'Acesso controlado', d.acesso_controlado],
@@ -221,7 +235,7 @@ function checklistTecnicos(l, d) {
     l.tabela([56, l.w - 151, 95], itens.map(([a, b, c]) => [{ valor: a, rotulo: true }, b, { valor: texto(c), status: true }]), { cabecalho: ['Critério', 'Descrição', 'Atende'], titulo: t });
     l.campos([['Observações', d.observacoes_checklist], ['Status', d.status_checklist, true]], t);
   } else l.campos([['Checklist', 'Checklist não cadastrado para este local.']], t);
-  const tt = '5. Dados Técnicos'; l.secao(tt);
+  const tt = '4. Dados Técnicos'; l.secao(tt);
   const unidade = (v, u) => presente(v) ? `${numero(v)} ${u}` : 'Não informado';
   if (d.id_dados) {
     l.cartes([['Pressão atmosférica', numero(d.pressao_atmosferica), 'P'], ['Ventilação', texto(d.ventilacao), 'V'],
@@ -232,7 +246,7 @@ function checklistTecnicos(l, d) {
   } else l.campos([['Dados técnicos', 'Dados técnicos não cadastrados para este local.']], tt);
 }
 function evidencias(l, d, imagens) {
-  l.pagina(); const titulo = '6. Evidências'; l.secao(titulo);
+  l.pagina(); const titulo = '5. Evidências'; l.secao(titulo);
   if (!Array.isArray(d.evidencias) || !d.evidencias.length) { l.campos([['Evidências', 'Nenhuma evidência cadastrada.']], titulo); return; }
   d.evidencias.forEach((e, indice) => {
     if (indice > 0) { l.pagina(); l.secao(titulo); }
@@ -262,7 +276,7 @@ function evidencias(l, d, imagens) {
     if (e.origem_coordenadas === 'GPS' || presente(e.precisao_gps)) campos.push(['Precisão estimada', presente(e.precisao_gps) ? `${numero(e.precisao_gps)} m` : 'Não informado']);
     if (presente(e.data_captura_gps)) campos.push(['Captura GPS', data(e.data_captura_gps, true)]);
     if (presente(e.data_criacao)) campos.push(['Registro da evidência', data(e.data_criacao, true)]);
-    const continuacao = `6. Evidências • ${String(indice + 1).padStart(2, '0')}`;
+    const continuacao = `5. Evidências • ${String(indice + 1).padStart(2, '0')}`;
     if (l.linhas(e.descricao, l.w - 145 - 16).length > 8) {
       l.campos([campos[0]], continuacao);
       // Após prosa extensa, os metadados usam os mesmos quadros em duas
@@ -298,8 +312,9 @@ async function gerarPdfRelatorio(dados, opcoes = {}) {
     doc.on('data', p => partes.push(p)); doc.on('end', () => resolve(Buffer.concat(partes))); doc.on('error', reject);
     try {
       const geracao = new Date(), layout = new Layout(doc, dados);
-      identificacao(layout, dados); checklistTecnicos(layout, dados);
+      campanhaLocal(layout, dados); checklistTecnicos(layout, dados);
       evidencias(layout, dados, opcoes.imagens || (somenteBuffer ? new Map() : imagensLegadas(dados)));
+      identificacao(layout, dados);
       layout.rodapes(geracao); doc.end();
     } catch (erro) { doc.destroy(); reject(erro); }
   });
