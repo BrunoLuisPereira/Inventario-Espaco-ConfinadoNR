@@ -10,6 +10,24 @@ const erroPublico = (c, status, message) => {
   assert.equal(c.res.envios, 1);
   assert.deepEqual(c.res.body, { status: 'error', message });
 };
+test('troca autenticada revoga tokens do ambiente correto e mantém outro ambiente', async t => {
+  const c = preparar(t, { estado: { recuperacoes: [
+    { id_usuario: 1, id_ambiente: A, invalidado: false }, { id_usuario: 2, id_ambiente: B, invalidado: false },
+  ] } });
+  await c.executar('put', '/senha', senha);
+  assert.equal(c.res.statusCode, 200); assert.equal(c.estado.usuario.sessao_versao, 1);
+  assert.deepEqual(c.estado.recuperacoes.map(r => r.invalidado), [true, false]);
+  assert.equal(c.estado.envios[0].concluido, true);
+  Object.assign(c.res, { headersSent: false, envios: 0, statusCode: 200 });
+  const contexto = await c.executar('get', '/perfil');
+  assert.equal(contexto.res.statusCode, 401); // JWT original sem sv continua na versão zero.
+});
+test('falha ao invalidar tokens reverte senha e versão', async t => {
+  const c = preparar(t, { falhar: sql => sql.startsWith('UPDATE recuperacao_senha') });
+  await c.executar('put', '/senha', senha);
+  assert.equal(c.res.statusCode, 500); assert.equal(c.estado.usuario.senha_hash, 'hash:antiga123');
+  assert.equal(c.estado.usuario.sessao_versao, 0); assert.equal(c.estado.recuperacoes[0].invalidado, false);
+});
 
 test('perfil: não permite restaurar perfil revogado', async t => {
   const c = preparar(t, { antesUsuario: s => { s.usuario.perfil_acesso = 'ENGENHEIRO_SEGURANCA'; } });
@@ -42,6 +60,8 @@ for (const ambiente of [A, B]) for (const papel of ['ADMINISTRADOR', 'ENGENHEIRO
       } else if (caminho === '/senha') {
         assert.deepEqual(c.res.body, { status: 'success', message: 'Senha alterada com sucesso.' });
         assert.equal(c.estado.usuario.senha_hash, 'hash:novaSenha123');
+        assert.equal(c.estado.usuario.sessao_versao, 1);
+        assert.equal(c.estado.recuperacoes[0].invalidado, true);
         assert.deepEqual(c.bcryptChamadas, [['compare', 'antiga123', 'hash:antiga123'], ['hash', 'novaSenha123', 12]]);
       } else {
         assert.equal(c.res.body.message, method === 'get' ? 'Perfil consultado com sucesso.' : 'Perfil atualizado com sucesso.');
@@ -253,12 +273,13 @@ for (const caminho of ['/perfil', '/senha']) {
     assert.deepEqual(c.eventos.at(-1), { release: [] });
   });
 }
-test('router preserva login e apenas os quatro endpoints existentes de conta', t => {
+test('router preserva login e conta, acrescentando somente recuperação pública', t => {
   const c = preparar(t);
   const rotas = c.router.stack.filter(l => l.route).map(l => [Object.keys(l.route.methods)[0], l.route.path]);
-  assert.deepEqual(rotas, [['post', '/login'], ['get', '/me'], ['get', '/perfil'], ['put', '/perfil'], ['put', '/senha']]);
+  assert.deepEqual(rotas, [['post', '/login'], ['post', '/recuperacao-senha'], ['post', '/redefinir-senha'], ['get', '/me'], ['get', '/perfil'], ['put', '/perfil'], ['put', '/senha']]);
   assert.equal(c.router.stack[0].route.stack[0].handle.name, 'loginPreservado');
-  for (const layer of c.router.stack.slice(1)) {
+  for (const layer of c.router.stack.slice(1, 3)) assert.equal(layer.route.stack.length, 1);
+  for (const layer of c.router.stack.slice(3)) {
     assert.equal(layer.route.stack[0].handle.name, 'autenticarMultiTenant');
     assert.equal(layer.route.stack.length, 2);
   }

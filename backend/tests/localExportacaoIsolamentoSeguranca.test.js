@@ -24,7 +24,7 @@ const CONTEXTOS = [
   { nome: "A", ambiente: A, outro: B, admin: 11, engenheiro: 12, local: 101, semFoto: 102 },
   { nome: "B", ambiente: B, outro: A, admin: 21, engenheiro: 22, local: 201, semFoto: 202 },
 ];
-const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
+const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador, u.sessao_versao FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
 const SELECAO = "SELECT c.nome_campanha, l.id_local, l.nome_local, l.setor, l.endereco, l.latitude AS latitude_local, l.longitude AS longitude_local, l.status, e.id_evidencia, e.tipo AS tipo_evidencia, e.descricao AS descricao_evidencia, e.latitude AS latitude_foto, e.longitude AS longitude_foto, e.origem_coordenadas, e.precisao_gps FROM local l INNER JOIN campanha c ON c.id_campanha = l.id_campanha LEFT JOIN evidencia e ON e.id_local = l.id_local";
 const ORDEM = " ORDER BY c.nome_campanha ASC, l.nome_local ASC, e.id_evidencia ASC";
 const SQL_GLOBAL = SELECAO + ORDEM;

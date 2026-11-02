@@ -2,9 +2,11 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
 } from 'react-router-dom'
 
 import Login from './pages/Login'
+import RedefinirSenha from './pages/RedefinirSenha'
 import DemoBanner from './components/DemoBanner'
 import Dashboard from './pages/Dashboard'
 import Campanhas from './pages/Campanhas'
@@ -26,6 +28,9 @@ import { useAuth } from './hooks/useAuth'
 
 function App() {
   const { autenticado, token, carregandoSessao, erroSessao, tentarNovamente, logout } = useAuth()
+  const location = useLocation()
+  // Recuperação pública permanece acessível mesmo com sessão antiga pendente.
+  if (location.pathname === '/redefinir-senha') return <RedefinirSenha key={location.hash} />
   if (carregandoSessao || (token && erroSessao && !autenticado)) {
     return <><DemoBanner /><main className="sessao-pendente" aria-live="polite">
       <h1>{carregandoSessao ? 'Validando sessão...' : 'Não foi possível validar a sessão'}</h1>

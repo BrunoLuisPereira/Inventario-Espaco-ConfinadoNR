@@ -60,7 +60,7 @@ async function escrever(usuario, dados, prepararSenha) {
     let valores;
     if (prepararSenha) {
       const hash = await prepararSenha(atual.senha_hash);
-      sql = 'senha_hash = $3';
+      sql = 'senha_hash = $3, sessao_versao = sessao_versao + 1';
       valores = [...parametros, hash];
     } else {
       if (dados.temEmail) {
@@ -86,6 +86,12 @@ async function escrever(usuario, dados, prepararSenha) {
       RETURNING ${colunas}
     `, valores);
     if (!atualizado.rows[0]) throw new Error('Escrita autorizada de conta sem resultado.');
+    if (prepararSenha) {
+      await client.query(`UPDATE recuperacao_senha SET invalidado_em = clock_timestamp()
+        WHERE id_usuario = $1 AND id_ambiente = $2 AND consumido_em IS NULL AND invalidado_em IS NULL`, parametros);
+      await client.query(`UPDATE recuperacao_envio SET concluido_em = clock_timestamp()
+        WHERE email = $1 AND concluido_em IS NULL`, [atual.email.trim().toLowerCase()]);
+    }
     await client.query('COMMIT');
     iniciada = false;
     return atualizado.rows[0];

@@ -36,7 +36,7 @@ function Ler-CredencialAplicacaoLoginLocal([string]$Arquivo) {
   try {
     $credencialLogin=Import-Clixml -LiteralPath $Arquivo -ErrorAction Stop
     if ($credencialLogin -isnot [Management.Automation.PSCredential] -or
-        $credencialLogin.UserName -cne 'nr33_dev_app' -or $credencialLogin.Password.Length -lt 32) { throw 'Identidade recusada.' }
+        $credencialLogin.UserName -cne 'nr33_dev_app' -or $credencialLogin.Password.Length -lt 1 -or $credencialLogin.Password.Length -gt 4096) { throw 'Identidade recusada.' }
     return $credencialLogin
   } catch { throw (Novo-ErroEntradaLoginLocal 'CREDENCIAL_APLICACAO_INDISPONIVEL') }
 }

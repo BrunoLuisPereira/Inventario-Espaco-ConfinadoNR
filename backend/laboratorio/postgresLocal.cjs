@@ -1,6 +1,7 @@
 // Preparacao pura: importar este modulo nao conecta nem carrega pg/dotenv.
 const { montarSQL } = require('./montar-sql.cjs');
 const { hmacValido } = require('../src/utils/loginHmac');
+const { senhaExistenteValida } = require('./senha-existente.cjs');
 const BANCO = 'inventario_nr33_multitenant_dev';
 const PAPEL = 'nr33_dev_app';
 function destinoLocal(banco) {
@@ -11,7 +12,7 @@ function validarAmbienteLocal(env) {
   const d = destinoLocal(env.DB_NAME);
   if (env.NR33_LOCAL_AUTORIZADO !== 'PASSO712' || env.DB_HOST !== d.host ||
       env.DB_PORT !== String(d.porta) || env.DB_USER !== d.papel ||
-      typeof env.DB_PASSWORD !== 'string' || env.DB_PASSWORD.length < 32 ||
+      !senhaExistenteValida(env.DB_PASSWORD) ||
       typeof env.JWT_SECRET !== 'string' || env.JWT_SECRET.length < 48) {
     throw Error('Configuracao local isolada obrigatoria.');
   }

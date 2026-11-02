@@ -38,8 +38,8 @@ $jwtRecuperadoLocal = $null
 try {
   $OutputEncoding = New-Object System.Text.UTF8Encoding($false)
   $senhaAppLocal = Converter-SegredoLocal $SenhaAplicacao
-  if ($senhaAppLocal -cnotmatch '\A[A-Za-z0-9_-]{32,128}\z') { throw 'Nova senha da aplicacao deve ter 32-128 caracteres A-Z/a-z/0-9/_/-.' }
   if ($Etapa -eq 'Instalar') {
+    if ($senhaAppLocal -cnotmatch '\A[A-Za-z0-9_-]{32,128}\z') { throw 'Nova senha da aplicacao deve ter 32-128 caracteres A-Z/a-z/0-9/_/-.' }
     if (-not (Test-Path -LiteralPath $Psql -PathType Leaf)) { throw 'psql PostgreSQL 17 nao encontrado.' }
     $versaoLocal = & $Psql --version
     if ($LASTEXITCODE -ne 0 -or $versaoLocal -notmatch '\b17\.') { throw 'Exige cliente PostgreSQL 17.' }
@@ -52,6 +52,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Instalacao falhou; saida tecnica omitida para proteger credenciais. Nao repetir nem limpar automaticamente.' }
     Write-Output 'Instalacao concluida no banco novo. Validacao real de tabelas, permissoes e isolamento ainda necessaria.'
   } else {
+    if ($senhaAppLocal.Length -lt 1 -or $senhaAppLocal.Length -gt 4096 -or $senhaAppLocal.Contains([string][char]0)) { throw 'Credencial existente vazia ou incompativel.' }
     if ($null -eq $SegredoHmac -and -not (Test-Path -LiteralPath Env:LOGIN_HMAC_SECRET)) {
       . (Join-Path $PSScriptRoot 'hmac-protegido-local.ps1')
       $hmacRecuperadoLocal=Ler-HmacProtegidoLocal $Banco

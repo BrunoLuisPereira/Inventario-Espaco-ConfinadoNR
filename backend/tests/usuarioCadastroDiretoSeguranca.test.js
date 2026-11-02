@@ -30,7 +30,7 @@ const ENDPOINTS = [
   { metodo: "PATCH", caminho: "/101/status", controller: "alterarStatus", service: "alterarStatusUsuario",
     mensagem: "Usuário desativado com sucesso." },
 ];
-const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
+const SQL_IDENTIDADE = "SELECT u.id_usuario, u.id_ambiente, u.nome, u.email, u.perfil_acesso, u.eh_fundador, u.sessao_versao FROM usuario AS u INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente WHERE u.id_usuario = $1 AND u.ativo = TRUE AND a.ativo = TRUE LIMIT 1";
 const SQL_EMAIL = "SELECT id_usuario, nome, email, senha_hash, perfil_acesso, ativo, data_criacao, data_atualizacao FROM usuario WHERE LOWER(email) = LOWER($1) LIMIT 1";
 
 function preparar(t) {

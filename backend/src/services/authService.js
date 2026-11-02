@@ -227,7 +227,7 @@ async function verificarCredenciais(emailNormalizado, senha, client) {
   }
 
   const token = jwt.sign(
-    { perfil: usuario.perfil_acesso },
+    { perfil: usuario.perfil_acesso, sv: usuario.sessao_versao ?? 0 },
     process.env.JWT_SECRET,
     {
       subject: String(idUsuario),

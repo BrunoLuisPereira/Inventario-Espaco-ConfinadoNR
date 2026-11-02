@@ -13,8 +13,8 @@ const arquivos = [
 
 function preparar(t, opcoes = {}) {
   const usuario = { id_usuario: 1, id_ambiente: A, nome: 'Original', email: 'original@example.invalid',
-    eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', ativo: true, senha_hash: 'hash:antiga123', data_criacao: 'data1', data_atualizacao: 'data2', ...opcoes.usuario };
-  const estado = { usuario, ambienteAtivo: true, outroEmail: null, reservado: false, ...opcoes.estado };
+    eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', ativo: true, sessao_versao: 0, senha_hash: 'hash:antiga123', data_criacao: 'data1', data_atualizacao: 'data2', ...opcoes.usuario };
+  const estado = { usuario, envios: [{ email: usuario.email, concluido: false }], recuperacoes: [{ id_usuario: usuario.id_usuario, id_ambiente: usuario.id_ambiente, invalidado: false }], ambienteAtivo: true, outroEmail: null, reservado: false, ...opcoes.estado };
   const eventos = [], desconhecidos = [], logs = [], bcryptChamadas = [], errosSimulador = [];
   const publico = u => {
     const { id_usuario, nome, email, perfil_acesso, eh_fundador, ativo, data_criacao, data_atualizacao } = u;
@@ -22,15 +22,15 @@ function preparar(t, opcoes = {}) {
   };
   const resultado = (...rows) => ({ rows, rowCount: rows.length });
   const sqlNormal = sql => sql.replace(/\s+/g, ' ').trim();
-  let pendente, transacao = false, bloqueado = false, emailBloqueado;
+  let pendente, recuperacoesPendentes, enviosPendentes, transacao = false, bloqueado = false, emailBloqueado;
   async function consultar(sql, params = [], cliente = false) {
     const texto = sqlNormal(sql);
     eventos.push({ sql: texto, params: [...params], cliente });
     if (opcoes.falhar && opcoes.falhar(texto)) throw opcoes.erro || new Error('SQL TOKEN SENHA /diretorio/interno');
-    if (texto === 'BEGIN') { assert.equal(transacao, false); transacao = true; pendente = { ...estado.usuario }; return resultado(); }
+    if (texto === 'BEGIN') { assert.equal(transacao, false); transacao = true; pendente = { ...estado.usuario }; recuperacoesPendentes = structuredClone(estado.recuperacoes); enviosPendentes = structuredClone(estado.envios); return resultado(); }
     if (texto === 'ROLLBACK') { transacao = false; pendente = null; return resultado(); }
     if (texto === 'COMMIT') {
-      assert.ok(transacao); estado.usuario = pendente; transacao = false;
+      assert.ok(transacao); estado.usuario = pendente; estado.recuperacoes = recuperacoesPendentes; estado.envios = enviosPendentes; transacao = false;
       if (opcoes.aoCommit) opcoes.aoCommit();
       return resultado();
     }
@@ -75,7 +75,7 @@ function preparar(t, opcoes = {}) {
       assert.match(texto, /u.ativo = TRUE/); assert.match(texto, /a.ativo = TRUE/);
       assert.match(texto, /u.id_usuario = \$1 AND u.id_ambiente = \$2/);
       if (opcoes.updateVazio) return resultado();
-      if (set.includes('senha_hash = $3')) pendente.senha_hash = params[2];
+      if (set.includes('senha_hash = $3')) { pendente.senha_hash = params[2]; pendente.sessao_versao++; }
       else {
         assert.match(set, /CASE WHEN \$3 THEN \$4 ELSE u.nome END/);
         assert.match(set, /CASE WHEN \$5 THEN \$6 ELSE u.email END/);
@@ -83,6 +83,19 @@ function preparar(t, opcoes = {}) {
         if (params[4]) { assert.equal(params[5], emailBloqueado); pendente.email = params[5]; }
       }
       return resultado(publico(pendente));
+    }
+    if (texto.startsWith('UPDATE recuperacao_senha SET invalidado_em')) {
+      assert.ok(bloqueado && transacao && cliente);
+      assert.deepEqual(params, [estado.usuario.id_usuario, estado.usuario.id_ambiente]);
+      assert.match(texto, /id_ambiente = \$2/);
+      for (const r of recuperacoesPendentes) if (r.id_usuario === params[0] && r.id_ambiente === params[1]) r.invalidado = true;
+      return resultado();
+    }
+    if (texto.startsWith('UPDATE recuperacao_envio SET concluido_em')) {
+      assert.ok(bloqueado && transacao && cliente);
+      assert.deepEqual(params, [estado.usuario.email.trim().toLowerCase()]);
+      for (const e of enviosPendentes) if (e.email === params[0]) e.concluido = true;
+      return resultado();
     }
     if (texto.startsWith('SELECT') && texto.includes('FROM usuario AS u') && texto.includes('JOIN ambiente AS a')) {
       assert.equal(cliente, false);
@@ -138,6 +151,10 @@ function preparar(t, opcoes = {}) {
           return { sub: String(estado.usuario.id_usuario), perfil: 'ADMINISTRADOR', id_ambiente: B };
         } };
         if (request === '../controllers/authController') return { login: function loginPreservado() {} };
+        if (request === '../controllers/recuperacaoSenhaController') return {
+          solicitar() { throw new Error('Recuperação fora do escopo do teste de conta autenticada'); },
+          redefinir() { throw new Error('Redefinição fora do escopo do teste de conta autenticada'); },
+        };
         if (request === 'express' || request.startsWith('./') || request.startsWith('../repositories/') ||
             request.startsWith('../services/conta') || request.startsWith('../middlewares/')) return carregar.call(this, request, parent, ...resto);
         throw new Error('Dependência externa inesperada: ' + request);

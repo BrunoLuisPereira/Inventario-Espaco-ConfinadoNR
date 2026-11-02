@@ -16,7 +16,7 @@ for (const invalido of ['inventario_espacos_confinados','inventario_espacos_conf
 }
 test('local exige host, porta, papel e autorizacao exatos', () => {
   assert.deepEqual(validarAmbienteLocal(env), { banco,host:'127.0.0.1',porta:5432,papel:'nr33_dev_app',portaHTTP:3001 });
-  for (const [campo,valor] of [['DB_HOST','localhost'],['DB_PORT','55432'],['DB_USER','postgres'],['NR33_LOCAL_AUTORIZADO','PASSO710'],['DB_PASSWORD','curta'],['JWT_SECRET',undefined]]) {
+  for (const [campo,valor] of [['DB_HOST','localhost'],['DB_PORT','55432'],['DB_USER','postgres'],['NR33_LOCAL_AUTORIZADO','PASSO710'],['DB_PASSWORD',''],['JWT_SECRET',undefined]]) {
     assert.throws(() => validarAmbienteLocal({...env,[campo]:valor}));
   }
 });

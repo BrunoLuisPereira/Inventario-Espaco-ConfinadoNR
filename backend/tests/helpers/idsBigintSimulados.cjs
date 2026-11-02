@@ -45,6 +45,14 @@ function preparar(t, opcoes = {}) {
       if (s.startsWith('SELECT EXISTS') && s.includes('FROM convite')) { assert.ok(aberta); return row({ existe: false }); }
       if (s.startsWith('SELECT EXISTS') && s.includes('FROM usuario')) { assert.ok(aberta); return row({ existe: false }); }
       if (s.startsWith('SELECT 1 FROM usuario')) { assert.ok(aberta); return row(); }
+      if (s.startsWith('UPDATE recuperacao_senha SET invalidado_em')) {
+        assert.ok(aberta); assert.match(s, /id_usuario = \$1 AND id_ambiente = \$2/);
+        assert.ok(usuarios.some(u => igual(u.id_usuario, params[0]) && u.id_ambiente === params[1]));
+        return row();
+      }
+      if (s.startsWith('UPDATE recuperacao_envio SET concluido_em')) {
+        assert.ok(aberta); assert.ok(usuarios.some(u => u.email === params[0])); return row();
+      }
       if (s.startsWith('SELECT') && s.includes('FROM ambiente') && !s.includes('JOIN local')) {
         assert.ok(aberta); assert.match(s, /FOR SHARE/); assert.match(s, /ativo = TRUE/);
         return ativo[params[0]] ? row({ id_ambiente: params[0] }) : row();
@@ -81,7 +89,7 @@ function preparar(t, opcoes = {}) {
         assert.match(s, /u.ativo = TRUE/); assert.match(s, /a.ativo = TRUE/);
         const u = usuarios.find(u => igual(u.id_usuario, params[0]) && u.id_ambiente === params[1]);
         if (!u || !u.ativo || !ativo[u.id_ambiente]) return row();
-        if (s.includes('senha_hash = $3')) u.senha_hash = params[2];
+        if (s.includes('senha_hash = $3')) { u.senha_hash = params[2]; u.sessao_versao = (u.sessao_versao ?? 0) + 1; }
         else { if (params[2]) u.nome = params[3]; if (params[4]) u.email = params[5]; }
         return row(publico(u));
       }
