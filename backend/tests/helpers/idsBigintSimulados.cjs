@@ -1,4 +1,5 @@
 const politicaRbac723 = require('../../src/utils/permissoes');
+const caracterizacaoChecklist = require('../../src/utils/caracterizacaoChecklist');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
 const path = require('node:path');
@@ -146,6 +147,7 @@ function preparar(t, opcoes = {}) {
   t.mock.method(Module, '_load', function (r, parent, ...args) {
       // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
       if (r === '../utils/permissoes') return politicaRbac723;
+      if (r === '../utils/caracterizacaoChecklist') return caracterizacaoChecklist;
     const deps = dependencias.get(parent?.filename);
     if (deps) return Object.hasOwn(deps, r) ? deps[r] : proibido('import ' + r);
     return load.call(this, r, parent, ...args);

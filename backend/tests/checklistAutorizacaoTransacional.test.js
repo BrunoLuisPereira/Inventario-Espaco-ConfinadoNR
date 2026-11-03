@@ -1,3 +1,4 @@
+const { CAMPOS: camposCaracterizacao } = require('../src/utils/caracterizacaoChecklist');
 const { conferir: conferirCapacidadeSql } = require('./helpers/rbacSqlSimulado.cjs');
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -51,20 +52,24 @@ function preparar(t, ambiente = A, engenheiro = false) {
         estado.escritas.push({ sql, params });
         if (estado.vazio) return { rows: [] };
         if (criacao) {
-          assert.match(sql, /SELECT l\.id_local, \$4, \$5, \$6, \$7, \$8, \$9, \$10, NULLIF\(\$11::text, ''\), \$12, \$3 FROM local AS l/);
+          assert.match(sql, /SELECT l\.id_local, \$4, \$5, \$6, \$7, \$8, \$9, \$10, NULLIF\(\$11::text, ''\), \$12, \$3, \$13, \$14, \$15, \$16, \$17, \$18, \$19, \$20 FROM local AS l/);
           assert.deepEqual(params.slice(0, 3), [40, u.id_ambiente, u.id_usuario]);
-          return { rows: [{ id_checklist: 99, id_local: 40, id_usuario: params[2], ...Object.fromEntries(campos.map((c,i) => [c, params[i+3]])), observacoes: params[10] || null, status: params[11] }] };
+          return { rows: [{ id_checklist: 99, id_local: 40, id_usuario: params[2], ...Object.fromEntries(campos.map((c,i) => [c, params[i+3]])), observacoes: params[10] || null, status: params[11], ...Object.fromEntries(camposCaracterizacao.map((c, i) => [c, params[12+i]])) }] };
         }
         assert.match(sql, /l\.id_local = ch\.id_local/); assert.match(sql, /c\.id_campanha = l\.id_campanha/);
         const set = sql.split(' SET ')[1].split(' FROM ')[0]; assert.doesNotMatch(set, /id_local|id_usuario|id_ambiente/);
         if (sql.includes('COALESCE')) {
-          assert.equal(params.length, 11);
+          assert.equal(params.length, 27);
           for (const [i, campo] of campos.entries()) {
             assert.ok(sql.includes(`${campo} = COALESCE($${4+i}, ch.${campo})`));
             if (params[i+3] != null) estado.checklist[campo] = params[i+3];
           }
           assert.match(sql, /WHEN \$11::text IS NULL THEN ch\.observacoes ELSE NULLIF\(\$11::text, ''\)/);
           if (params[10] != null) estado.checklist.observacoes = params[10] || null;
+          for (const [i, campo] of camposCaracterizacao.entries()) {
+            assert.ok(sql.includes(`${campo} = CASE WHEN $${12+i*2}::boolean THEN $${13+i*2} ELSE ch.${campo} END`));
+            if (params[11+i*2]) estado.checklist[campo] = params[12+i*2];
+          }
           assert.doesNotMatch(set, /\bstatus\s*=/);
         } else { assert.match(sql, /SET status = \$4,/); estado.checklist.status = params[3]; }
         return { rows: [{ ...estado.checklist }] };
@@ -138,7 +143,7 @@ test('PUT preserva respostas concorrentes omitidas e nao transfere vinculos', as
   estado.hook = { alias: 'ch', executar(s) { s.checklist.criterio_b = 'NAO'; } };
   const ch = await repo.atualizarNoAmbiente(50, { criterio_a: 'NAO', id_local: 90, id_usuario: 99, status: 'CONCLUIDO' }, u, opcoes);
   assert.equal(ch.criterio_b, 'NAO'); assert.equal(ch.criterio_a, 'NAO'); assert.equal(ch.id_local, 40); assert.equal(ch.id_usuario, 99); assert.equal(ch.status, 'PENDENTE');
-  assert.deepEqual(estado.escritas[0].params.slice(3), ['NAO', null, null, null, null, null, null, null]);
+  assert.deepEqual(estado.escritas[0].params.slice(3, 11), ['NAO', null, null, null, null, null, null, null]);
 });
 for (const observacoes of [undefined, null, '', '   ', "Texto'; DROP TABLE checklist_nr33; --"]) test('Observacoes preservam contrato e parametrizacao: ' + String(observacoes), async t => {
   const { estado, u } = preparar(t);
@@ -157,4 +162,27 @@ test('Falha ao adquirir cliente nao executa SQL nem release ficticio', async t =
   const { estado, u } = preparar(t); const erro = new Error('Pool indisponivel');
   t.mock.method(pool, 'connect', async () => { throw erro; });
   await assert.rejects(repo.atualizarStatusNoAmbiente(50, 'CONCLUIDO', u, opcoes), recebido => recebido === erro); assert.deepEqual(estado.consultas, []); assert.deepEqual(estado.liberacoes, []);
+});
+
+for (const perfil of ['ADMINISTRADOR','ENGENHEIRO_SEGURANCA','TECNICO_SEGURANCA','COORDENADOR','SUPERVISOR','AUDITOR','VISUALIZADOR']) {
+  test('Caracterizacao: RBAC transacional ' + perfil, async t => {
+    const { estado, u } = preparar(t); estado.perfil = perfil;
+    const r = await repo.atualizarNoAmbiente(50, { codigo_identificacao: 'TG-01', volume_m3: '1.500000', quantidade_aberturas: 0 }, u, opcoes);
+    if (['SUPERVISOR','AUDITOR','VISUALIZADOR'].includes(perfil)) {
+      assert.equal(r, null); assert.equal(estado.escritas.length, 0);
+    } else {
+      assert.equal(r.volume_m3, '1.500000'); assert.equal(r.quantidade_aberturas, 0);
+      estado.consultas = [];
+      const antigo = await repo.atualizarNoAmbiente(50, { observacoes: 'Novo texto' }, u, opcoes);
+      assert.equal(antigo.codigo_identificacao, 'TG-01'); assert.equal(antigo.volume_m3, '1.500000');
+      estado.consultas = [];
+      const limpo = await repo.atualizarNoAmbiente(50, { codigo_identificacao: '', volume_m3: null }, u, opcoes);
+      assert.equal(limpo.codigo_identificacao, null); assert.equal(limpo.volume_m3, null); assert.equal(limpo.quantidade_aberturas, 0);
+    }
+  });
+}
+test('Caracterizacao: outro ambiente nao escreve na transacao', async t => {
+  const { estado, u } = preparar(t); u.id_ambiente = B;
+  assert.equal(await repo.atualizarNoAmbiente(50, { codigo_identificacao: 'FORJADO' }, u, opcoes), null);
+  assert.equal(estado.escritas.length, 0);
 });

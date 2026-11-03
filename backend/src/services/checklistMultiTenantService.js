@@ -1,3 +1,4 @@
+const { selecionarCaracterizacao } = require("../utils/caracterizacaoChecklist");
 const checklistRepository = require("../repositories/checklistMultiTenantRepository");
 
 // O esquema multi-tenant, critérios e versionamento exigem homologação real.
@@ -110,7 +111,7 @@ async function criarChecklist(dados, usuarioAutenticado) {
   // Sem leitura prévia: o SQL autoriza o local e a restrição UNIQUE garante
   // a unicidade. O erro 409 controlado pelo repositório é propagado intacto.
   const checklist = await checklistRepository.criarNoAmbiente(
-    { id_local: idLocal, ...respostas, ...observacoes, status },
+    { id_local: idLocal, ...respostas, ...observacoes, ...selecionarCaracterizacao(dados), status },
     usuario,
     { bloquearAutorizacao: true }
   );
@@ -147,6 +148,7 @@ async function atualizarChecklist(idChecklist, dados, usuarioAutenticado) {
   const campos = {
     ...selecionarRespostas(dados, true),
     ...selecionarObservacoes(dados),
+    ...selecionarCaracterizacao(dados),
   };
   const checklist = await checklistRepository.atualizarNoAmbiente(
     id,

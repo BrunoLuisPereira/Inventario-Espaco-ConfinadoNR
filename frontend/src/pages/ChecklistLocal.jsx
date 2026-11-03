@@ -1,3 +1,5 @@
+import CaracterizacaoChecklist from '../components/CaracterizacaoChecklist'
+import { preencherCaracterizacao, prepararCaracterizacao, validarCaracterizacao } from '../services/caracterizacaoChecklist'
 import { useCapacidade } from '../hooks/useCapacidade'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -13,6 +15,7 @@ import {
 import '../styles/ChecklistLocal.css'
 
 const FORMULARIO_INICIAL = {
+  ...preencherCaracterizacao(),
   criterio_a: '',
   criterio_b: '',
   criterio_c: '',
@@ -44,6 +47,7 @@ function ChecklistLocal() {
 
   function preencherFormulario(dadosChecklist) {
     setFormulario({
+      ...preencherCaracterizacao(dadosChecklist),
       criterio_a: dadosChecklist.criterio_a || '',
       criterio_b: dadosChecklist.criterio_b || '',
       criterio_c: dadosChecklist.criterio_c || '',
@@ -138,7 +142,7 @@ function ChecklistLocal() {
       return 'Informe se há procedimento de emergência.'
     }
 
-    return ''
+    return validarCaracterizacao(formulario)
   }
 
   async function salvarNovoChecklist(event) {
@@ -158,6 +162,7 @@ function ChecklistLocal() {
       setSucesso('')
 
       const dados = {
+        ...prepararCaracterizacao(formulario),
         id_local: Number(idLocal),
         criterio_a: formulario.criterio_a,
         criterio_b: formulario.criterio_b,
@@ -208,6 +213,7 @@ function ChecklistLocal() {
       setSucesso('')
 
       const dados = {
+        ...prepararCaracterizacao(formulario),
         criterio_a: formulario.criterio_a,
         criterio_b: formulario.criterio_b,
         criterio_c: formulario.criterio_c,
@@ -463,6 +469,8 @@ function ChecklistLocal() {
             </div>
           </div>
         </div>
+
+        <CaracterizacaoChecklist dados={formulario} onChange={alterarCampo} salvando={salvando} />
 
         <div className="checklist-questions">
           <div className="checklist-field">
@@ -773,6 +781,8 @@ function ChecklistLocal() {
                         </strong>
                       </div>
                     </div>
+
+                    <CaracterizacaoChecklist dados={checklist} consulta />
 
                     <div className="checklist-observacoes">
                       <span>Observações</span>

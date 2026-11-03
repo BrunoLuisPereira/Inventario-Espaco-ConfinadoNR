@@ -33,4 +33,11 @@ function dados() {
     evidencias: [{ id_evidencia: 1, tipo: 'FOTO', descricao: 'Ilustração sintética horizontal para homologação do layout.\nNão é uma fotografia de inventário real.', latitude: 0, longitude: 0, origem_coordenadas: 'GPS', precisao_gps: 0, data_captura_gps: '2026-10-24T12:00:00Z', data_criacao: '2026-10-24T12:00:00Z' }],
   };
 }
-module.exports = { imagem, dados };
+function caracterizacao() {
+  return { codigo_identificacao: 'EC-SINTETICO-025', volume_m3: '125.123456', quantidade_aberturas: 0,
+    dimensoes_aberturas: 'BM-01: circular, 600 mm\nBM-02: retangular, 800 x 600 mm',
+    formas_acesso: 'Escada fixa: 3 m\nEntrada superior: 600 mm', geometria: 'Cilíndrico vertical',
+    utilizacao_produto: 'Água de processo — amostra sintética',
+    perigos_antes_liberacao: 'Atmosfera potencialmente perigosa.\nRisco de queda na entrada.' };
+}
+module.exports = { imagem, dados, caracterizacao };

@@ -1,3 +1,4 @@
+const caracterizacao = require('../src/utils/caracterizacaoChecklist');
 const { conferir: conferirCapacidadeSql } = require('./helpers/rbacSqlSimulado.cjs');
 const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
@@ -165,6 +166,7 @@ function preparar(t) {
     Module._load=function(r,parent,...args) {
       // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
       if (r === '../utils/permissoes') return politicaRbac723;
+      if (r === '../utils/caracterizacaoChecklist') return caracterizacao;
       if (parent?.filename===repoPath) { if (r==='../config/database') return pool; throw new Error('Dependência real proibida: '+r); }
       if (parent?.filename===servicePath) { if (r==='../repositories/sincronizacaoMultiTenantRepository') return repo; throw new Error('Dependência real proibida: '+r); }
       return load.call(this,r,parent,...args);
@@ -466,3 +468,40 @@ for(const perfil of ['TECNICO_SEGURANCA','COORDENADOR']) for(const entidade of [
   await assert.rejects(s.service.criarSincronizacao(s.dados(entidade,'EXCLUIR'),s.u),{statusCode:403});
   assert.deepEqual(s.estado.escritas,[]);assert.equal(s.estado.tabelas[especificacoes[entidade][0]].has(10),true);
 });
+
+test('Caracterizacao offline: criacao persiste os oito campos e retorna snapshot', async t => {
+  const s=preparar(t), d=criacao(s,'CHECKLIST_NR33');
+  const novos={codigo_identificacao:'TG-01',volume_m3:'123.456789',quantidade_aberturas:0,dimensoes_aberturas:'BM-01: 600 mm',formas_acesso:'Escada: 3 m',geometria:'Cilindro',utilizacao_produto:'Agua',perigos_antes_liberacao:'Atmosfera perigosa'};
+  Object.assign(d.dados_cliente,novos);
+  const fila=await s.service.criarSincronizacao(d,s.u), r=await s.service.processarSincronizacao(fila.id_sincronizacao,s.u);
+  for(const campo of caracterizacao.CAMPOS) assert.equal(r.dados_servidor[campo],novos[campo]);
+});
+for(const payload of [{codigo_identificacao:'NOVO',quantidade_aberturas:0},{codigo_identificacao:'',volume_m3:null},{}]) {
+  test('Caracterizacao offline: atualizacao parcial e limpeza '+JSON.stringify(payload),async t=>{
+    const s=preparar(t), fila=s.estado.sync.get(10);fila.entidade='CHECKLIST_NR33';fila.dados_cliente={observacoes:'Cliente antigo',...payload};
+    const antes=s.estado.tabelas.checklist_nr33.get(10);Object.assign(antes,{codigo_identificacao:'TG-01',volume_m3:'12.5',geometria:'Cilindro'});
+    const r=await s.service.processarSincronizacao(10,s.u);
+    assert.equal(r.dados_servidor.geometria,'Cilindro');
+    assert.equal(r.dados_servidor.volume_m3,Object.hasOwn(payload,'volume_m3')?null:'12.5');
+    assert.equal(r.dados_servidor.codigo_identificacao,Object.hasOwn(payload,'codigo_identificacao')?payload.codigo_identificacao||null:'TG-01');
+    if(Object.hasOwn(payload,'quantidade_aberturas')) assert.equal(r.dados_servidor.quantidade_aberturas,0);
+  });
+}
+for(const payload of [{volume_m3:0},{quantidade_aberturas:-1},{geometria:'x'.repeat(2001)}]) {
+  test('Caracterizacao offline: valor invalido nao e aplicado '+Object.keys(payload)[0],async t=>{
+    const s=preparar(t), fila=s.estado.sync.get(10);fila.entidade='CHECKLIST_NR33';fila.dados_cliente=payload;
+    const antes=clone(s.estado.tabelas.checklist_nr33.get(10));
+    await assert.rejects(s.service.processarSincronizacao(10,s.u),{statusCode:400});
+    assert.deepEqual(s.estado.tabelas.checklist_nr33.get(10),antes);
+  });
+}
+for(const resolucao of ['CLIENTE','MESCLADO','SERVIDOR']) {
+  test('Caracterizacao offline: conflito '+resolucao+' preserva campos omitidos',async t=>{
+    const s=preparar(t),fila=s.estado.sync.get(10);
+    Object.assign(fila,{entidade:'CHECKLIST_NR33',status:'CONFLITO',dados_cliente:{codigo_identificacao:'CLIENTE'}});
+    Object.assign(s.estado.tabelas.checklist_nr33.get(10),{codigo_identificacao:'SERVIDOR',volume_m3:'12.5',quantidade_aberturas:0});
+    const r=await s.service.resolverConflito(10,{resolucao,dados_resolvidos:{codigo_identificacao:'MESCLADO'}},s.u);
+    assert.equal(r.dados_servidor.codigo_identificacao,resolucao);
+    assert.equal(r.dados_servidor.volume_m3,'12.5');assert.equal(r.dados_servidor.quantidade_aberturas,0);
+  });
+}

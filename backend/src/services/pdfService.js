@@ -225,6 +225,36 @@ function campanhaLocal(l, d) {
   l.campos([['Local', d.nome_local], ['Setor', d.setor], ['Descrição', d.descricao_local], ['Endereço', d.endereco],
     ['Latitude', d.latitude], ['Longitude', d.longitude], ['Status', d.status_local, true]], t3);
 }
+function volumeEspaco(valor) {
+  if (!presente(valor)) return texto(valor);
+  // NUMERIC(18,6) chega como string: não perder casas ao converter para Number.
+  const decimal = /^(\d+)(?:\.(\d+))?$/.exec(String(valor));
+  if (!decimal) return texto(valor);
+  const inteiro = decimal[1].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const fracao = (decimal[2] || '').replace(/0+$/, '');
+  return fracao ? `${inteiro},${fracao}` : inteiro;
+}
+function caracterizacao(l, d) {
+  const titulo = 'Caracterização do Espaço Confinado';
+  const contexto = `3. Checklist NR-33 • ${titulo}`;
+  const campos = [
+    ['Código de identificação / rastreio', d.codigo_identificacao],
+    ['Volume do espaço (m³)', volumeEspaco(d.volume_m3)],
+    ['Quantidade de aberturas e bocas de visita', d.quantidade_aberturas],
+    ['Dimensões das aberturas e bocas de visita', d.dimensoes_aberturas],
+    ['Formas de acesso e respectivas dimensões', d.formas_acesso],
+    ['Geometria do espaço confinado', d.geometria],
+    ['Utilização do espaço / produto armazenado', d.utilizacao_produto],
+    ['Possíveis perigos antes da liberação de entrada', d.perigos_antes_liberacao],
+  ];
+  const primeiraAltura = Math.max(l.linhas(campos[0][0], 129, true).length,
+    l.linhas(texto(campos[0][1]), l.w - 161).length) * LINE + 10;
+  // Reservar o título junto à primeira linha real, inclusive quando o código
+  // exigir quebra. O restante usa a paginação e continuação de campos().
+  l.espaco(37 + primeiraAltura, () => l.secao('3. Checklist NR-33 (continuação)'));
+  l.secao(titulo);
+  l.campos(campos, contexto);
+}
 function checklistTecnicos(l, d) {
   l.pagina(); const t = '3. Checklist NR-33'; l.secao(t);
   if (d.id_checklist) {
@@ -233,9 +263,12 @@ function checklistTecnicos(l, d) {
       ['E', 'Ventilação adequada', d.ventilacao_adequada], ['F', 'Monitoramento atmosférico', d.monitoramento_atmosferico],
       ['G', 'Procedimento de emergência', d.procedimento_emergencia]];
     l.tabela([56, l.w - 151, 95], itens.map(([a, b, c]) => [{ valor: a, rotulo: true }, b, { valor: texto(c), status: true }]), { cabecalho: ['Critério', 'Descrição', 'Atende'], titulo: t });
+    caracterizacao(l, d);
     l.campos([['Observações', d.observacoes_checklist], ['Status', d.status_checklist, true]], t);
   } else l.campos([['Checklist', 'Checklist não cadastrado para este local.']], t);
-  const tt = '4. Dados Técnicos'; l.secao(tt);
+  const tt = '4. Dados Técnicos';
+  l.espaco(37 + (d.id_dados ? 44 : 21));
+  l.secao(tt);
   const unidade = (v, u) => presente(v) ? `${numero(v)} ${u}` : 'Não informado';
   if (d.id_dados) {
     l.cartes([['Pressão atmosférica', numero(d.pressao_atmosferica), 'P'], ['Ventilação', texto(d.ventilacao), 'V'],

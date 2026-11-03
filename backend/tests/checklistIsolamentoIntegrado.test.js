@@ -1,3 +1,4 @@
+const caracterizacao = require('../src/utils/caracterizacaoChecklist');
 const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -27,6 +28,7 @@ function preparar(t) {
     const ch = estado.checklists.get(id);
     for (const campo of Object.keys(respostas)) if (d[campo] != null) ch[campo] = d[campo];
     if (d.observacoes != null) ch.observacoes = d.observacoes || null;
+    for (const campo of caracterizacao.CAMPOS) if (Object.hasOwn(d, campo)) ch[campo] = d[campo];
     return ch;
   };
   const repo = {
@@ -55,6 +57,7 @@ function preparar(t) {
     Module._load = function(request, parent, ...args) {
       // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
       if (request === '../utils/permissoes') return politicaRbac723;
+      if (request === '../utils/caracterizacaoChecklist') return caracterizacao;
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cache.has(parent?.filename)) {
@@ -265,4 +268,22 @@ test('Observações com espaços e todas as respostas NAO permanecem válidas', 
   const { res } = await ctx.solicitar('POST', '/', '12', { id_local: 10, ...Object.fromEntries(Object.keys(respostas).map(c => [c, 'NAO'])), observacoes: '   ' });
   assert.equal(res.statusCode, 201); assert.equal(res.body.data.status, 'PENDENTE'); assert.equal(res.body.data.observacoes, '   ');
   for (const campo of Object.keys(respostas)) assert.equal(res.body.data[campo], 'NAO');
+});
+
+test('Caracterizacao: POST, GET e PUT preservam e limpam dados via rotas ativas', async t => {
+  const { solicitar, estado } = preparar(t);
+  const { res: novo } = await solicitar('POST', '/', '11', { ...dados, codigo_identificacao: 'TG-01', volume_m3: '1.25', quantidade_aberturas: 0 });
+  assert.equal(novo.statusCode, 201); assert.equal(novo.body.data.volume_m3, '1.25');
+  const id = novo.body.data.id_checklist;
+  const { res: consulta } = await solicitar('GET', '/' + id, '11');
+  assert.equal(consulta.statusCode, 200); assert.equal(consulta.body.data.quantidade_aberturas, 0);
+  const { res: parcial } = await solicitar('PUT', '/' + id, '11', { geometria: 'Cilindro' });
+  assert.equal(parcial.body.data.codigo_identificacao, 'TG-01'); assert.equal(parcial.body.data.volume_m3, '1.25');
+  const { res: limpar } = await solicitar('PUT', '/' + id, '11', { volume_m3: null, codigo_identificacao: '' });
+  assert.equal(limpar.body.data.volume_m3, null); assert.equal(limpar.body.data.codigo_identificacao, null);
+  assert.equal(limpar.body.data.geometria, 'Cilindro');
+  const antes = structuredClone(estado.checklists.get(id));
+  assert.equal((await solicitar('PUT', '/' + id, '21', { codigo_identificacao: 'EXTERNO' })).res.statusCode, 404);
+  assert.equal((await solicitar('GET', '/' + id, '21')).res.statusCode, 404);
+  assert.deepEqual(estado.checklists.get(id), antes);
 });

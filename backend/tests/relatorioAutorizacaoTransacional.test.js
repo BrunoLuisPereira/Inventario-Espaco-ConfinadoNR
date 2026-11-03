@@ -6,6 +6,13 @@ const repo = require('../src/repositories/relatorioMultiTenantRepository');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const campos = ['nome_responsavel_tecnico', 'crea', 'numero_art', 'data_art', 'status'];
+const camposCaracterizacao = ['codigo_identificacao','volume_m3','quantidade_aberturas','dimensoes_aberturas',
+  'formas_acesso','geometria','utilizacao_produto','perigos_antes_liberacao'];
+function caracterizacao(ambiente) {
+  return { codigo_identificacao:'EC_'+ambiente,volume_m3:'123.456789',quantidade_aberturas:0,
+    dimensoes_aberturas:'DIM_'+ambiente,formas_acesso:'ACESSO_'+ambiente,geometria:'GEOMETRIA_'+ambiente,
+    utilizacao_produto:'USO_'+ambiente,perigos_antes_liberacao:'PERIGOS_'+ambiente };
+}
 function preparar(t, ambiente = A, engenheiro = false, criacao = false) {
   const u = { id_usuario: ambiente === A ? 11 : 21, id_ambiente: ambiente };
   const estado = { ativo: true, ambienteAtivo: true, ambiente, criadorAmbiente: ambiente, perfil: engenheiro ? 'ENGENHEIRO_SEGURANCA' : 'ADMINISTRADOR', responsavel: u.id_usuario,
@@ -44,11 +51,12 @@ function preparar(t, ambiente = A, engenheiro = false, criacao = false) {
       }
       if (sql.startsWith('SELECT r.id_relatorio,')) {
         contexto(sql, params); assert.equal(estado.aberta, true);
+        for(const campo of camposCaracterizacao)assert.ok(sql.includes('ch.'+campo),campo+' precisa vir do Checklist autorizado');
         assert.match(sql, /WHERE e\.id_local = l\.id_local/);
         assert.match(sql, /ON ch\.id_local = l\.id_local/);
         assert.match(sql, /ON dt\.id_local = l\.id_local/);
         assert.match(sql, /u\.id_ambiente = c\.id_ambiente/);
-        return { rows: permitido() ? [{ ...estado.registro, id_checklist: 7, criterio_a: 'SIM', id_dados: 8, oxigenio: 0, evidencias: [{ id_evidencia: 9, latitude: 0, longitude: 0, id_local: 40 }] }] : [] };
+        return { rows: permitido() ? [{ ...estado.registro, ...caracterizacao(estado.ambiente), id_checklist: 7, criterio_a: 'SIM', id_dados: 8, oxigenio: 0, evidencias: [{ id_evidencia: 9, latitude: 0, longitude: 0, id_local: 40 }] }] : [] };
       }
       if (sql.startsWith('UPDATE relatorio AS r SET caminho_pdf')) {
         contexto(sql, params); assert.equal(estado.aberta, true); assert.deepEqual(params.slice(0,3), [50, u.id_ambiente, u.id_usuario]);
@@ -96,8 +104,9 @@ function preparar(t, ambiente = A, engenheiro = false, criacao = false) {
     const sql = texto.replace(/\s+/g, ' ').trim(); estado.consultas.push({ sql, params });
     if (sql.startsWith('SELECT r.id_relatorio,')) {
       contexto(sql, params); assert.match(sql, /WHERE e\.id_local = l\.id_local/);
+      for(const campo of camposCaracterizacao)assert.ok(sql.includes('ch.'+campo));
       assert.match(sql, /ON ch\.id_local = l\.id_local/); assert.match(sql, /ON dt\.id_local = l\.id_local/);
-      return { rows: permitido() ? [{ ...estado.registro, evidencias: [{ id_local: 40 }] }] : [] };
+      return { rows: permitido() ? [{ ...estado.registro,...caracterizacao(estado.ambiente), evidencias: [{ id_local: 40 }] }] : [] };
     }
     const local = sql.startsWith('SELECT l.id_local FROM local AS l');
     if (!local && !sql.startsWith('SELECT r.*,')) { estado.inesperadas.push(sql); throw new Error('Leitura desconhecida'); }
@@ -204,4 +213,17 @@ test('Consulta completa recusa antes de coletar agregados e revalida todos os vÃ
   estado.ativo = true;
   const completo = await repo.buscarCompletoNoAmbiente(50, u);
   assert.deepEqual(completo.evidencias, [{ id_local: 40 }]);
+});
+for(const ambiente of [A,B])test('Caracterizacao completa e geracao usam somente o ambiente '+ambiente,async t=>{
+  const {u}=preparar(t,ambiente);
+  const completo=await repo.buscarCompletoNoAmbiente(50,u);
+  for(const campo of camposCaracterizacao)assert.equal(completo[campo],caracterizacao(ambiente)[campo]);
+  let chamadas=0;
+  await repo.gerarNoAmbiente(50,u,async d=>{
+    chamadas++;for(const campo of camposCaracterizacao)assert.equal(d[campo],caracterizacao(ambiente)[campo]);
+    assert.equal(d.quantidade_aberturas,0);return {caminhoRelativo:'uploads/relatorios/sintetico.pdf',hash:'b'.repeat(64)};
+  });
+  assert.equal(chamadas,1);
+  u.id_ambiente=ambiente===A?B:A;
+  assert.equal(await repo.gerarNoAmbiente(50,u,async()=>{throw Error('Nao deve renderizar outro ambiente');}),null);
 });
