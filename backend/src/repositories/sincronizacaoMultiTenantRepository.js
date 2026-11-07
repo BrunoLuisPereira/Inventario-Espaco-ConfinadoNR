@@ -1,3 +1,4 @@
+const { CAMPOS: CAMPOS_CARACTERIZACAO, selecionarCaracterizacao } = require("../utils/caracterizacaoChecklist");
 const { perfis, exigir, sqlCapacidade } = require('../utils/permissoes');
 const pool = require('../config/database');
 const erro = (message, statusCode) => Object.assign(new Error(message), { statusCode });
@@ -7,7 +8,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ESPECIFICACOES = Object.freeze({
   CAMPANHA: { tabela: 'campanha', chave: 'id_campanha', campos: ['nome_campanha', 'empresa', 'responsavel', 'data_inicio', 'status'], status: ['EM ANDAMENTO', 'CONCLUIDO', 'CANCELADA'] },
   LOCAL: { tabela: 'local', chave: 'id_local', campos: ['nome_local', 'setor', 'descricao', 'endereco', 'latitude', 'longitude', 'status'], status: ['ATIVO', 'INATIVO'] },
-  CHECKLIST_NR33: { tabela: 'checklist_nr33', chave: 'id_checklist', campos: ['criterio_a', 'criterio_b', 'criterio_c', 'identificacao_espaco', 'acesso_controlado', 'ventilacao_adequada', 'monitoramento_atmosferico', 'procedimento_emergencia', 'observacoes', 'status'], status: ['PENDENTE', 'CONCLUIDO'] },
+  CHECKLIST_NR33: { tabela: 'checklist_nr33', chave: 'id_checklist', campos: [...CAMPOS_CARACTERIZACAO, 'criterio_a', 'criterio_b', 'criterio_c', 'identificacao_espaco', 'acesso_controlado', 'ventilacao_adequada', 'monitoramento_atmosferico', 'procedimento_emergencia', 'observacoes', 'status'], status: ['PENDENTE', 'CONCLUIDO'] },
   DADOS_TECNICOS: { tabela: 'dados_tecnicos', chave: 'id_dados', campos: ['pressao_atmosferica', 'ventilacao', 'oxigenio', 'gas_inflamavel', 'monoxido_carbono', 'sulfeto_hidrogenio', 'temperatura', 'umidade', 'observacoes', 'status'], status: ['PENDENTE', 'CONCLUIDO'] },
   EVIDENCIA: { tabela: 'evidencia', chave: 'id_evidencia' }
 });
@@ -214,11 +215,12 @@ function campos(e, dados, criar) {
     for (const letra of ['a', 'b', 'c']) if (!Object.hasOwn(d, `criterio_${letra}`)) d[`criterio_${letra}`] = d.identificacao_espaco === letra.toUpperCase() ? 'SIM' : 'NAO';
   }
   const r = Object.fromEntries(s.campos.filter(c => Object.hasOwn(d, c) && d[c] !== undefined).map(c => [c, d[c]]));
+  if (e === 'CHECKLIST_NR33') Object.assign(r, selecionarCaracterizacao(d));
   if (criar) {
     r.status ??= s.status[0];
     if (e === 'CAMPANHA') for (const c of ['nome_campanha', 'empresa', 'responsavel', 'data_inicio']) if (!d[c]) throw erro(`O campo ${c} é obrigatório.`, 400);
     if (e === 'LOCAL' && !d.nome_local) throw erro('O nome do local é obrigatório.', 400);
-    if (e === 'CHECKLIST_NR33') for (const c of s.campos.filter(c => c !== 'identificacao_espaco' && !['observacoes', 'status'].includes(c))) if (!['SIM', 'NAO'].includes(d[c])) throw erro(`O campo ${c} deve ser SIM ou NAO.`, 400);
+    if (e === 'CHECKLIST_NR33') for (const c of s.campos.filter(c => c !== 'identificacao_espaco' && !CAMPOS_CARACTERIZACAO.includes(c) && !['observacoes', 'status'].includes(c))) if (!['SIM', 'NAO'].includes(d[c])) throw erro(`O campo ${c} deve ser SIM ou NAO.`, 400);
     if (e === 'DADOS_TECNICOS') r.ventilacao ??= 'NAO_INFORMADA';
   }
   if (r.status != null && !s.status.includes(r.status)) throw erro('Status da entidade inválido.', 400);

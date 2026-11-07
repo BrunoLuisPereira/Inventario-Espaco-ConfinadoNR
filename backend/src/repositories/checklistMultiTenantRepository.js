@@ -1,3 +1,4 @@
+const { CAMPOS: CAMPOS_CARACTERIZACAO, selecionarCaracterizacao } = require("../utils/caracterizacaoChecklist");
 const { sqlCapacidade } = require('../utils/permissoes');
 const pool = require("../config/database");
 
@@ -107,6 +108,7 @@ function ehDuplicidadePorLocal(erro) {
 async function criarNoAmbiente(dados, usuarioAutenticado, opcoes) {
   const usuario = validarIdentidade(usuarioAutenticado);
   validarDados(dados);
+  const caracterizacao = selecionarCaracterizacao(dados);
   const idLocal = validarIdentificador(dados.id_local, "ID do local inválido.");
   const { status = "PENDENTE" } = dados;
   validarStatus(status);
@@ -123,14 +125,16 @@ async function criarNoAmbiente(dados, usuarioAutenticado, opcoes) {
       procedimento_emergencia,
       observacoes,
       status,
-      id_usuario
+      id_usuario,
+      ${CAMPOS_CARACTERIZACAO.join(", ")}
     )
     SELECT
       l.id_local,
       $4, $5, $6, $7, $8, $9, $10,
       NULLIF($11::text, ''),
       $12,
-      $3
+      $3,
+      ${CAMPOS_CARACTERIZACAO.map((_, i) => `$${i + 13}`).join(", ")}
     FROM local AS l
     INNER JOIN campanha AS c
       ON c.id_campanha = l.id_campanha
@@ -146,6 +150,7 @@ async function criarNoAmbiente(dados, usuarioAutenticado, opcoes) {
     ...CAMPOS_RESPOSTAS.map((campo) => dados[campo]),
     dados.observacoes ?? null,
     status,
+    ...CAMPOS_CARACTERIZACAO.map(campo => caracterizacao[campo] ?? null),
   ];
 
   try {
@@ -225,9 +230,11 @@ async function atualizarNoAmbiente(idChecklist, dados, usuarioAutenticado, opcoe
   const id = validarIdentificador(idChecklist, "ID do checklist inválido.");
   const usuario = validarIdentidade(usuarioAutenticado);
   validarDados(dados, true);
+  const caracterizacao = selecionarCaracterizacao(dados);
 
   // Não inclui id_local, id_usuario ou status no SET.
-  // NULL preserva valores; observação vazia limpa o campo para NULL.
+  // Respostas/observações mantêm o contrato anterior. Na caracterização,
+  // o booleano de presença distingue omissão de limpeza explícita com NULL.
   const query = `
     UPDATE checklist_nr33 AS ch
     SET
@@ -242,6 +249,7 @@ async function atualizarNoAmbiente(idChecklist, dados, usuarioAutenticado, opcoe
         WHEN $11::text IS NULL THEN ch.observacoes
         ELSE NULLIF($11::text, '')
       END,
+      ${CAMPOS_CARACTERIZACAO.map((campo, i) => `${campo} = CASE WHEN $${12 + i * 2}::boolean THEN $${13 + i * 2} ELSE ch.${campo} END`).join(",\n      ")},
       data_atualizacao = CURRENT_TIMESTAMP
     FROM local AS l
     INNER JOIN campanha AS c
@@ -258,6 +266,7 @@ async function atualizarNoAmbiente(idChecklist, dados, usuarioAutenticado, opcoe
     usuario.id_usuario,
     ...CAMPOS_RESPOSTAS.map((campo) => dados[campo] ?? null),
     dados.observacoes ?? null,
+    ...CAMPOS_CARACTERIZACAO.flatMap(campo => [Object.hasOwn(caracterizacao, campo), caracterizacao[campo] ?? null]),
   ];
   if (opcoes?.bloquearAutorizacao === true) {
     return executarEscritaComBloqueios(query, valores, usuario, id, false);

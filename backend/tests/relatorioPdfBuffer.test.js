@@ -84,6 +84,76 @@ function dados() { return {
   id_dados: 2, oxigenio: 0, temperatura: 0, observacoes_dados_tecnicos: 'DADOS_A',
   evidencias: [{ id_evidencia: 1, tipo: 'FOTO', caminho_arquivo: 'uploads/evidencias/legada.jpg', descricao: 'LEGENDA_A', latitude: 0, longitude: 0, origem_coordenadas: 'GPS', precisao_gps: 0 }]
 }; }
+const rotulosCaracterizacao = ['Código de identificação / rastreio', 'Volume do espaço (m³)',
+  'Quantidade de aberturas e bocas de visita', 'Dimensões das aberturas e bocas de visita',
+  'Formas de acesso e respectivas dimensões', 'Geometria do espaço confinado',
+  'Utilização do espaço / produto armazenado', 'Possíveis perigos antes da liberação de entrada'];
+function validarPaginas(s, buffer) {
+  const paginas = paginasGravadas(buffer);
+  assert.deepEqual(s.textos.filter(v => /^Página \d+ de/.test(v)), paginas.map((_, i) => `Página ${i + 1} de ${paginas.length}`));
+  for (let i = 0; i < paginas.length; i++) {
+    const corpo = s.registros.filter(r => r.pagina === i && r.y >= 119 && r.y < 790);
+    assert.ok(corpo.some(r => r.y >= 156), 'cada página deve ter conteúdo, não apenas cabeçalho/título');
+    assert.ok(corpo.every(r => r.y + r.tamanho <= 776), 'conteúdo deve respeitar o rodapé');
+    const inicio = s.registros.findIndex(r => r.pagina === i && r.texto === 'INVENTÁRIO DE');
+    assert.ok(inicio >= 0, 'cabeçalho em cada página');
+  }
+  return paginas;
+}
+test('caracterização imprime oito rótulos, valores, volume preciso e zero, na ordem solicitada', async t => {
+  const s = preparar(t), d = { ...fixture.dados(), ...fixture.caracterizacao() };
+  const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
+  const inicio = s.registros.findIndex(r => r.texto === 'Caracterização do Espaço Confinado');
+  const fim = s.registros.findIndex((r, i) => i > inicio && r.texto === 'Observações');
+  assert.ok(inicio > s.registros.findIndex(r => r.texto === 'Procedimento de emergência'));
+  const bloco = s.registros.slice(inicio, fim).map(r => r.texto).join('').replace(/\s/g, '');
+  for (const r of rotulosCaracterizacao) assert.ok(bloco.includes(r.replace(/\s/g, '')), r);
+  for (const v of ['EC-SINTETICO-025', '125,123456', '0', 'BM-01: circular, 600 mm', 'BM-02: retangular, 800 x 600 mm',
+    'Escada fixa: 3 m', 'Entrada superior: 600 mm', 'Cilíndrico vertical', 'Água de processo', 'Risco de queda na entrada.']) {
+    assert.ok(bloco.includes(v.replace(/\s/g, '')), v);
+  }
+  assert.doesNotMatch(bloco, /Item[ABCDG]/);
+  const titulo = s.registros[inicio], primeiro = s.registros[inicio + 1];
+  assert.equal(titulo.pagina, primeiro.pagina, 'título permanece com a primeira linha');
+  validarPaginas(s, buffer);
+});
+for (const vazio of [undefined, null, '']) test(`caracterização antiga/ausente: ${String(vazio)}`, async t => {
+  const s = preparar(t), d = fixture.dados();
+  for (const campo of Object.keys(fixture.caracterizacao())) d[campo] = vazio;
+  const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
+  const inicio = s.registros.findIndex(r => r.texto === 'Caracterização do Espaço Confinado');
+  const fim = s.registros.findIndex((r, i) => i > inicio && r.texto === 'Observações');
+  assert.equal(s.registros.slice(inicio, fim).filter(r => r.texto === 'Não informado').length, 8);
+  validarPaginas(s, buffer);
+});
+test('volume máximo NUMERIC(18,6) conserva a precisão sem conversão para ponto flutuante', async t => {
+  const s = preparar(t), d = { ...fixture.dados(), volume_m3: '999999999999.999999', quantidade_aberturas: 0 };
+  await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
+  assert.ok(s.textos.includes('999.999.999.999,999999'));
+  assert.ok(s.textos.includes('0'));
+});
+test('caracterização extensa e multilinha continua sem perdas, páginas vazias ou sobreposição', async t => {
+  const s = preparar(t), d = { ...fixture.dados(), ...fixture.caracterizacao() };
+  for (const campo of ['dimensoes_aberturas', 'formas_acesso', 'geometria', 'utilizacao_produto', 'perigos_antes_liberacao']) {
+    d[campo] = `${campo}_INICIO\n` + 'ÁÇã'.repeat(campo === 'geometria' ? 500 : 1500) + `\n${campo}_FIM`;
+  }
+  const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
+  const paginas = validarPaginas(s, buffer);
+  assert.ok(paginas.length > 5);
+  assert.ok(s.textos.some(v => v.includes('Caracterização do Espaço Confinado (continuação)')));
+  const inicio = s.registros.findIndex(r => r.texto === 'Caracterização do Espaço Confinado');
+  const fim = s.registros.findIndex((r, i) => i > inicio && r.texto === 'Observações');
+  const prosa = s.registros.slice(inicio, fim).filter(r => r.x === 36 && r.tamanho === 9).map(r => r.texto).join('').replace(/\s/g, '');
+  for (const campo of ['dimensoes_aberturas', 'formas_acesso', 'geometria', 'utilizacao_produto', 'perigos_antes_liberacao']) {
+    assert.ok(prosa.includes(d[campo].replace(/\s/g, '')), `texto integral de ${campo}`);
+  }
+  const textos = paginas.join('').replace(/\s/g, '');
+  const titulos = ['1. Dados da Campanha', '2. Identificação do Local', '3. Checklist NR-33', '4. Dados Técnicos', '5. Evidências', '6. Identificação e Responsabilidade'];
+  let anterior = -1;
+  for (const titulo of titulos) { const posicao = textos.indexOf(titulo.replace(/\s/g, '')); assert.ok(posicao > anterior); anterior = posicao; }
+  const responsabilidade = s.registros.findIndex(r => r.texto === '6. Identificação e Responsabilidade');
+  assert.equal(new Set(s.registros.slice(responsabilidade).filter(r => r.y >= 119 && r.y < 776).map(r => r.pagina)).size, 1);
+});
 for (const quantidade of [0, 1, 3]) {
   test(`ordem e numeração nos bytes do PDF com ${quantidade} evidências preservam responsabilidade`, async t => {
     const s = preparar(t), d = fixture.dados();
@@ -125,22 +195,23 @@ test('falha do renderizador rejeita a geração sem persistência física', asyn
   const s = preparar(t, true); await assert.rejects(s.service.gerarPdfRelatorio(dados(), { somenteBuffer: true }), /FALHA_RENDER_SIMULADA/);
 });
 
-test('layout usual tem quatro páginas A4, seções separadas e rodapés exatos', async t => {
+test('layout usual tem cinco páginas A4, seções separadas e rodapés exatos', async t => {
   const s = preparar(t), d = fixture.dados();
   const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true, imagens: new Map([[1, fixture.imagem(900, 520)]]) });
-  assert.equal(paginasGravadas(buffer).length, 4);
+  assert.equal(paginasGravadas(buffer).length, 5);
   const pagina = inicio => s.registros.find(r => r.texto.startsWith(inicio)).pagina;
   assert.equal(pagina('1. Dados da Campanha'), 0);
   assert.equal(pagina('2. Identificação do Local'), 0);
   assert.equal(pagina('3. Checklist'), 1);
   assert.equal(pagina('4. Dados Técnicos'), 1);
-  assert.equal(pagina('5. Evidências'), 2);
-  assert.equal(pagina('6. Identificação e Responsabilidade'), 3);
+  assert.equal(pagina('Pressão atmosférica'), pagina('4. Dados Técnicos'), 'título acompanhado pelo primeiro cartão');
+  assert.equal(pagina('5. Evidências'), 3);
+  assert.equal(pagina('6. Identificação e Responsabilidade'), 4);
   const inicioResponsabilidade = s.registros.findIndex(r => r.texto === '6. Identificação e Responsabilidade');
-  assert.ok(s.registros.slice(inicioResponsabilidade).filter(r => r.y >= 119 && r.y < 776).every(r => r.pagina === 3));
-  assert.deepEqual(s.textos.filter(v => /^Página \d+ de/.test(v)), Array.from({ length: 4 }, (_, i) => `Página ${i + 1} de 4`));
-  assert.equal(s.textos.filter(v => v === 'INVENTÁRIO DE').length, 8);
-  assert.equal(s.paginas.length, 4);
+  assert.ok(s.registros.slice(inicioResponsabilidade).filter(r => r.y >= 119 && r.y < 776).every(r => r.pagina === 4));
+  assert.deepEqual(s.textos.filter(v => /^Página \d+ de/.test(v)), Array.from({ length: 5 }, (_, i) => `Página ${i + 1} de 5`));
+  assert.equal(s.textos.filter(v => v === 'INVENTÁRIO DE').length, 10);
+  assert.equal(s.paginas.length, 5);
   assert.ok(s.paginas.every(p => Math.abs(p.width - 595.28) < .01 && Math.abs(p.height - 841.89) < .01));
   assert.ok(s.fotografias.every(r => r.pagina >= 2));
   assert.ok(s.textos.includes('RASCUNHO'), 'não altera o status recebido');
@@ -179,7 +250,7 @@ for (const quantidade of [0, 1, 3]) test(`responsabilidade fica agrupada com ${q
   assert.deepEqual(s.textos.filter(v => /^Página \d+ de/.test(v)), Array.from({ length: total }, (_, i) => `Página ${i + 1} de ${total}`));
   assert.equal(s.textos.filter(v => v === 'INVENTÁRIO DE').length, total * 2);
   assert.ok(s.fotografias.every(f => Math.abs(f.width - 539.28) < .001 && Math.abs(f.height - 323.568) < .001));
-  if (!quantidade) assert.equal(total, 3, 'sem evidências não cria página adicional');
+  if (!quantidade) assert.equal(total, 4, 'sem evidências não cria página adicional');
 });
 
 for (const linhas of [0, 1, 2, 4, 8]) test(`seção 6 reserva sua altura real junto ao limite: ${linhas} linhas extras`, async t => {
@@ -262,16 +333,16 @@ test('amostra extensa aproveita páginas sem separar observações técnicas ou 
   d.observacoes_checklist = 'Observações completas preservadas. '.repeat(160);
   const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true, imagens: new Map([[1, fixture.imagem(1000, 600)], [2, fixture.imagem(400, 800)]]) });
   const gravadas = paginasGravadas(buffer);
-  assert.equal(gravadas.length, 7, 'conta as páginas efetivamente gravadas no PDF');
-  const ultima = gravadas[5].replace(/\s/g, '');
+  assert.equal(gravadas.length, 8, 'conta as páginas efetivamente gravadas no PDF');
+  const ultima = gravadas[6].replace(/\s/g, '');
   for (const metadado of ['Localização da evidência', 'Latitude', 'Longitude', 'Origem das coordenadas', 'Precisão estimada', 'Captura GPS', 'Registro da evidência']) {
-    assert.ok(ultima.includes(metadado.replace(/\s/g, '')), `${metadado} deve estar nos bytes da página 6`);
+    assert.ok(ultima.includes(metadado.replace(/\s/g, '')), `${metadado} deve estar nos bytes da página 7`);
   }
-  assert.equal(s.paginas.length, 7, 'responsabilidade ao final usa uma nova página');
+  assert.equal(s.paginas.length, 8, 'responsabilidade ao final usa uma nova página');
   const fimCartoes = s.registros.findIndex(r => r.texto === 'Umidade');
   const observacoesTecnicas = s.registros.findIndex((r, i) => i > fimCartoes && r.texto === 'Observações');
   const statusTecnico = s.registros.findIndex((r, i) => i > observacoesTecnicas && r.texto === 'Status');
-  assert.equal(s.registros[fimCartoes].pagina, 2);
+  assert.equal(s.registros[fimCartoes].pagina, 3);
   assert.equal(s.registros[observacoesTecnicas].pagina, s.registros[fimCartoes].pagina);
   assert.equal(s.registros[statusTecnico].pagina, s.registros[fimCartoes].pagina);
   const inicioObservacoes = s.registros.findIndex(r => r.texto === 'Observações');
@@ -282,7 +353,7 @@ test('amostra extensa aproveita páginas sem separar observações técnicas ou 
   assert.equal(prosa(s.registros.slice(inicioObservacoes + 1, fimObservacoes)), d.observacoes_checklist.replace(/\s/g, ''));
   assert.equal(prosa(s.registros.slice(inicioDescricao, fimDescricao)), d.evidencias[1].descricao.replace(/\s/g, ''));
   const registro = s.registros.findLast(r => r.texto.startsWith('Registro da'));
-  assert.equal(registro.pagina, 5);
+  assert.equal(registro.pagina, 6);
   assert.ok(s.registros.some(r => r.pagina === registro.pagina && r.texto.includes('Observação extensa')));
   assert.equal(s.textos.filter(v => v === '0,00 m').length, 2);
   assert.equal(s.textos.filter(v => v === 'Captura GPS').length, 2);
@@ -291,7 +362,7 @@ test('amostra extensa aproveita páginas sem separar observações técnicas ou 
   }
   assert.ok(s.registros.filter(r => r.y >= 119 && r.y < 790).every(r => r.y + r.tamanho <= 776));
   assert.ok(s.registros.filter(r => r.x === 36 && r.texto.startsWith('Observação extensa')).every(r => r.tamanho === 9));
-  assert.deepEqual(s.textos.filter(v => /^Página \d+ de/.test(v)), Array.from({ length: 7 }, (_, i) => `Página ${i + 1} de 7`));
+  assert.deepEqual(s.textos.filter(v => /^Página \d+ de/.test(v)), Array.from({ length: 8 }, (_, i) => `Página ${i + 1} de 8`));
 });
 
 test('falha síncrona em doc.image preserva a evidência e permite renderizar a seguinte sem páginas vazias', async t => {
@@ -300,7 +371,7 @@ test('falha síncrona em doc.image preserva a evidência e permite renderizar a 
   d.evidencias[0].descricao = 'PRIMEIRA_DESCRICAO';
   d.evidencias.push({ ...d.evidencias[0], id_evidencia: 2, descricao: 'SEGUNDA_DESCRICAO' });
   const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true, imagens: new Map([[1, png], [2, png]]) });
-  assert.equal(paginasGravadas(buffer).length, 5);
+  assert.equal(paginasGravadas(buffer).length, 6);
   assert.equal(s.fotografias.length, 2, 'continua até a próxima fotografia');
   for (const valor of ['Não foi possível inserir esta imagem no relatório.', 'PRIMEIRA_DESCRICAO', 'SEGUNDA_DESCRICAO']) assert.ok(s.textos.includes(valor), valor);
   const textosEvidencias = s.registros.filter(r => r.pagina >= 2).map(r => r.texto);
@@ -342,7 +413,7 @@ for (const caso of ['ausente', 'ENOENT', 'EACCES', 'EPERM', 'EISDIR', 'EIO', 'EN
     d.evidencias.push({ ...d.evidencias[0], id_evidencia: 2, caminho_arquivo: 'uploads/evidencias/valida.png', descricao: 'SEGUNDA_DESCRICAO' });
     const resultado = await s.service.gerarPdfRelatorio(d);
     assert.equal(fs.escritas.length, 1);
-    assert.equal(paginasGravadas(fs.escritas[0].buffer).length, 5);
+    assert.equal(paginasGravadas(fs.escritas[0].buffer).length, 6);
     assert.equal(resultado.hash, require('node:crypto').createHash('sha256').update(fs.escritas[0].buffer).digest('hex'));
     assert.equal(s.fotografias.length, 1, 'somente a segunda fotografia foi inserida');
     for (const valor of ['PRIMEIRA_DESCRICAO', 'SEGUNDA_DESCRICAO']) assert.ok(s.textos.includes(valor));

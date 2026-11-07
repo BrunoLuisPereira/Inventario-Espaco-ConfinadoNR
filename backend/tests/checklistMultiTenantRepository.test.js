@@ -181,7 +181,7 @@ test("Cria com INSERT SELECT parametrizado e filtro pelo local e ambiente", asyn
   assert.match(sql, /RETURNING\s+ch\.\*/i);
   assert.doesNotMatch(sql, /ON\s+CONFLICT\s+DO\s+UPDATE/i);
   assert.deepEqual(parametros, [
-    40, AMBIENTE_A, 10, ...CAMPOS.map((campo) => DADOS[campo]), "Observação simulada", "PENDENTE",
+    40, AMBIENTE_A, 10, ...CAMPOS.map((campo) => DADOS[campo]), "Observação simulada", "PENDENTE", ...Array(8).fill(null),
   ]);
 });
 
@@ -191,7 +191,7 @@ test("Usa o usuário autenticado como criador sem aceitar identidade do corpo", 
     ...DADOS, id_usuario: 999, id_ambiente: AMBIENTE_B, eh_fundador: true, perfil_acesso: "ADMINISTRADOR",
   }, USUARIO_A);
   const [sql, parametros] = unica(consulta);
-  assert.match(sql, /NULLIF\(\$11::text,\s*''\),\s*\$12,\s*\$3\s+FROM/i);
+  assert.match(sql, /NULLIF\(\$11::text,\s*''\),\s*\$12,\s*\$3,\s*\$13[\s\S]*FROM/i);
   assert.deepEqual(parametros.slice(0, 3), [40, AMBIENTE_A, 10]);
   assert.equal(parametros.includes(999), false);
   assert.equal(parametros.includes(AMBIENTE_B), false);

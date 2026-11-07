@@ -170,6 +170,7 @@
   font-weight: 600;
 }
 
+.checklist-caracterizacao input,
 .checklist-field select,
 .checklist-field textarea {
   width: 100%;
@@ -182,6 +183,7 @@
   box-sizing: border-box;
 }
 
+.checklist-caracterizacao input:focus,
 .checklist-field select:focus,
 .checklist-field textarea:focus {
   outline: none;
@@ -532,4 +534,86 @@ html[data-theme='dark'] .checklist-reopen-button {
   .checklist-cancel-button {
     width: 100%;
   }
+}
+
+
+.checklist-caracterizacao {
+  margin: 24px 0 28px;
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.checklist-caracterizacao h4 {
+  margin: 0 0 10px;
+  padding-left: 12px;
+  border-left: 3px solid var(--color-primary);
+  color: var(--color-text-heading);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.checklist-caracterizacao > p {
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.checklist-caracterizacao .checklist-caracterizacao-rotulo,
+.checklist-caracterizacao label {
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.checklist-caracterizacao-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.checklist-caracterizacao .checklist-field { min-width: 0; }
+.checklist-caracterizacao input { width: 100%; box-sizing: border-box; }
+.checklist-caracterizacao-descricao { grid-column: 1 / -1; }
+
+.checklist-caracterizacao-consulta .checklist-caracterizacao-grid {
+  gap: 16px;
+  align-items: start;
+}
+
+.checklist-caracterizacao-card {
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-secondary);
+}
+
+.checklist-caracterizacao-consulta .checklist-caracterizacao-descricao {
+  grid-column: auto;
+}
+
+.checklist-caracterizacao .checklist-caracterizacao-valor {
+  margin: 0;
+  color: var(--color-text-heading);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.checklist-caracterizacao .checklist-caracterizacao-valor-vazio {
+  color: var(--color-text);
+  font-weight: 400;
+}
+
+@media (max-width: 650px) {
+  .checklist-caracterizacao { padding: 14px; }
+  .checklist-caracterizacao-grid { grid-template-columns: 1fr; }
 }
