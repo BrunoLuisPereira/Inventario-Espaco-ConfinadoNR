@@ -44,6 +44,7 @@ try {
         if(method==='GET'&&p==='/api/campanhas/30')return Response.json({status:'success',data:{id_campanha:30,nome_campanha:'Campanha do ambiente',status:'EM ANDAMENTO'}});
         if(method==='GET'&&p==='/api/locais')return Response.json({status:'success',data:[{id_local:40,id_campanha:30,nome_local:'Tanque do ambiente',status:'ATIVO'}]});
         if(method==='GET'&&p==='/api/relatorios')return Response.json({status:'success',data:[]});
+        if(method==='GET'&&p==='/api/relatorios/local/40')return Response.json({message:'Relatório não cadastrado.'},{status:404});
         window.inesperadas.push(method+' '+p);throw Error('API fora do simulador; rede bloqueada');
       };
     `})
@@ -90,9 +91,9 @@ try {
       assert.equal(await avaliar(`!!document.querySelector('.sidebar a[href="/convites"]')`),false)
     }
     await enviar('Page.navigate',{url:base+'/campanhas'})
-    await esperar('!!document.querySelector(".campanha-button-edit")')
+    await esperar('!!document.querySelector(".campanhas-table tbody tr")')
     assert.equal(await avaliar('!!document.querySelector(".sidebar-nav-action")'),perfil!=='VISUALIZADOR')
-    assert.equal(await avaliar('document.querySelector(".campanha-button-edit").disabled'),['SUPERVISOR','AUDITOR','VISUALIZADOR'].includes(perfil))
+    assert.equal(await avaliar('!!document.querySelector(".campanha-editar-icone")'),!['SUPERVISOR','AUDITOR','VISUALIZADOR'].includes(perfil))
     await enviar('Page.navigate',{url:base+'/campanhas/30/locais'})
     await esperar('!!document.querySelector(".locais-table tbody tr")')
     assert.equal(await avaliar('!!document.querySelector(".local-button-edit")'),!['SUPERVISOR','AUDITOR','VISUALIZADOR'].includes(perfil))

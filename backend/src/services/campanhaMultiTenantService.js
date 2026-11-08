@@ -147,6 +147,10 @@ async function atualizarCampanha(idCampanha, dados, usuarioAutenticado) {
   const usuario = validarIdentidade(usuarioAutenticado);
   const id = validarIdCampanha(idCampanha);
   const campos = validarCamposCampanha(dados);
+  if (Object.hasOwn(dados, "status")) {
+    if (!STATUS_PERMITIDOS.includes(dados.status)) throw criarErro("Status da campanha inválido.", 400);
+    campos.status = dados.status;
+  }
 
   // A autorização é verificada pelo SQL na própria atualização.
   const campanha = await campanhaRepository.atualizarNoAmbiente(

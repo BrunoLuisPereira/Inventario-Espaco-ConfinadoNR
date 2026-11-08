@@ -18,19 +18,36 @@
 .locais-admin .locais-exportar { min-height: 42px; font-size: .875rem; }
 .locais-admin .locais-nota { margin: 0; padding: 0 24px 20px; color: var(--color-text-secondary); font-size: .78rem; line-height: 1.5; }
 .locais-admin .locais-table-container { border: 0; border-radius: 0; }
-.locais-admin .locais-table th { padding: 14px 18px; font-weight: 600; white-space: nowrap; }
+.locais-admin .locais-table th { padding: 14px 18px; color: var(--color-text-heading); font-size: .8rem; font-weight: 600; white-space: nowrap; }
 .locais-admin .locais-table td { padding: 18px; vertical-align: middle; font-size: .875rem; }
+.locais-admin .locais-table .locais-col-espaco { text-align: center; }
 .locais-admin .locais-table tbody tr:hover { background: var(--color-surface-secondary); }
-.locais-admin .locais-table td strong { display: block; color: var(--color-text-heading); font-weight: 650; }
+.locais-admin .locais-table td strong { display: block; color: inherit; font-size: inherit; font-weight: 400; }
+.locais-admin .local-nome-editavel { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: center; gap: 10px; }
+.locais-admin .local-nome > div { min-width: 0; overflow-wrap: anywhere; }
 .locais-admin .locais-endereco { display: block; margin-top: 5px; color: var(--color-text-secondary); font-size: .76rem; }
 .locais-sort { display: flex; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
 .locais-sort span { color: var(--color-text-secondary); }
-.locais-inventario { color: var(--color-text-secondary); font-size: .8rem; white-space: nowrap; }
-.locais-admin .locais-status { border: 0; font: inherit; font-size: .78rem; font-weight: 600; padding: 6px 10px; }
+.locais-admin :is(.locais-classificacao, .locais-status) {
+  display: inline-block;
+  width: fit-content;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.locais-classificacao-nao-avaliado { background-color: #f2f4f7; color: #475467; }
+html[data-theme='dark'] .locais-classificacao-nao-avaliado { background-color: #334155; color: #cbd5e1; }
 .locais-admin .locais-col-acoes { text-align: right; }
 .locais-admin .local-actions { justify-content: flex-end; flex-wrap: wrap; }
 .locais-admin .local-button-open { text-decoration: none; white-space: nowrap; color: var(--color-text-heading); }
-.locais-admin .local-button-edit { color: var(--color-text-secondary); }
+.locais-admin .local-button-edit { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; height: 44px; box-sizing: border-box; padding: 0; border: 0; border-radius: 9px; background: transparent; color: var(--color-text-secondary); cursor: pointer; transition: background-color .15s; }
+.locais-admin .local-button-edit:hover:not(:disabled), .locais-admin .local-button-edit:focus-visible { background: var(--color-surface-secondary); color: var(--color-text-heading); }
 .locais-admin .local-button-pdf { display: inline-flex; align-items: center; justify-content: center; min-width: 54px; min-height: 36px; box-sizing: border-box; text-decoration: none; font: inherit; font-size: .8rem; }
 .locais-admin .local-button-pdf:disabled { opacity: .5; cursor: not-allowed; }
 .local-pdf-indisponivel { display: inline-flex; border-radius: 8px; }
@@ -64,10 +81,11 @@
   .locais-admin .locais-table tr { padding: 16px; border-top: 1px solid var(--color-border); box-sizing: border-box; }
   .locais-admin .locais-table td { display: grid; grid-template-columns: 90px minmax(0, 1fr); align-items: center; gap: 12px; padding: 8px 0; border: 0; overflow-wrap: anywhere; }
   .locais-admin .locais-table td::before { content: attr(data-label); color: var(--color-text-secondary); font-size: .78rem; }
-  .locais-admin .locais-table td:first-child { display: block; padding-top: 0; font-size: 1rem; }
+  .locais-admin .locais-table td:first-child { display: block; padding-top: 0; font-size: .875rem; }
   .locais-admin .locais-table td:first-child::before { content: none; }
   .locais-admin .local-actions { justify-content: flex-start; }
-  .locais-admin .locais-status { justify-self: start; max-width: 100%; }
+  .locais-admin :is(.locais-classificacao, .locais-status) { justify-self: start; max-width: 100%; }
+  .locais-admin .locais-col-espaco .locais-classificacao { justify-self: center; }
   .locais-admin .locais-empty { margin: 0 16px 16px; }
   .locais-paginacao { padding: 16px; gap: 14px; }
   .locais-paginacao nav { justify-content: space-between; width: 100%; gap: 6px; }
@@ -193,14 +211,14 @@
   font-weight: 700;
 }
 
-.locais-status-ativo {
+.locais-status-ativo, .locais-classificacao-sim {
   background-color: #ecfdf3;
   color: #027a48;
 }
 
-.locais-status-inativo {
-  background-color: #f2f4f7;
-  color: #475467;
+.locais-status-inativo, .locais-classificacao-nao {
+  background-color: #fee4e2;
+  color: #b42318;
 }
 
 .locais-status-concluido {
@@ -419,14 +437,14 @@
    AJUSTES DO TEMA ESCURO
 ======================================== */
 
-html[data-theme='dark'] .locais-status-ativo {
+html[data-theme='dark'] .locais-status-ativo, html[data-theme='dark'] .locais-classificacao-sim {
   background-color: #123b2b;
   color: #6ee7b7;
 }
 
-html[data-theme='dark'] .locais-status-inativo {
-  background-color: #334155;
-  color: #cbd5e1;
+html[data-theme='dark'] .locais-status-inativo, html[data-theme='dark'] .locais-classificacao-nao {
+  background-color: #4c1d24;
+  color: #fda4af;
 }
 
 html[data-theme='dark'] .locais-status-concluido {

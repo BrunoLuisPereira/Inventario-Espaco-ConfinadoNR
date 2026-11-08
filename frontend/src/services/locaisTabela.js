@@ -1,3 +1,6 @@
+import { espacoConfinado } from '../../../shared/espacoConfinado.mjs'
+export { espacoConfinado }
+
 const comparar = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true })
 const texto = valor => String(valor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR')
 
@@ -8,10 +11,10 @@ export function prepararLocais(locais, campanhas) {
 }
 
 // Paginação da coleção completa retornada pela API. Não estima andamento.
-export function consultarLocais(locais, { busca = '', campanha = '', situacao = '', campo = 'nome_local', direcao = 'asc', pagina = 1, tamanho = 10 } = {}) {
+export function consultarLocais(locais, { busca = '', campanha = '', situacao = '', espaco = '', campo = 'nome_local', direcao = 'asc', pagina = 1, tamanho = 10 } = {}) {
   const termo = texto(busca.trim())
   const filtrados = locais.filter(local => (!campanha || String(local.id_campanha) === String(campanha)) &&
-    (!situacao || local.status === situacao) && (!termo ||
+    (!situacao || local.status === situacao) && (!espaco || espacoConfinado(local).classe === espaco) && (!termo ||
       [local.nome_local, local.setor, local.nome_campanha].some(valor => texto(valor).includes(termo))))
   const chave = ['nome_local', 'nome_campanha', 'setor'].includes(campo) ? campo : 'nome_local'
   const ordenados = [...filtrados].sort((a, b) => (direcao === 'desc' ? -1 : 1) * comparar.compare(a[chave] ?? '', b[chave] ?? '') || comparar.compare(String(a.id_local), String(b.id_local)))

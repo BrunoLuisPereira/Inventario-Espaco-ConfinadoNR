@@ -5,7 +5,6 @@ import Sidebar from '../components/layout/Sidebar'
 import Header from '../components/layout/Header'
 import CampanhaForm from '../components/campanhas/CampanhaForm'
 import {
-  alterarStatusCampanha,
   listarCampanhas,
 } from '../services/api'
 import '../styles/Campanhas.css'
@@ -21,8 +20,7 @@ function Campanhas() {
     useState(false)
   const [campanhaEmEdicao, setCampanhaEmEdicao] =
     useState(null)
-  const [statusAtualizando, setStatusAtualizando] =
-    useState(null)
+  const [mensagem, setMensagem] = useState('')
 
   // Filtros
   const [busca, setBusca] = useState('')
@@ -55,6 +53,8 @@ function Campanhas() {
   }
 
   function abrirEdicao(campanha) {
+    if (!podeEditar) return
+    setMensagem('')
     setCampanhaEmEdicao(campanha)
     setMostrarFormulario(true)
   }
@@ -71,10 +71,11 @@ function Campanhas() {
   }
 
   function campanhaSalva(campanhaSalva) {
+    setMensagem('Campanha salva com sucesso.')
     if (campanhaEmEdicao) {
       setCampanhas((campanhasAtuais) =>
         campanhasAtuais.map((campanha) =>
-          campanha.id_campanha === campanhaSalva.id_campanha
+          String(campanha.id_campanha) === String(campanhaSalva.id_campanha)
             ? campanhaSalva
             : campanha
         )
@@ -88,36 +89,6 @@ function Campanhas() {
 
     setCampanhaEmEdicao(null)
     setMostrarFormulario(false)
-  }
-
-  async function alterarStatus(campanha, novoStatus) {
-    if (novoStatus === campanha.status) {
-      return
-    }
-
-    try {
-      setErro('')
-      setStatusAtualizando(campanha.id_campanha)
-
-      const resposta = await alterarStatusCampanha(
-        campanha.id_campanha,
-        novoStatus
-      )
-
-      setCampanhas((campanhasAtuais) =>
-        campanhasAtuais.map((item) =>
-          item.id_campanha === resposta.data.id_campanha
-            ? { ...item, ...resposta.data }
-            : item
-        )
-      )
-    } catch (error) {
-      setErro(
-        `Não foi possível alterar o status: ${error.message}`
-      )
-    } finally {
-      setStatusAtualizando(null)
-    }
   }
 
   function obterClasseStatus(status) {
@@ -218,6 +189,8 @@ function Campanhas() {
               + Nova campanha
             </button>
           </div>
+
+          {mensagem && <p className="campanhas-feedback" role="status">{mensagem}</p>}
 
           {mostrarFormulario && (
             <div className="campanha-form-container">
@@ -395,10 +368,6 @@ function Campanhas() {
                     <tbody>
                       {campanhasFiltradas.map(
                         (campanha) => {
-                          const atualizando =
-                            statusAtualizando ===
-                            campanha.id_campanha
-
                           return (
                             <tr
                               key={
@@ -406,9 +375,16 @@ function Campanhas() {
                               }
                             >
                               <td>
-                                {
-                                  campanha.nome_campanha
-                                }
+                                <div className="campanha-nome">
+                                  <strong>{campanha.nome_campanha}</strong>
+                                  {podeEditar && <button type="button" className="campanha-editar-icone"
+                                    onClick={() => abrirEdicao(campanha)} disabled={mostrarFormulario}
+                                    title="Editar campanha" aria-label={`Editar campanha ${campanha.nome_campanha}`}>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                                      <path d="m16 3 5 5-12 12-6 1 1-6L16 3Z" /><path d="m13 6 5 5" />
+                                    </svg>
+                                  </button>}
+                                </div>
                               </td>
 
                               <td>
@@ -435,61 +411,12 @@ function Campanhas() {
                                     campanha.status
                                   )}`}
                                 >
-                                  {campanha.status}
+                                  {campanha.status === 'CONCLUIDO' ? 'CONCLU\u00cdDO' : campanha.status}
                                 </span>
                               </td>
 
                               <td>
                                 <div className="campanha-actions">
-                                  <button
-                                    type="button"
-                                    className="campanha-button-edit"
-                                    onClick={() =>
-                                      abrirEdicao(
-                                        campanha
-                                      )
-                                    }
-                                    disabled={
-                                      !podeEditar || (mostrarFormulario ||
-                                      atualizando)
-                                    }
-                                  >
-                                    Editar
-                                  </button>
-
-                                  <select
-                                    className="campanha-status-select"
-                                    value={
-                                      campanha.status
-                                    }
-                                    onChange={(
-                                      event
-                                    ) =>
-                                      alterarStatus(
-                                        campanha,
-                                        event.target
-                                          .value
-                                      )
-                                    }
-                                    disabled={
-                                      !podeEditar || (mostrarFormulario ||
-                                      atualizando)
-                                    }
-                                    aria-label={`Alterar status da campanha ${campanha.nome_campanha}`}
-                                  >
-                                    <option value="EM ANDAMENTO">
-                                      EM ANDAMENTO
-                                    </option>
-
-                                    <option value="CONCLUIDO">
-                                      CONCLUÍDO
-                                    </option>
-
-                                    <option value="CANCELADA">
-                                      CANCELADA
-                                    </option>
-                                  </select>
-
                                   <button
                                     type="button"
                                     className="campanha-button-locais"
@@ -499,11 +426,10 @@ function Campanhas() {
                                       )
                                     }
                                     disabled={
-                                      mostrarFormulario ||
-                                      atualizando
+                                      mostrarFormulario
                                     }
                                   >
-                                    Ver locais →
+                                    Ver locais
                                   </button>
                                 </div>
                               </td>

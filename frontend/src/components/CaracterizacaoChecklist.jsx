@@ -12,13 +12,21 @@ const titulos = {
   perigos_antes_liberacao: 'Possíveis perigos antes da liberação de entrada',
 }
 
+const grupos = [
+  { titulo: 'Identificação e medidas', inicio: 0, fim: 3 },
+  { titulo: 'Dimensões e acesso', inicio: 3, fim: 7 },
+  { titulo: 'Perigos identificados', inicio: 7, fim: 8 },
+]
+
 export default function CaracterizacaoChecklist({ dados, onChange, salvando = false, consulta = false }) {
   return (
     <section className={`checklist-caracterizacao${consulta ? ' checklist-caracterizacao-consulta' : ''}`} aria-labelledby="titulo-caracterizacao">
       <h4 id="titulo-caracterizacao">Caracterização do Espaço Confinado</h4>
       {!consulta && <p>Campos opcionais. Informe as unidades nas descrições das dimensões.</p>}
-      <div className="checklist-caracterizacao-grid">
-        {camposCaracterizacao.map(({ nome, limite, linhas, tipo, passo, minimo, maximo, exemplo }) => (
+      {grupos.map(({ titulo, inicio, fim }) => <section className="checklist-caracterizacao-grupo" key={inicio} aria-labelledby={`caracterizacao-grupo-${inicio}`}>
+        <h5 id={`caracterizacao-grupo-${inicio}`}>{titulo}</h5>
+        <div className="checklist-caracterizacao-grid">
+        {camposCaracterizacao.slice(inicio, fim).map(({ nome, limite, linhas, tipo, passo, minimo, maximo, exemplo }) => (
           <div className={`checklist-field${linhas ? ' checklist-caracterizacao-descricao' : ''}${consulta ? ' checklist-caracterizacao-card' : ''}`} key={nome}>
             {consulta ? (
               <>
@@ -31,7 +39,7 @@ export default function CaracterizacaoChecklist({ dados, onChange, salvando = fa
               <>
                 <label htmlFor={nome}>{titulos[nome]}</label>
                 {linhas ? (
-                  <textarea id={nome} name={nome} rows={linhas} maxLength={limite} value={dados[nome] ?? ''}
+                  <textarea id={nome} name={nome} rows={2} maxLength={limite} value={dados[nome] ?? ''}
                     onChange={onChange} disabled={salvando} placeholder={exemplo} />
                 ) : (
                   <input id={nome} name={nome} type={tipo || 'text'} step={passo} min={minimo} max={maximo}
@@ -41,7 +49,8 @@ export default function CaracterizacaoChecklist({ dados, onChange, salvando = fa
             )}
           </div>
         ))}
-      </div>
+        </div>
+      </section>)}
     </section>
   )
 }

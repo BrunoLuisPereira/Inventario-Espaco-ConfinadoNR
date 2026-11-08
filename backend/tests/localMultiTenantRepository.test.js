@@ -8,6 +8,21 @@ const AMBIENTE_A = "11111111-1111-4111-8111-111111111111";
 const AMBIENTE_B = "22222222-2222-4222-8222-222222222222";
 const USUARIO_A = { id_usuario: 10, id_ambiente: AMBIENTE_A };
 const USUARIO_B = { id_usuario: 20, id_ambiente: AMBIENTE_B };
+
+test('listagem obtém A/B/C em consulta única com vínculo único e leitura autorizada no ambiente', async t => {
+  const rows = [{ id_local: 40, criterio_a: 'SIM', criterio_b: 'NAO', criterio_c: null }];
+  const consulta = simularBanco(t, rows);
+  assert.deepEqual(await repository.listarPermitidosNoAmbiente(USUARIO_A), rows);
+  const [sql, parametros] = consultaUnica(consulta);
+  assert.deepEqual(parametros, [AMBIENTE_A, USUARIO_A.id_usuario]);
+  assert.match(sql, /ch\.criterio_a, ch\.criterio_b, ch\.criterio_c/);
+  assert.match(sql, /LEFT JOIN checklist_nr33 AS ch ON ch\.id_local = l\.id_local/);
+  assert.match(sql, /leitor\.id_usuario = \$2 AND leitor\.id_ambiente = c\.id_ambiente/);
+  assert.ok(sql.includes(require('../src/utils/permissoes').sqlCapacidade('leitor', 'checklists.consultar')));
+  assert.match(sql, /criador\.id_usuario = ch\.id_usuario AND criador\.id_ambiente = c\.id_ambiente/);
+  assert.match(sql, /WHERE c\.id_ambiente = \$1/);
+  assert.doesNotMatch(sql, /LIMIT|classificacao|CONCLUIDO|engolfamento/);
+});
 const DADOS = {
   nomeLocal: "Tanque A",
   setor: "Setor A",

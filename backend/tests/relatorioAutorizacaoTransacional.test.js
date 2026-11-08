@@ -51,7 +51,7 @@ function preparar(t, ambiente = A, engenheiro = false, criacao = false) {
       }
       if (sql.startsWith('SELECT r.id_relatorio,')) {
         contexto(sql, params); assert.equal(estado.aberta, true);
-        for(const campo of camposCaracterizacao)assert.ok(sql.includes('ch.'+campo),campo+' precisa vir do Checklist autorizado');
+        for(const campo of [...camposCaracterizacao, ...require('../src/utils/adaptadorCamposNr33').CAMPOS_NR33])assert.ok(sql.includes('ch.'+campo),campo+' precisa vir do Checklist autorizado');
         assert.match(sql, /WHERE e\.id_local = l\.id_local/);
         assert.match(sql, /ON ch\.id_local = l\.id_local/);
         assert.match(sql, /ON dt\.id_local = l\.id_local/);

@@ -1,4 +1,6 @@
 const caracterizacao = require('../src/utils/caracterizacaoChecklist');
+const regrasNr33 = require('../src/utils/regrasCaracterizacaoNr33');
+const adaptadorNr33 = require('../src/utils/adaptadorCamposNr33');
 const politicaRbac723 = require('../src/utils/permissoes');
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -7,7 +9,11 @@ const express = require('express');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const respostas = { criterio_a: 'SIM', criterio_b: 'NAO', criterio_c: 'SIM', acesso_controlado: 'SIM', ventilacao_adequada: 'NAO', monitoramento_atmosferico: 'SIM', procedimento_emergencia: 'NAO' };
-const dados = { id_local: 10, ...respostas, observacoes: 'Historico' };
+// Fixture de acesso com conclusao valida: C=SIM detalhado e hipotese especifica
+// descartada por nao haver armazenagem. Casos legados incompletos tem suite propria.
+const camposNr33 = { ...Object.fromEntries(adaptadorNr33.CAMPOS_NR33.map(c => [c, null])),
+  atmosfera_oxigenio: true, avaliacao_especifica_iniciada: true, utilizado_armazenagem: 'NAO' };
+const dados = { id_local: 10, ...respostas, ...camposNr33, observacoes: 'Historico' };
 const operacoes = [['POST', '/', 'criar'], ['GET', '/', 'listar'], ['GET', '/10', 'buscar'], ['PUT', '/10', 'atualizar'], ['PATCH', '/10/status', 'status']];
 
 function preparar(t) {
@@ -16,7 +22,7 @@ function preparar(t) {
     for (const [n, perfil] of [[1, 'ADMINISTRADOR'], [2, 'ENGENHEIRO_SEGURANCA'], [3, 'ENGENHEIRO_SEGURANCA']]) estado.usuarios.set(base + n, { id_usuario: base + n, id_ambiente: ambiente, eh_fundador: perfil === "ADMINISTRADOR", perfil_acesso: perfil, ativo: true, ambienteAtivo: true });
     estado.campanhas.set(base, { id_campanha: base, id_ambiente: ambiente, id_usuario: base + 2 });
     estado.locaisReais.set(base, { id_local: base, id_campanha: base });
-    estado.checklists.set(base, { id_checklist: base, id_local: base, id_usuario: base + 3, ...respostas, observacoes: 'Historico', status: 'PENDENTE' });
+    estado.checklists.set(base, { id_checklist: base, id_local: base, id_usuario: base + 3, ...respostas, ...camposNr33, observacoes: 'Historico', status: 'PENDENTE' });
   }
   const falhar = () => { if (estado.aoConsultar) estado.aoConsultar(); if (estado.erro) throw estado.erro; };
   const permitido = (id, u) => {
@@ -29,14 +35,18 @@ function preparar(t) {
     for (const campo of Object.keys(respostas)) if (d[campo] != null) ch[campo] = d[campo];
     if (d.observacoes != null) ch.observacoes = d.observacoes || null;
     for (const campo of caracterizacao.CAMPOS) if (Object.hasOwn(d, campo)) ch[campo] = d[campo];
+    for (const campo of adaptadorNr33.CAMPOS_NR33) if (Object.hasOwn(d, campo)) ch[campo] = d[campo];
     return ch;
   };
+  const semAlteracao = Symbol('NO-OP interno do mock');
+  const validarOpcoes = opcoes => { assert.equal(opcoes.bloquearAutorizacao, true); assert.equal(typeof opcoes.validarEstado, 'function'); };
   const repo = {
+    statusConcluidoSemAlteracao() { return semAlteracao; },
     async listarPermitidosNoAmbiente(u) { falhar(); estado.chamadas.push(['listar', u]); return [...estado.checklists.values()].filter(ch => permitido(ch.id_local, u)); },
     async buscarPermitidoPorIdNoAmbiente(id, u) { falhar(); estado.chamadas.push(['buscar', id, u]); const ch = estado.checklists.get(id); return ch && permitido(ch.id_local, u) ? ch : null; },
-    async criarNoAmbiente(d, u, opcoes) { falhar(); assert.deepEqual(opcoes, { bloquearAutorizacao: true }); if (!permitido(d.id_local, u)) return null; if ([...estado.checklists.values()].some(ch => ch.id_local === d.id_local)) throw Object.assign(new Error('Este local já possui um checklist NR-33.'), { statusCode: 409 }); estado.escritas.push('INSERT'); const ch = { ...d, id_checklist: 99, id_usuario: u.id_usuario }; estado.checklists.set(99, ch); return ch; },
-    async atualizarNoAmbiente(id, d, u, opcoes) { falhar(); assert.deepEqual(opcoes, { bloquearAutorizacao: true }); const ch = estado.checklists.get(id); if (!ch || !permitido(ch.id_local, u)) return null; estado.escritas.push('UPDATE'); return alterar(id, d); },
-    async atualizarStatusNoAmbiente(id, status, u, opcoes) { falhar(); assert.deepEqual(opcoes, { bloquearAutorizacao: true }); const ch = estado.checklists.get(id); if (!ch || !permitido(ch.id_local, u)) return null; estado.escritas.push('UPDATE'); return Object.assign(ch, { status }); },
+    async criarNoAmbiente(d, u, opcoes) { falhar(); validarOpcoes(opcoes); if (!permitido(d.id_local, u)) return null; if ([...estado.checklists.values()].some(ch => ch.id_local === d.id_local)) throw Object.assign(new Error('Este local já possui um checklist NR-33.'), { statusCode: 409 }); const { id_local, ...propostos } = d; const aprovados = await opcoes.validarEstado({ estadoAtual: null, dadosPropostos: structuredClone(propostos) }); estado.escritas.push('INSERT'); const ch = { ...aprovados, id_local, id_checklist: 99, id_usuario: u.id_usuario }; estado.checklists.set(99, ch); return ch; },
+    async atualizarNoAmbiente(id, d, u, opcoes) { falhar(); validarOpcoes(opcoes); const ch = estado.checklists.get(id); if (!ch || !permitido(ch.id_local, u)) return null; const aprovados = await opcoes.validarEstado({ estadoAtual: structuredClone(ch), dadosPropostos: structuredClone(d) }); estado.escritas.push('UPDATE'); return alterar(id, aprovados); },
+    async atualizarStatusNoAmbiente(id, status, u, opcoes) { falhar(); validarOpcoes(opcoes); const ch = estado.checklists.get(id); if (!ch || !permitido(ch.id_local, u)) return null; const aprovados = await opcoes.validarEstado({ estadoAtual: structuredClone(ch), dadosPropostos: { status } }); if (aprovados === semAlteracao) { assert.equal(status, 'CONCLUIDO'); assert.equal(ch.status, 'CONCLUIDO'); return structuredClone(ch); } estado.escritas.push('UPDATE'); return Object.assign(ch, { status: aprovados.status }); },
   };
   const legadoRepo = {
     async listarTodos() { falhar(); estado.globais.push('listar'); return [...estado.checklists.values()]; },
@@ -58,6 +68,8 @@ function preparar(t) {
       // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
       if (request === '../utils/permissoes') return politicaRbac723;
       if (request === '../utils/caracterizacaoChecklist') return caracterizacao;
+      if (request === '../utils/regrasCaracterizacaoNr33') return regrasNr33;
+      if (request === '../utils/adaptadorCamposNr33') return adaptadorNr33;
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cache.has(parent?.filename)) {

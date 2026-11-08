@@ -277,6 +277,20 @@ test("Retorna HTTP 404 quando a atualização não é autorizada", async (t) => 
   ]);
 });
 
+test('PUT encaminha status válido junto aos campos e rejeita valores inválidos antes de gravar', async t => {
+  const consultas = simularRepositorio(t, { atualizarNoAmbiente: CAMPANHA });
+  for (const status of ['EM ANDAMENTO', 'CONCLUIDO', 'CANCELADA']) {
+    await campanhaService.atualizarCampanha(30, { ...DADOS, status }, USUARIO);
+    assert.deepEqual(consultas.atualizarNoAmbiente.mock.calls.at(-1).arguments,
+      [30, { ...CAMPOS, status }, USUARIO, { bloquearAutorizacao: true }]);
+  }
+  for (const status of [null, '', 'CONCLUÍDO', 'ATIVO']) {
+    await assert.rejects(campanhaService.atualizarCampanha(30, { ...DADOS, status }, USUARIO), { statusCode: 400 });
+  }
+  assert.equal(consultas.atualizarNoAmbiente.mock.callCount(), 3);
+  assert.equal(consultas.atualizarStatusNoAmbiente.mock.callCount(), 0);
+});
+
 test("Aceita somente os três status permitidos na alteração de status", async (t) => {
   const consultas = simularRepositorio(t, { atualizarStatusNoAmbiente: CAMPANHA });
 

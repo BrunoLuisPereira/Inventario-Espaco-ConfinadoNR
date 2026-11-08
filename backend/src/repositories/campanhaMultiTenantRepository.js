@@ -362,6 +362,10 @@ async function atualizarNoAmbiente(
     dataInicio,
   } = dados;
 
+  const alterarStatus = Object.hasOwn(dados, "status");
+  if (alterarStatus && !["EM ANDAMENTO", "CONCLUIDO", "CANCELADA"].includes(dados.status)) {
+    throw Object.assign(new Error("Status da campanha inválido."), { statusCode: 400 });
+  }
   const query = `
     UPDATE campanha AS c
     SET
@@ -369,6 +373,7 @@ async function atualizarNoAmbiente(
       empresa = $2,
       responsavel = $3,
       data_inicio = $4,
+      ${alterarStatus ? "status = $8," : ""}
       data_atualizacao = CURRENT_TIMESTAMP
     WHERE c.id_campanha = $5
       AND c.id_ambiente = $6
@@ -405,6 +410,8 @@ async function atualizarNoAmbiente(
     idAmbiente,
     idUsuarioNumerico,
   ];
+
+  if (alterarStatus) valores.push(dados.status);
 
   if (opcoes?.bloquearAutorizacao === true) {
     return executarEscritaComBloqueios(query, valores, { id_usuario: idUsuarioNumerico, id_ambiente: idAmbiente }, id);

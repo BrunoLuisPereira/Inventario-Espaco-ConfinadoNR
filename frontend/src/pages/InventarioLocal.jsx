@@ -215,10 +215,6 @@ function InventarioLocal() {
               <>
                 <div className="inventario-title">
                   <div>
-                    <span className="inventario-label">
-                      Espaço confinado
-                    </span>
-
                     <h2>
                       {local.nome_local}
                     </h2>
@@ -235,54 +231,6 @@ function InventarioLocal() {
                     {local.status}
                   </span>
                 </div>
-
-                <div className="inventario-info-grid">
-                  <div className="inventario-info-card">
-                    <span>Setor</span>
-
-                    <strong>
-                      {local.setor ||
-                        'Não informado'}
-                    </strong>
-                  </div>
-
-                  <div className="inventario-info-card">
-                    <span>Endereço</span>
-
-                    <strong>
-                      {local.endereco ||
-                        'Não informado'}
-                    </strong>
-                  </div>
-
-                  <div className="inventario-info-card">
-                    <span>Latitude</span>
-
-                    <strong>
-                      {local.latitude ??
-                        'Não informada'}
-                    </strong>
-                  </div>
-
-                  <div className="inventario-info-card">
-                    <span>Longitude</span>
-
-                    <strong>
-                      {local.longitude ??
-                        'Não informada'}
-                    </strong>
-                  </div>
-                </div>
-
-                {local.descricao && (
-                  <div className="inventario-description">
-                    <span>Descrição</span>
-
-                    <p>
-                      {local.descricao}
-                    </p>
-                  </div>
-                )}
 
                 <div className="inventario-section-title">
                   <h3>Inventário</h3>

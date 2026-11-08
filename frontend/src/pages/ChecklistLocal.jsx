@@ -1,4 +1,7 @@
 import CaracterizacaoChecklist from '../components/CaracterizacaoChecklist'
+import CamposNr33, { AvaliacaoNr33 } from '../components/CamposNr33'
+import { booleanosNr33, preencherCamposNr33, selecionarCamposNr33, prepararEdicaoChecklist, respostasNr33Alteradas,
+  mensagemErroNr33 } from '../services/camposNr33.js'
 import { preencherCaracterizacao, prepararCaracterizacao, validarCaracterizacao } from '../services/caracterizacaoChecklist'
 import { useCapacidade } from '../hooks/useCapacidade'
 import { useEffect, useState } from 'react'
@@ -16,6 +19,7 @@ import '../styles/ChecklistLocal.css'
 
 const FORMULARIO_INICIAL = {
   ...preencherCaracterizacao(),
+  ...preencherCamposNr33(),
   criterio_a: '',
   criterio_b: '',
   criterio_c: '',
@@ -29,6 +33,7 @@ const FORMULARIO_INICIAL = {
 
 function ChecklistLocal() {
   const podeEditar = useCapacidade('checklists.editar')
+  const podeCriar = useCapacidade('checklists.criar')
   const { idLocal } = useParams()
 
   const [local, setLocal] = useState(null)
@@ -48,6 +53,7 @@ function ChecklistLocal() {
   function preencherFormulario(dadosChecklist) {
     setFormulario({
       ...preencherCaracterizacao(dadosChecklist),
+      ...preencherCamposNr33(dadosChecklist),
       criterio_a: dadosChecklist.criterio_a || '',
       criterio_b: dadosChecklist.criterio_b || '',
       criterio_c: dadosChecklist.criterio_c || '',
@@ -92,7 +98,7 @@ function ChecklistLocal() {
           setFormulario(FORMULARIO_INICIAL)
         }
       } catch (error) {
-        setErro(error.message)
+        setErro(mensagemErroNr33(error))
       } finally {
         setCarregando(false)
       }
@@ -109,6 +115,12 @@ function ChecklistLocal() {
       [name]: value,
     }))
 
+    setErro('')
+    setSucesso('')
+  }
+
+  function alterarRespostaNr33(nome, valor) {
+    setFormulario(estadoAtual => ({ ...estadoAtual, [nome]: valor }))
     setErro('')
     setSucesso('')
   }
@@ -147,6 +159,7 @@ function ChecklistLocal() {
 
   async function salvarNovoChecklist(event) {
     event.preventDefault()
+    if (!podeCriar || salvando) return
 
     const erroValidacao = validarFormulario()
 
@@ -163,6 +176,7 @@ function ChecklistLocal() {
 
       const dados = {
         ...prepararCaracterizacao(formulario),
+        ...selecionarCamposNr33(Object.fromEntries(booleanosNr33.map(campo => [campo, formulario[campo]]))),
         id_local: Number(idLocal),
         criterio_a: formulario.criterio_a,
         criterio_b: formulario.criterio_b,
@@ -186,7 +200,7 @@ function ChecklistLocal() {
 
       setSucesso('Checklist cadastrado com sucesso.')
     } catch (error) {
-      setErro(error.message)
+      setErro(mensagemErroNr33(error))
     } finally {
       setSalvando(false)
     }
@@ -195,11 +209,11 @@ function ChecklistLocal() {
   async function salvarEdicao(event) {
     event.preventDefault()
 
-    if (!checklist) {
+    if (!checklist || !podeEditar || salvando) {
       return
     }
 
-    const erroValidacao = validarFormulario()
+    const erroValidacao = validarCaracterizacao(formulario)
 
     if (erroValidacao) {
       setErro(erroValidacao)
@@ -212,21 +226,7 @@ function ChecklistLocal() {
       setErro('')
       setSucesso('')
 
-      const dados = {
-        ...prepararCaracterizacao(formulario),
-        criterio_a: formulario.criterio_a,
-        criterio_b: formulario.criterio_b,
-        criterio_c: formulario.criterio_c,
-        acesso_controlado:
-          formulario.acesso_controlado,
-        ventilacao_adequada:
-          formulario.ventilacao_adequada,
-        monitoramento_atmosferico:
-          formulario.monitoramento_atmosferico,
-        procedimento_emergencia:
-          formulario.procedimento_emergencia,
-        observacoes: formulario.observacoes.trim(),
-      }
+      const dados = prepararEdicaoChecklist(formulario, checklist)
 
       const resposta = await atualizarChecklist(
         checklist.id_checklist,
@@ -244,14 +244,14 @@ function ChecklistLocal() {
 
       setSucesso('Checklist atualizado com sucesso.')
     } catch (error) {
-      setErro(error.message)
+      setErro(mensagemErroNr33(error))
     } finally {
       setSalvando(false)
     }
   }
 
   async function mudarStatus(novoStatus) {
-    if (!checklist) {
+    if (!checklist || !podeEditar || alterandoStatus || salvando) {
       return
     }
 
@@ -279,13 +279,14 @@ function ChecklistLocal() {
           : 'Checklist reaberto com sucesso.'
       )
     } catch (error) {
-      setErro(error.message)
+      setErro(mensagemErroNr33(error))
     } finally {
       setAlterandoStatus(false)
     }
   }
 
   function iniciarEdicao() {
+    if (!podeEditar) return
     preencherFormulario(checklist)
     setEditando(true)
     setErro('')
@@ -307,9 +308,10 @@ function ChecklistLocal() {
       <form
         className="checklist-form"
         onSubmit={onSubmit}
+        noValidate={modoEdicao}
       >
-        {!podeEditar && <p role="status">Seu perfil permite somente consulta nesta tela.</p>}
-        <fieldset disabled={!podeEditar} style={{border:0,padding:0,margin:0,minWidth:0}}>
+        {!(modoEdicao ? podeEditar : podeCriar) && <p role="status">Seu perfil permite somente consulta nesta tela.</p>}
+        <fieldset disabled={!(modoEdicao ? podeEditar : podeCriar) || salvando || alterandoStatus} style={{border:0,padding:0,margin:0,minWidth:0}}>
         <div className="checklist-form-header">
           <div>
             <h3>
@@ -470,6 +472,7 @@ function ChecklistLocal() {
           </div>
         </div>
 
+        <CamposNr33 dados={formulario} avaliacao={checklist?.avaliacao_nr33} onChange={alterarRespostaNr33} salvando={salvando} />
         <CaracterizacaoChecklist dados={formulario} onChange={alterarCampo} salvando={salvando} />
 
         <div className="checklist-questions">
@@ -587,10 +590,11 @@ function ChecklistLocal() {
                 Pendente
               </option>
 
-              <option value="CONCLUIDO">
+              <option value="CONCLUIDO" disabled={!checklist?.avaliacao_nr33}>
                 Concluído
               </option>
             </select>
+            <p>Salve primeiro como pendente para obter a avaliação do servidor. Depois complete as respostas aplicáveis e solicite a conclusão.</p>
           </div>
         )}
 
@@ -695,6 +699,9 @@ function ChecklistLocal() {
                   salvarNovoChecklist
                 )}
 
+              <AvaliacaoNr33 avaliacao={checklist?.avaliacao_nr33} status={checklist?.status || formulario.status}
+                desatualizada={(editando || !checklist) && respostasNr33Alteradas(formulario, checklist)} />
+
               {checklist &&
                 editando &&
                 renderizarFormulario(
@@ -737,7 +744,11 @@ function ChecklistLocal() {
                           {checklist.criterio_c}
                         </strong>
                       </div>
+                    </div>
 
+                    <CamposNr33 dados={checklist} avaliacao={checklist.avaliacao_nr33} consulta />
+
+                    <div className="checklist-details">
                       <div>
                         <span>Acesso controlado</span>
                         <strong>

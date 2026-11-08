@@ -24,6 +24,7 @@ function CampanhaForm({
     empresa: campanha?.empresa || '',
     responsavel: campanha?.responsavel || '',
     data_inicio: formatarDataParaInput(campanha?.data_inicio),
+    status: campanha?.status || 'EM ANDAMENTO',
   })
 
   const [salvando, setSalvando] = useState(false)
@@ -57,7 +58,7 @@ function CampanhaForm({
       if (editando) {
         resposta = await atualizarCampanha(
           campanha.id_campanha,
-          dados
+          { ...dados, status: formulario.status }
         )
       } else {
         resposta = await criarCampanha({
@@ -80,6 +81,14 @@ function CampanhaForm({
       onSubmit={enviarFormulario}
     >
       <div className="campanha-form-grid">
+        {editando && <div className="campanha-form-field">
+          <label htmlFor="status-campanha">Status da campanha</label>
+          <select id="status-campanha" name="status" value={formulario.status} onChange={atualizarCampo} disabled={salvando} required>
+            <option value="EM ANDAMENTO">EM ANDAMENTO</option>
+            <option value="CONCLUIDO">CONCLUÍDO</option>
+            <option value="CANCELADA">CANCELADA</option>
+          </select>
+        </div>}
         <div className="campanha-form-field">
           <label htmlFor="nome_campanha">
             Nome da campanha

@@ -16,7 +16,7 @@
 }
 
 .inventario-main {
-  padding-top: 32px;
+  padding-top: 24px;
 }
 
 /* ========================================
@@ -25,7 +25,7 @@
 
 .inventario-back {
   display: inline-block;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   color: var(--color-text-secondary);
   font-size: 0.9rem;
   font-weight: 600;
@@ -44,12 +44,14 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 24px;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
+.inventario-title > div { min-width: 0; overflow-wrap: anywhere; }
+
 .inventario-title h2 {
-  margin: 4px 0 6px;
+  margin: 0 0 4px;
   color: var(--color-text-heading);
   font-size: 1.6rem;
 }
@@ -59,18 +61,12 @@
   color: var(--color-text-secondary);
 }
 
-.inventario-label {
-  color: var(--color-text-secondary);
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
 /* ========================================
    STATUS DO LOCAL
 ======================================== */
 
 .inventario-status {
+  flex-shrink: 0;
   padding: 7px 12px;
   border-radius: 999px;
   font-size: 0.75rem;
@@ -92,61 +88,8 @@
   color: #175cd3;
 }
 
-/* ========================================
-   INFORMAÇÕES DO LOCAL
-======================================== */
-
-.inventario-info-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.inventario-info-card {
-  padding: 20px;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  background-color: var(--color-surface);
-}
-
-.inventario-info-card span,
-.inventario-description span {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--color-text-secondary);
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.inventario-info-card strong {
-  color: var(--color-text-heading);
-  font-size: 0.95rem;
-}
-
-/* ========================================
-   DESCRIÇÃO DO LOCAL
-======================================== */
-
-.inventario-description {
-  margin-top: 16px;
-  padding: 20px;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  background-color: var(--color-surface);
-}
-
-.inventario-description p {
-  margin: 0;
-  color: var(--color-text);
-  line-height: 1.5;
-}
-
-/* ========================================
-   TÍTULO DAS ETAPAS
-======================================== */
-
 .inventario-section-title {
-  margin: 32px 0 16px;
+  margin: 0 0 16px;
 }
 
 .inventario-section-title h3 {
@@ -308,22 +251,11 @@ html[data-theme='dark'] .inventario-error {
    RESPONSIVIDADE
 ======================================== */
 
-@media (max-width: 1100px) {
-  .inventario-info-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 768px) {
   .inventario-content {
     padding: 20px;
   }
 
-  .inventario-title {
-    flex-direction: column;
-  }
-
-  .inventario-info-grid,
   .inventario-modules {
     grid-template-columns: 1fr;
   }
