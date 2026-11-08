@@ -77,7 +77,7 @@ try {
         await conferirTitulos(true)
         for (const tema of ['light', 'dark']) {
           await avaliar(`document.documentElement.setAttribute('data-theme',${JSON.stringify(tema)})`)
-          for (const width of [1440, 390, 320]) {
+          for (const width of [1440, 900, 390, 320]) {
             await enviar('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: width < 600 })
             const medidas = await avaliar(`(()=>{
               const s=document.querySelector('.checklist-caracterizacao'),g=s.querySelector('.checklist-caracterizacao-grid');
@@ -85,7 +85,7 @@ try {
                 colunas:getComputedStyle(g).gridTemplateColumns.split(' ').length,
                 espacamento:parseFloat(getComputedStyle(g).rowGap),
                 cards:Array.from(s.querySelectorAll('.checklist-caracterizacao-card')).map(c=>{
-                  const r=c.getBoundingClientRect(),gr=g.getBoundingClientRect(),v=c.querySelector('.checklist-caracterizacao-valor');
+                  const r=c.getBoundingClientRect(),gr=c.parentElement.getBoundingClientRect(),v=c.querySelector('.checklist-caracterizacao-valor');
                   return {top:r.top,bottom:r.bottom,dentro:r.left>=gr.left-1&&r.right<=gr.right+1,textoDentro:v.scrollWidth<=v.clientWidth,
                     multiline:getComputedStyle(v).whiteSpace,fundo:getComputedStyle(c).backgroundColor,
                     rotulo:getComputedStyle(c.querySelector('span')).color,valor:getComputedStyle(v).color};
@@ -101,11 +101,10 @@ try {
                 assert.ok(taxa >= 4.5, 'Rótulos e valores devem atingir contraste de 4.5:1')
               }
             }
-            for (let i = 0; i + medidas.colunas < medidas.cards.length; i += medidas.colunas) {
-              const fimLinha = Math.max(...medidas.cards.slice(i, i + medidas.colunas).map(c => c.bottom))
-              assert.ok(Math.abs(medidas.cards[i + medidas.colunas].top - fimLinha - medidas.espacamento) <= 1,
-                'Os cartões devem usar somente o espaçamento do grid, sem margens herdadas')
-            }
+            assert.deepEqual(await avaliar("Array.from(document.querySelectorAll('.checklist-caracterizacao-grupo h5')).map(e=>e.textContent)"),
+              ['Identifica\u00e7\u00e3o e medidas', 'Dimens\u00f5es e acesso', 'Perigos identificados'])
+            assert.equal(await avaliar("(()=>{const g=document.querySelectorAll('.checklist-caracterizacao-grid')[1];const c=Array.from(g.children);return c.length===4&&(innerWidth<=650||Math.abs(c[0].getBoundingClientRect().top-c[1].getBoundingClientRect().top)<1&&Math.abs(c[2].getBoundingClientRect().top-c[3].getBoundingClientRect().top)<1);})()"), true)
+            assert.equal(await avaliar("(()=>{const g=document.querySelectorAll('.checklist-caracterizacao-grid')[2];return Math.abs(g.firstElementChild.getBoundingClientRect().width-g.getBoundingClientRect().width)<1;})()"), true)
           }
           if (cenario === 'vazio') {
             await enviar('Emulation.setDeviceMetricsOverride', { width: tema === 'light' ? 1440 : 390, height: 1000, deviceScaleFactor: 1, mobile: tema === 'dark' })
@@ -133,7 +132,7 @@ try {
         dimensoes_aberturas: 'BM-01: Ø 600 mm\nBM-02: 800 × 600 mm', formas_acesso: 'Escada: 3 m', geometria: 'Cilíndrico',
         utilizacao_produto: 'Água', perigos_antes_liberacao: 'Atmosfera perigosa' }
       for (const { nome } of camposCaracterizacao) await alterar(nome, dados[nome])
-      for (const width of [1440, 390, 320]) {
+      for (const width of [1440, 900, 390, 320]) {
         await enviar('Emulation.setDeviceMetricsOverride', { width, height: 950, deviceScaleFactor: 1, mobile: width < 600 })
         assert.equal(await avaliar('document.documentElement.scrollWidth<=innerWidth'), true)
       }
@@ -152,7 +151,8 @@ try {
       await conferirTitulos(true)
       assert.equal(await avaliar('window.envios[0].dados.volume_m3'), dados.volume_m3)
       assert.equal(await avaliar('window.envios[0].dados.quantidade_aberturas'), 0)
-      assert.equal(await avaliar('window.envios[0].dados.observacoes'), 'Histórico')
+      assert.equal(await avaliar('Object.hasOwn(window.envios[0].dados,"observacoes")'), false)
+      assert.equal(await avaliar('window.checklist.observacoes'), 'Histórico')
       assert.equal(await avaliar('document.querySelector(".checklist-caracterizacao").textContent.includes("TG-01")'), true)
       await avaliar('document.querySelector(".checklist-edit-button").click()')
       await esperar('!!document.getElementById("volume_m3")')
@@ -179,7 +179,7 @@ try {
     assert.deepEqual(await avaliar('window.inesperadas'), [])
     await enviar('Page.removeScriptToEvaluateOnNewDocument', { identifier })
   }
-  console.log(JSON.stringify({resultado:'APROVADO',perfis:7,modos:['consulta','edicao','cadastro'],temas:['light','dark'],larguras:[1440,390,320],cenarios:['vazio','extenso'],contrasteMinimo:menorContraste,evidencias:b.pasta,api:'sintetica, rede de API bloqueada, sem banco'}))
+  console.log(JSON.stringify({resultado:'APROVADO',perfis:7,modos:['consulta','edicao','cadastro'],temas:['light','dark'],larguras:[1440,900,390,320],cenarios:['vazio','extenso'],contrasteMinimo:menorContraste,evidencias:b.pasta,api:'sintetica, rede de API bloqueada, sem banco'}))
 } finally {
   if (b) await b.fechar()
   vite.kill()

@@ -1,6 +1,25 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { prepararLocais, consultarLocais } from '../src/services/locaisTabela.js'
+import { prepararLocais, consultarLocais, espacoConfinado } from '../src/services/locaisTabela.js'
+
+test('espaço confinado depende exclusivamente das três respostas persistidas', () => {
+  for (const a of ['SIM', 'NAO', null]) for (const b of ['SIM', 'NAO', null]) for (const c of ['SIM', 'NAO', null]) {
+    const respostas = [a, b, c]
+    const esperado = respostas.includes('NAO') ? 'Não' : respostas.every(r => r === 'SIM') ? 'Sim' : 'Não avaliado'
+    for (const status of ['PENDENTE', 'CONCLUIDO']) {
+      assert.equal(espacoConfinado({ criterio_a: a, criterio_b: b, criterio_c: c, status,
+        avaliacao_nr33: { classificacao: 'EC' }, engolfamento: 'SIM' }).texto, esperado)
+    }
+  }
+  assert.deepEqual(espacoConfinado({}), { texto: 'Não avaliado', classe: 'nao-avaliado' })
+})
+
+test('recarregar respostas após salvar atualiza a coluna sem alterar filtros e paginação', () => {
+  const antes = prepararLocais([{ ...originais[0], criterio_a: 'SIM', criterio_b: null, criterio_c: 'SIM' }], campanhas)
+  const depois = prepararLocais([{ ...antes[0], criterio_b: 'SIM' }], campanhas)
+  assert.equal(espacoConfinado(consultarLocais(antes, { campanha: 1 }).registros[0]).texto, 'Não avaliado')
+  assert.equal(espacoConfinado(consultarLocais(depois, { campanha: 1 }).registros[0]).texto, 'Sim')
+})
 
 const campanhas = [{ id_campanha: 1, nome_campanha: 'Inspeção anual' }, { id_campanha: '2', nome_campanha: 'Manutenção' }]
 const originais = [
@@ -9,6 +28,27 @@ const originais = [
   { id_local: 3, id_campanha: 2, nome_local: 'Poço', setor: null, status: 'ATIVO' },
 ]
 const dados = prepararLocais(originais, campanhas)
+
+test('filtro de espaço reutiliza indicador e combina pesquisa, campanha e situação antes de paginar', () => {
+  const lista = prepararLocais(Array.from({ length: 36 }, (_, i) => ({
+    id_local: i + 1, nome_local: `Tanque ${i + 1}`, setor: 'Produção', id_campanha: i < 18 ? 1 : 2,
+    status: i % 2 ? 'INATIVO' : 'ATIVO',
+    ...(i % 3 === 0 ? { criterio_a: 'SIM', criterio_b: 'SIM', criterio_c: 'SIM' }
+      : i % 3 === 1 ? { criterio_b: 'NAO' } : i % 2 ? {} : { criterio_a: 'SIM' }),
+  })), campanhas)
+  assert.equal(consultarLocais(lista, { espaco: '' }).total, 36)
+  for (const espaco of ['sim', 'nao', 'nao-avaliado']) {
+    const todos = consultarLocais(lista, { espaco })
+    assert.equal(todos.total, 12); assert.equal(todos.paginas, 2)
+    assert.ok(todos.registros.every(l => espacoConfinado(l).classe === espaco))
+    const fim = consultarLocais(lista, { espaco, pagina: 2 })
+    assert.equal(fim.registros.length, 2); assert.equal(fim.inicio, 11); assert.equal(fim.fim, 12)
+    const combinado = consultarLocais(lista, { espaco, busca: 'producao', campanha: 1, situacao: 'ATIVO' })
+    assert.equal(combinado.total, 3)
+    assert.ok(combinado.registros.every(l => l.id_campanha === 1 && l.status === 'ATIVO' && espacoConfinado(l).classe === espaco))
+    assert.equal(consultarLocais(lista, { espaco, busca: 'ausente' }).total, 0)
+  }
+})
 test('associa campanhas retornadas e preserva IDs, GPS e originais', () => {
   assert.equal(dados[0].nome_campanha, 'Inspeção anual')
   assert.equal(dados[2].nome_campanha, 'Manutenção')

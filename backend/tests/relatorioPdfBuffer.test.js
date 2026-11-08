@@ -51,9 +51,10 @@ function preparar(t, falhar = false, opcoes = {}) {
     addPage(...args) { const resultado = super.addPage(...args); paginas.push({ width: this.page.width, height: this.page.height }); return resultado; }
     text(valor, ...args) {
       textos.push(String(valor));
-      registros.push({ texto: String(valor), pagina: this._pageBuffer.indexOf(this.page), x: args[0], y: args[1], opcoes: args[2], tamanho: this._fontSize });
+      registros.push({ texto: String(valor), pagina: this._pageBuffer.indexOf(this.page), x: args[0], y: args[1], opcoes: args[2], tamanho: this._fontSize, cor: this.corTeste });
       if (falhar) throw new Error('FALHA_RENDER_SIMULADA'); return super.text(valor, ...args);
     }
+    fillColor(cor, ...args) { this.corTeste = cor; return super.fillColor(cor, ...args); }
     image(valor, x, y, dimensoes) {
       fotografias.push({ pagina: this._pageBuffer.indexOf(this.page), x, y, ...dimensoes });
       if (opcoes.falhaImagem && fotografias.length === 1) {
@@ -88,6 +89,86 @@ const rotulosCaracterizacao = ['Código de identificação / rastreio', 'Volume 
   'Quantidade de aberturas e bocas de visita', 'Dimensões das aberturas e bocas de visita',
   'Formas de acesso e respectivas dimensões', 'Geometria do espaço confinado',
   'Utilização do espaço / produto armazenado', 'Possíveis perigos antes da liberação de entrada'];
+
+for (const a of ['SIM', 'NAO', null]) for (const b of ['SIM', 'NAO', null]) for (const c of ['SIM', 'NAO', null]) {
+  test(`indicador PDF usa a mesma função da listagem para ${a}/${b}/${c}`, async t => {
+    const s = preparar(t), d = { ...fixture.dados(), criterio_a: a, criterio_b: b, criterio_c: c };
+    const antes = structuredClone(d);
+    const { espacoConfinado } = await import('../../shared/espacoConfinado.mjs');
+    const esperado = espacoConfinado(d);
+    const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
+    const i = s.registros.findIndex(r => r.texto === 'Espaço Confinado?');
+    assert.ok(i > 0);
+    assert.equal(s.registros[i + 1].texto, esperado.texto.toLocaleUpperCase('pt-BR'));
+    assert.equal(s.registros[i + 1].cor, { sim: '#123D28', nao: '#852320', 'nao-avaliado': '#475467' }[esperado.classe]);
+    assert.deepEqual(d, antes);
+    validarPaginas(s, buffer);
+  });
+}
+
+test('dependentes aplicáveis imprimem SIM, NÃO e NÃO AVALIADO, sem limpar ou exibir hipótese específica', async t => {
+  const s = preparar(t), d = { ...fixture.dados(), criterio_a: 'SIM', criterio_b: 'SIM', criterio_c: 'SIM',
+    atmosfera_oxigenio: true, atmosfera_contaminantes: false, atmosfera_explosiva: null, possui_placa_identificacao: false };
+  const antes = structuredClone(d);
+  const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
+  const i = s.textos.indexOf('C-1'), fim = s.textos.indexOf('D', s.textos.indexOf('C-1'));
+  const respostas = s.textos.slice(i, fim).filter(v => ['SIM', 'NÃO', 'NÃO AVALIADO', 'NÃO APLICÁVEL'].includes(v));
+  assert.deepEqual(respostas, ['SIM', 'NÃO', 'NÃO AVALIADO', 'NÃO']);
+  assert.doesNotMatch(s.textos.join(''), /Hipótese específica|Engolfamento|Afogamento/);
+  assert.deepEqual(d, antes); validarPaginas(s, buffer);
+});
+
+test('tabela principal contém A/B/C, C-1/C-2/C-3, placa sem código e D/E/F/G na mesma formatação', async t => {
+  const s = preparar(t), d = { ...fixture.dados(), criterio_a: 'SIM', criterio_b: 'SIM', criterio_c: 'SIM',
+    atmosfera_oxigenio: true, atmosfera_contaminantes: false, atmosfera_explosiva: null, possui_placa_identificacao: true };
+  const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
+  const inicio = s.registros.findIndex(r => r.texto === 'Critério');
+  const fim = s.registros.findIndex(r => r.texto === 'Caracterização do Espaço Confinado');
+  const tabela = s.registros.slice(inicio, fim);
+  assert.deepEqual(tabela.filter(r => r.x === 36 && /^(?:[A-G]|C-[123]|)$/.test(r.texto)).map(r => r.texto),
+    ['A', 'B', 'C', 'C-1', 'C-2', 'C-3', '', 'D', 'E', 'F', 'G']);
+  assert.deepEqual(tabela.filter(r => r.x === 92 && r.texto !== 'Descrição').map(r => r.texto),
+    ['Não projetado para ocupação humana contínua', 'Meios limitados de entrada/saída', 'Atmosfera perigosa existente OU potencial',
+      'Deficiência ou enriquecimento de oxigênio', 'Presença de contaminantes', 'Atmosfera explosiva', 'Possui placa de identificação?',
+      'Acesso controlado', 'Ventilação adequada', 'Monitoramento atmosférico', 'Procedimento de emergência']);
+  assert.ok(tabela.every(r => r.tamanho === 9));
+  assert.ok(tabela.some(r => r.texto === 'NÃO' && r.cor === '#852320'));
+  assert.ok(tabela.some(r => r.texto === 'NÃO AVALIADO' && r.cor === '#475467'));
+  assert.doesNotMatch(s.textos.join(''), /Detalhamento atmosférico|Sinalização/);
+  validarPaginas(s, buffer);
+});
+
+for (const especifica of [false, true]) test(`C=NAO preserva atmosfera sem utilizá-la; placa segue aplicabilidade existente, específica=${especifica}`, async t => {
+  const s = preparar(t), d = { ...fixture.dados(), atmosfera_oxigenio: true, atmosfera_contaminantes: false,
+    atmosfera_explosiva: null, possui_placa_identificacao: true,
+    ...(especifica ? { avaliacao_especifica_iniciada: true, nao_destinado_ocupacao_humana: 'SIM', meios_limitados_entrada_saida: 'SIM',
+      utilizado_armazenagem: 'SIM', potencial_engolfamento: 'SIM', potencial_afogamento: null } : {}) };
+  const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
+  const i = s.textos.indexOf('C-1'), fim = s.textos.indexOf('D', s.textos.indexOf('C-1'));
+  assert.deepEqual(s.textos.slice(i, fim).filter(v => ['SIM', 'NÃO', 'NÃO AVALIADO', 'NÃO APLICÁVEL'].includes(v)),
+    ['NÃO APLICÁVEL', 'NÃO APLICÁVEL', 'NÃO APLICÁVEL', especifica ? 'SIM' : 'NÃO AVALIADO']);
+  assert.equal(d.atmosfera_oxigenio, true);assert.equal(d.atmosfera_contaminantes, false);
+  validarPaginas(s, buffer);
+});
+
+test('valores técnicos negativos e potencialmente perigosos não são limitados ou substituídos', async t => {
+  const s = preparar(t), d = { ...fixture.dados(), pressao_atmosferica: '-7.25', oxigenio: '99.99',
+    gas_inflamavel: '999999.99', monoxido_carbono: '2500.00', sulfeto_hidrogenio: '6500.00', temperatura: '-45.50', umidade: '120.00' };
+  await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
+  for (const valor of ['-7,25', '99,99', '999.999,99', '2.500,00', '6.500,00', '-45,50', '120,00']) assert.ok(s.textos.includes(valor), valor);
+});
+
+for (const id of [null, 1]) test(`histórico sem novos campos e sem respostas ABC: checklist=${id}`, async t => {
+  const s = preparar(t), d = { ...fixture.dados(), id_checklist: id, criterio_a: null, criterio_b: null, criterio_c: null };
+  const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
+  const i = s.textos.indexOf('Espaço Confinado?');
+  assert.equal(s.textos[i + 1], 'NÃO AVALIADO');
+  if (id) {
+    const inicio = s.textos.indexOf('C-1'), fim = s.textos.indexOf('D', s.textos.indexOf('C-1'));
+    assert.equal(s.textos.slice(inicio, fim).filter(v => v === 'NÃO AVALIADO').length, 4);
+  } else assert.ok(s.textos.includes('Checklist não cadastrado para este local.'));
+  validarPaginas(s, buffer);
+});
 function validarPaginas(s, buffer) {
   const paginas = paginasGravadas(buffer);
   assert.deepEqual(s.textos.filter(v => /^Página \d+ de/.test(v)), paginas.map((_, i) => `Página ${i + 1} de ${paginas.length}`));
@@ -203,7 +284,7 @@ test('layout usual tem cinco páginas A4, seções separadas e rodapés exatos',
   assert.equal(pagina('1. Dados da Campanha'), 0);
   assert.equal(pagina('2. Identificação do Local'), 0);
   assert.equal(pagina('3. Checklist'), 1);
-  assert.equal(pagina('4. Dados Técnicos'), 1);
+  assert.equal(pagina('4. Dados Técnicos'), 2);
   assert.equal(pagina('Pressão atmosférica'), pagina('4. Dados Técnicos'), 'título acompanhado pelo primeiro cartão');
   assert.equal(pagina('5. Evidências'), 3);
   assert.equal(pagina('6. Identificação e Responsabilidade'), 4);
@@ -273,11 +354,11 @@ for (const linhas of [0, 1, 2, 4, 8]) test(`seção 6 reserva sua altura real ju
 
 test('cabeçalho da tabela é repetido em continuação com respostas extensas', async t => {
   const s = preparar(t), d = fixture.dados();
-  d.criterio_a = 'ZYXW'.repeat(4000);
+  d.procedimento_emergencia = 'ZYXW'.repeat(4000);
   await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
   assert.ok(s.textos.filter(v => v === 'Critério').length > 1);
   assert.equal(s.textos.filter(v => v === 'Critério').length, s.textos.filter(v => v === 'Atende').length);
-  assert.equal(s.registros.filter(r => r.x > 470 && /^[ZYXW]+$/.test(r.texto)).map(r => r.texto).join(''), d.criterio_a);
+  assert.equal(s.registros.filter(r => r.x > 470 && /^[ZYXW]+$/.test(r.texto)).map(r => r.texto).join(''), d.procedimento_emergencia);
 });
 
 test('múltiplas imagens horizontais e verticais conservam proporção e só entram nas evidências', async t => {
@@ -298,7 +379,9 @@ test('zeros, acentos, unidades e GPS são preservados; fórmulas usam subscritos
   for (const k of ['pressao_atmosferica', 'oxigenio', 'gas_inflamavel', 'monoxido_carbono', 'sulfeto_hidrogenio', 'temperatura', 'umidade']) d[k] = 0;
   d.observacoes_dados_tecnicos = 'Atenção: ventilação, oxigênio, pressão e manutenção.';
   await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
-  for (const valor of ['0,00', '0,00 %', '0,00 °C', '0,0000000', '0,00 m', d.observacoes_dados_tecnicos, 'Captura GPS', 'Registro da evidência']) assert.ok(s.textos.includes(valor), valor);
+  for (const valor of ['0,00', '0,0000000', '0,00 m', d.observacoes_dados_tecnicos, 'Captura GPS', 'Registro da evidência']) assert.ok(s.textos.includes(valor), valor);
+  assert.equal(s.textos.includes('0,00 %'), false);
+  assert.equal(s.textos.includes('0,00 °C'), false);
   assert.ok(s.registros.some(r => r.texto === '2' && r.tamanho === 7));
   assert.doesNotMatch(s.textos.join(''), /uploads\/|hash_pdf|hash_sha256|Liberado para entrada/);
 });

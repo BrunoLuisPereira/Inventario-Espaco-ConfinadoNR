@@ -17,7 +17,13 @@ export function criarHttp({ obterToken, expirar, fetchImpl, demonstracao }) {
       if (!response.ok) {
         const fallback = { 401: 'Sessão expirada. Entre novamente.', 403: 'Você não tem permissão para esta operação.', 404: 'Recurso não encontrado.' }
         throw Object.assign(new Error(response.status >= 500 ? 'Não foi possível concluir a operação. Tente novamente.'
-          : data?.message || data?.mensagem || fallback[response.status] || 'Não foi possível concluir a operação.'), { status: response.status })
+          : data?.message || data?.mensagem || fallback[response.status] || 'Não foi possível concluir a operação.'), {
+          status: response.status,
+          ...(/^\/checklists(?:\/|$)/.test(endpoint) && ({
+            NR33_ESQUEMA_INCOMPATIVEL: 503, NR33_CAMPO_SOMENTE_LEITURA: 400, NR33_DADOS_INVALIDOS: 400,
+            NR33_CONCLUSAO_INVALIDA: 400, NR33_CONFIRMACAO_LIMPEZA_NECESSARIA: 409,
+          })[data?.code] === response.status ? { code: data.code, details: data.details } : {}),
+        })
       }
       if (!data || typeof data !== 'object') throw Object.assign(new Error('Resposta inválida do servidor.'), { status: 502 })
       return data

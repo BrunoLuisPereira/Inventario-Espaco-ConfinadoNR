@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [react()],
 
   server: {
-    fs: { allow: [fileURLToPath(new URL('.', import.meta.url)), fileURLToPath(new URL('../shared/permissoes.json', import.meta.url))] },
+    fs: { allow: [fileURLToPath(new URL('.', import.meta.url)), fileURLToPath(new URL('../shared/permissoes.json', import.meta.url)), fileURLToPath(new URL('../shared/espacoConfinado.mjs', import.meta.url))] },
     host: '127.0.0.1',
     port: 5173,
     strictPort: true,

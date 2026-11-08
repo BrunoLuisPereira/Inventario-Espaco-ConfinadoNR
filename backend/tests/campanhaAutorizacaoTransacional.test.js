@@ -6,6 +6,15 @@ const Module = require('node:module');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const dados = { nomeCampanha: "Texto ' $1 -- literal", empresa: 'Empresa', responsavel: 'Nome descritivo', dataInicio: '2026-10-17', status: 'EM ANDAMENTO', idUsuario: 11 };
+
+for (const status of ['EM ANDAMENTO', 'CONCLUIDO', 'CANCELADA']) test(`atualização conjunta ${status} usa uma única escrita com autorização e locks`, async t => {
+  const { repo, estado, usuario } = preparar(t);
+  await repo.atualizarNoAmbiente(30, { ...dados, status }, usuario, { bloquearAutorizacao: true });
+  assert.equal(estado.escritas.length, 1);
+  assert.match(estado.escritas[0].sql, /data_inicio = \$4, status = \$8,/);
+  assert.equal(estado.escritas[0].params[7], status);
+  assert.equal(estado.eventos.at(-1).sql, 'COMMIT');
+});
 function preparar(t, opcoes = {}) {
   const estado = { eventos: [], bloqueios: 0, escritas: [], liberacoes: [], inesperadas: [], autorizado: true, modificado: false };
   const registro = { id_campanha: 30, id_ambiente: A, id_usuario: 12, nome_campanha: dados.nomeCampanha };

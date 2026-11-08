@@ -6,7 +6,7 @@ import Header from '../components/layout/Header'
 import LocalForm from '../components/locais/LocalForm'
 import BotaoPdfLocal from '../components/locais/BotaoPdfLocal'
 import { listarLocais, listarCampanhas, alterarStatusLocal, exportarLocaisExcel } from '../services/api'
-import { prepararLocais, consultarLocais } from '../services/locaisTabela'
+import { prepararLocais, consultarLocais, espacoConfinado } from '../services/locaisTabela'
 import '../styles/Locais.css'
 
 export default function Locais() {
@@ -21,6 +21,7 @@ export default function Locais() {
   const [busca, setBusca] = useState('')
   const [campanhaFiltro, setCampanhaFiltro] = useState('')
   const [situacao, setSituacao] = useState('')
+  const [espaco, setEspaco] = useState('')
   const [ordem, setOrdem] = useState({ campo: 'nome_local', direcao: 'asc' })
   const [pagina, setPagina] = useState(1)
   const [tamanho, setTamanho] = useState(10)
@@ -44,11 +45,13 @@ export default function Locais() {
       }
     }
     carregar()
-    return () => { atual = false }
+    // Ao voltar de um checklist aberto em outra aba, lê novamente as respostas persistidas.
+    window.addEventListener('focus', carregar)
+    return () => { atual = false; window.removeEventListener('focus', carregar) }
   }, [idCampanha, tentativa])
   const pronto = !estado.carregando && !estado.erro
   const campanha = idCampanha || campanhaFiltro
-  const resultado = consultarLocais(estado.locais, { busca, campanha, situacao, ...ordem, pagina, tamanho })
+  const resultado = consultarLocais(estado.locais, { busca, campanha, situacao, espaco, ...ordem, pagina, tamanho })
   const totalContexto = estado.locais.filter(l => !idCampanha || String(l.id_campanha) === String(idCampanha)).length
   const nomeCampanha = estado.campanhas.find(c => String(c.id_campanha) === String(idCampanha))?.nome_campanha
   function recarregar() {
@@ -118,6 +121,7 @@ export default function Locais() {
             <div className="locais-filtro locais-pesquisa"><label htmlFor="locais-busca">Pesquisar</label><input id="locais-busca" type="search" placeholder="Nome, setor ou campanha" value={busca} disabled={!pronto} onChange={e => { setBusca(e.target.value); setPagina(1) }} /></div>
             <div className="locais-filtro"><label htmlFor="locais-campanha">Campanha</label><select id="locais-campanha" value={campanha} disabled={!pronto || !!idCampanha} onChange={e => { setCampanhaFiltro(e.target.value); setPagina(1) }}><option value="">Todas as campanhas</option>{estado.campanhas.map(c => <option key={c.id_campanha} value={c.id_campanha}>{c.nome_campanha}</option>)}</select></div>
             <div className="locais-filtro"><label htmlFor="locais-situacao">Situação</label><select id="locais-situacao" value={situacao} disabled={!pronto} onChange={e => { setSituacao(e.target.value); setPagina(1) }}><option value="">Todas as situações</option><option value="ATIVO">Ativo</option><option value="INATIVO">Inativo</option></select></div>
+            <div className="locais-filtro"><label htmlFor="locais-espaco">Espaço Confinado?</label><select id="locais-espaco" value={espaco} disabled={!pronto} onChange={e => { setEspaco(e.target.value); setPagina(1) }}><option value="">Todos</option><option value="sim">Sim</option><option value="nao">Não</option><option value="nao-avaliado">Não avaliado</option></select></div>
             <div className="locais-filtro locais-ordem-mobile"><label htmlFor="locais-ordem">Ordenar por</label><select id="locais-ordem" value={`${ordem.campo}:${ordem.direcao}`} onChange={e => { const [campo, direcao] = e.target.value.split(':'); setOrdem({ campo, direcao }); setPagina(1) }} disabled={!pronto}>{[['nome_local', 'Local'], ['nome_campanha', 'Campanha'], ['setor', 'Setor']].flatMap(([campo, titulo]) => ['asc', 'desc'].map(direcao => <option key={`${campo}:${direcao}`} value={`${campo}:${direcao}`}>{titulo} ({direcao === 'asc' ? 'A–Z' : 'Z–A'})</option>))}</select></div>
             {podeExportar && <button className="local-button-secondary locais-exportar" onClick={exportar} disabled={!pronto || ocupado === 'exportar'} title="Exporta todos os locais autorizados, independentemente dos filtros da tabela">{ocupado === 'exportar' ? 'Exportando...' : '↓ Exportar Excel'}</button>}
           </div>
@@ -127,14 +131,14 @@ export default function Locais() {
           {pronto && !estado.campanhas.length && podeCriar && <p className="locais-message">Cadastre uma <Link to="/campanhas">campanha</Link> antes de adicionar locais.</p>}
           {pronto && (resultado.total ? <div className="locais-table-container"><table className="locais-table">
             <caption className="locais-sr-only">Espaços confinados autorizados para consulta</caption>
-            <thead><tr>{[['nome_local', 'Local'], ['nome_campanha', 'Campanha'], ['setor', 'Setor']].map(([campo, label]) => <th key={campo} scope="col" aria-sort={ordem.campo === campo ? ordem.direcao === 'asc' ? 'ascending' : 'descending' : 'none'}><button className="locais-sort" onClick={() => ordenar(campo)}>{label} <span aria-hidden="true">{ordem.campo === campo ? ordem.direcao === 'asc' ? '↑' : '↓' : '↕'}</span></button></th>)}<th scope="col">Inventário</th><th scope="col">Situação</th>{idCampanha && <th scope="col">Relatório</th>}<th scope="col" className="locais-col-acoes">Ações</th></tr></thead>
+            <thead><tr>{[['nome_local', 'Local'], ['nome_campanha', 'Campanha'], ['setor', 'Setor']].map(([campo, label]) => <th key={campo} scope="col" aria-sort={ordem.campo === campo ? ordem.direcao === 'asc' ? 'ascending' : 'descending' : 'none'}><button className="locais-sort" onClick={() => ordenar(campo)}>{label} <span aria-hidden="true">{ordem.campo === campo ? ordem.direcao === 'asc' ? '↑' : '↓' : '↕'}</span></button></th>)}<th scope="col" className="locais-col-espaco">Espaço Confinado?</th><th scope="col">Situação</th><th scope="col">Relatório</th><th scope="col" className="locais-col-acoes">Ações</th></tr></thead>
             <tbody>{resultado.registros.map(local => <tr key={local.id_local}>
-              <td data-label="Local"><strong>{local.nome_local}</strong>{local.endereco && <small className="locais-endereco">{local.endereco}</small>}</td>
+              <td data-label="Local"><div className={podeEditar ? "local-nome local-nome-editavel" : "local-nome"}><div><strong>{local.nome_local}</strong>{local.endereco && <small className="locais-endereco">{local.endereco}</small>}</div>{podeEditar && <button type="button" className="local-button-edit" title="Editar local" aria-label={`Editar local ${local.nome_local}`} disabled={!!formulario || ocupado === String(local.id_local)} onClick={() => { setFormulario({ local }); setErroAcao(''); setMensagem('') }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z" /><path d="m13 6 5 5" /></svg></button>}</div></td>
               <td data-label="Campanha">{local.nome_campanha}</td><td data-label="Setor">{local.setor || '—'}</td>
-              <td data-label="Inventário"><span className="locais-inventario">Não informado</span></td>
+              <td className="locais-col-espaco" data-label="Espaço Confinado?"><span className={`locais-classificacao locais-classificacao-${espacoConfinado(local).classe}`}>{espacoConfinado(local).texto}</span></td>
               <td data-label="Situação">{podeStatus ? <select className={`local-status-select locais-status locais-status-${local.status === 'ATIVO' ? 'ativo' : 'inativo'}`} value={local.status || ''} aria-label={`Situação de ${local.nome_local}`} disabled={!!formulario || ocupado === String(local.id_local)} onChange={e => mudarStatus(local, e.target.value)}><option value="ATIVO">Ativo</option><option value="INATIVO">Inativo</option></select> : <span className={`locais-status locais-status-${local.status === 'ATIVO' ? 'ativo' : 'inativo'}`}>{local.status === 'ATIVO' ? 'Ativo' : local.status === 'INATIVO' ? 'Inativo' : 'Não informado'}</span>}</td>
-              {idCampanha && <td data-label="Relatório"><BotaoPdfLocal key={`${local.id_local}:${tentativa}:${podeConsultarRelatorio}`} local={local} podeConsultar={podeConsultarRelatorio} /></td>}
-              <td data-label="Ações"><div className="local-actions"><Link className="local-button-open" to={`/locais/${local.id_local}/inventario`}>Abrir inventário</Link>{podeEditar && <button className="local-button-edit" aria-label={`Editar ${local.nome_local}`} disabled={!!formulario || ocupado === String(local.id_local)} onClick={() => { setFormulario({ local }); setErroAcao(''); setMensagem('') }}>Editar</button>}</div></td>
+              <td data-label="Relatório"><BotaoPdfLocal key={`${local.id_local}:${tentativa}:${podeConsultarRelatorio}`} local={local} podeConsultar={podeConsultarRelatorio} /></td>
+              <td data-label="Ações"><div className="local-actions"><Link className="local-button-open" to={`/locais/${local.id_local}/inventario`}>Abrir inventário</Link></div></td>
             </tr>)}</tbody>
           </table></div> : <div className="locais-empty"><h3>{totalContexto ? 'Nenhum resultado encontrado' : 'Nenhum local cadastrado'}</h3><p>{totalContexto ? 'Ajuste a pesquisa ou os filtros para encontrar um local.' : 'Os locais cadastrados aparecerão aqui.'}</p></div>)}
           {pronto && <footer className="locais-paginacao">

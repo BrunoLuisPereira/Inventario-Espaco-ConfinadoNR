@@ -1,4 +1,5 @@
 import { criarHttp } from './http.js'
+import { exigirConexaoChecklist } from './camposNr33.js'
 import { receberAuditoriaCompleta } from './auditoriaExportacao.js'
 import { modoDemo, sessaoAtual, eventoSessaoExpirada } from './sessao.js'
 import { criarDemo } from './demoApi.js'
@@ -203,6 +204,7 @@ export async function listarChecklists() {
 }
 
 export async function criarChecklist(dados) {
+  if (!modoDemo) exigirConexaoChecklist()
   return request('/checklists', {
     method: 'POST',
     body: JSON.stringify(dados),
@@ -213,6 +215,7 @@ export async function atualizarChecklist(
   idChecklist,
   dados
 ) {
+  if (!modoDemo) exigirConexaoChecklist()
   return request(`/checklists/${idChecklist}`, {
     method: 'PUT',
     body: JSON.stringify(dados),
@@ -223,6 +226,7 @@ export async function alterarStatusChecklist(
   idChecklist,
   status
 ) {
+  if (!modoDemo) exigirConexaoChecklist()
   return request(
     `/checklists/${idChecklist}/status`,
     {

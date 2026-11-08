@@ -12,7 +12,8 @@ const caracterizacao = { codigo_identificacao: 'TG-01', volume_m3: '123.456789',
   geometria: 'Cilíndrico', utilizacao_produto: 'Água', perigos_antes_liberacao: 'Atmosfera perigosa' };
 
 test('serviço encaminha criação, consulta e edição sem modificar status ou identidade', async t => {
-  const salvo = { ...respostas, ...caracterizacao, id_checklist: 50, id_local: 40, status: 'PENDENTE' };
+  const salvo = { ...respostas, ...caracterizacao, id_checklist: 50, id_local: 40, status: 'PENDENTE',
+    ...Object.fromEntries(require('../src/utils/adaptadorCamposNr33').CAMPOS_NR33.map(c => [c, null])) };
   t.mock.method(repo, 'criarNoAmbiente', async (d, u, opcoes) => {
     assert.deepEqual(u, usuario); assert.equal(opcoes.bloquearAutorizacao, true);
     for (const campo of CAMPOS) assert.equal(d[campo], caracterizacao[campo]);
@@ -25,9 +26,14 @@ test('serviço encaminha criação, consulta e edição sem modificar status ou 
     assert.deepEqual(d, { volume_m3: null, quantidade_aberturas: 0, codigo_identificacao: null });
     return { ...salvo, ...d };
   });
-  assert.deepEqual(await service.criarChecklist({ id_local: 40, ...respostas, ...caracterizacao, id_usuario: 999 }, usuario), salvo);
-  assert.deepEqual(await service.buscarChecklistPorId(50, usuario), salvo);
-  assert.deepEqual(await service.listarChecklists(usuario), [salvo]);
+  assert.deepEqual(await service.criarChecklist({ id_local: 40, ...respostas, ...caracterizacao, id_usuario: 999 }, usuario), { ...salvo, avaliacao_nr33: undefined });
+  const { avaliacao_nr33, ...consultado } = await service.buscarChecklistPorId(50, usuario);
+  assert.ok(avaliacao_nr33);
+  assert.deepEqual(consultado, salvo);
+  const [listado] = await service.listarChecklists(usuario);
+  assert.ok(listado.avaliacao_nr33);
+  const { avaliacao_nr33: avaliacaoLista, ...camposListados } = listado;
+  assert.deepEqual(camposListados, salvo);
   const editado = await service.atualizarChecklist(50, { volume_m3: null, codigo_identificacao: '', quantidade_aberturas: 0,
     status: 'CONCLUIDO', id_local: 99, id_ambiente: 'forjado' }, usuario);
   assert.equal(editado.status, 'PENDENTE'); assert.equal(editado.geometria, salvo.geometria);

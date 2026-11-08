@@ -2,6 +2,8 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { determinarAplicabilidade } = require('../utils/regrasCaracterizacaoNr33');
+const { reconstruirAvaliacaoEspecifica } = require('../utils/adaptadorCamposNr33');
 
 // Recursos visuais vetoriais locais. No fluxo multi-tenant somente os buffers
 // previamente autorizados podem fornecer fotografias.
@@ -25,6 +27,7 @@ function corStatus(v) {
   if (['NAO', 'NÃO', 'INATIVO', 'INATIVA', 'CANCELADO'].includes(s)) return ['#FFD5D2', '#852320'];
   if (s === 'RASCUNHO') return [C.yellow, C.ink];
   if (['EM ANDAMENTO', 'EM_ANDAMENTO'].includes(s)) return ['#D0EDFF', C.blue];
+  if (['NÃO AVALIADO', 'NÃO APLICÁVEL'].includes(s)) return ['#F2F4F7', '#475467'];
   return [C.pale, C.ink];
 }
 function capacete(doc, x, y, escala = 1) {
@@ -130,15 +133,15 @@ class Layout {
     }
     this.y += 9;
   }
-  campos(linhas, titulo) {
+  campos(linhas, titulo, { larguraRotulo = 145 } = {}) {
     let normais = [];
     const descarregar = () => {
-      if (normais.length) this.tabela([145, this.w - 145], normais, { titulo });
+      if (normais.length) this.tabela([larguraRotulo, this.w - larguraRotulo], normais, { titulo });
       normais = [];
     };
     for (const [k, v, status] of linhas) {
       const valor = texto(v);
-      if (!status && this.linhas(valor, this.w - 145 - 16).length > 8) {
+      if (!status && this.linhas(valor, this.w - larguraRotulo - 16).length > 8) {
         descarregar();
         // A coluna vazia de rótulo não acompanha várias páginas de prosa.
         // Mantém fonte, entrelinha e margens; somente amplia a largura do texto.
@@ -217,13 +220,14 @@ function identificacao(l, d) {
     ['Usuário responsável', d.responsavel], ['E-mail', d.email_responsavel], ['Perfil', d.perfil_responsavel]],
   [['Responsável técnico', d.nome_responsavel_tecnico], ['CREA', d.crea], ['Número da ART', d.numero_art], ['Data da ART', data(d.data_art)]], t1, { agrupar: true });
 }
-function campanhaLocal(l, d) {
+function campanhaLocal(l, d, indicador) {
   const t2 = '1. Dados da Campanha'; l.secao(t2);
   l.pares([['Campanha', d.nome_campanha], ['Empresa', d.empresa], ['Responsável pela campanha', d.responsavel_campanha]],
     [['Data de início', data(d.data_inicio)], ['Status', d.status_campanha, true]], t2);
   const t3 = '2. Identificação do Local'; l.secao(t3);
   l.campos([['Local', d.nome_local], ['Setor', d.setor], ['Descrição', d.descricao_local], ['Endereço', d.endereco],
-    ['Latitude', d.latitude], ['Longitude', d.longitude], ['Status', d.status_local, true]], t3);
+    ['Latitude', d.latitude], ['Longitude', d.longitude], ['Status', d.status_local, true],
+    ['Espaço Confinado?', indicador.texto.toLocaleUpperCase('pt-BR'), true]], t3);
 }
 function volumeEspaco(valor) {
   if (!presente(valor)) return texto(valor);
@@ -247,21 +251,32 @@ function caracterizacao(l, d) {
     ['Utilização do espaço / produto armazenado', d.utilizacao_produto],
     ['Possíveis perigos antes da liberação de entrada', d.perigos_antes_liberacao],
   ];
-  const primeiraAltura = Math.max(l.linhas(campos[0][0], 129, true).length,
-    l.linhas(texto(campos[0][1]), l.w - 161).length) * LINE + 10;
+  const larguraRotulo = 214;
+  const primeiraAltura = Math.max(l.linhas(campos[0][0], larguraRotulo - 16, true).length,
+    l.linhas(texto(campos[0][1]), l.w - larguraRotulo - 16).length) * LINE + 10;
   // Reservar o título junto à primeira linha real, inclusive quando o código
   // exigir quebra. O restante usa a paginação e continuação de campos().
   l.espaco(37 + primeiraAltura, () => l.secao('3. Checklist NR-33 (continuação)'));
   l.secao(titulo);
-  l.campos(campos, contexto);
+  l.campos(campos, contexto, { larguraRotulo });
 }
 function checklistTecnicos(l, d) {
   l.pagina(); const t = '3. Checklist NR-33'; l.secao(t);
   if (d.id_checklist) {
+    const aplicabilidade = determinarAplicabilidade({ ...d, avaliacao_especifica: reconstruirAvaliacaoEspecifica(d) });
+    const respostaDependente = (valor, aplicavel) => aplicavel === false ? 'NÃO APLICÁVEL'
+      : aplicavel !== true ? 'NÃO AVALIADO'
+      : valor === true ? 'SIM' : valor === false ? 'NÃO' : 'NÃO AVALIADO';
+    const atmosfera = d.criterio_c == null ? null : aplicabilidade.atmosfera;
+    const placa = aplicabilidade.classificacao.resultado === 'PENDENTE' ? null : aplicabilidade.placa;
     const itens = [['A', 'Não projetado para ocupação humana contínua', d.criterio_a], ['B', 'Meios limitados de entrada/saída', d.criterio_b],
-      ['C', 'Atmosfera perigosa existente OU potencial', d.criterio_c], ['D', 'Acesso controlado', d.acesso_controlado],
-      ['E', 'Ventilação adequada', d.ventilacao_adequada], ['F', 'Monitoramento atmosférico', d.monitoramento_atmosferico],
-      ['G', 'Procedimento de emergência', d.procedimento_emergencia]];
+      ['C', 'Atmosfera perigosa existente OU potencial', d.criterio_c],
+      ['C-1', 'Deficiência ou enriquecimento de oxigênio', respostaDependente(d.atmosfera_oxigenio, atmosfera)],
+      ['C-2', 'Presença de contaminantes', respostaDependente(d.atmosfera_contaminantes, atmosfera)],
+      ['C-3', 'Atmosfera explosiva', respostaDependente(d.atmosfera_explosiva, atmosfera)],
+      ['', 'Possui placa de identificação?', respostaDependente(d.possui_placa_identificacao, placa)],
+      ['D', 'Acesso controlado', d.acesso_controlado], ['E', 'Ventilação adequada', d.ventilacao_adequada],
+      ['F', 'Monitoramento atmosférico', d.monitoramento_atmosferico], ['G', 'Procedimento de emergência', d.procedimento_emergencia]];
     l.tabela([56, l.w - 151, 95], itens.map(([a, b, c]) => [{ valor: a, rotulo: true }, b, { valor: texto(c), status: true }]), { cabecalho: ['Critério', 'Descrição', 'Atende'], titulo: t });
     caracterizacao(l, d);
     l.campos([['Observações', d.observacoes_checklist], ['Status', d.status_checklist, true]], t);
@@ -269,12 +284,12 @@ function checklistTecnicos(l, d) {
   const tt = '4. Dados Técnicos';
   l.espaco(37 + (d.id_dados ? 44 : 21));
   l.secao(tt);
-  const unidade = (v, u) => presente(v) ? `${numero(v)} ${u}` : 'Não informado';
   if (d.id_dados) {
     l.cartes([['Pressão atmosférica', numero(d.pressao_atmosferica), 'P'], ['Ventilação', texto(d.ventilacao), 'V'],
-      ['Oxigênio', unidade(d.oxigenio, '%'), 'O2'], ['Gás inflamável', unidade(d.gas_inflamavel, '%'), '%'],
+      ['Oxigênio', numero(d.oxigenio), 'O2'], ['Gás inflamável', numero(d.gas_inflamavel), 'GI'],
       ['Monóxido de carbono', numero(d.monoxido_carbono), 'CO'], ['Sulfeto de hidrogênio', numero(d.sulfeto_hidrogenio), 'H2S'],
-      ['Temperatura', unidade(d.temperatura, '°C'), '°C'], ['Umidade', unidade(d.umidade, '%'), '%']]);
+      ['Temperatura', numero(d.temperatura), 'T'], ['Umidade', numero(d.umidade), 'U']]);
+    l.campos([['Unidades de medida', 'Não registradas no cadastro das medições. Valores apresentados sem conversão.']], tt);
     l.campos([['Observações', d.observacoes_dados_tecnicos], ['Status', d.status_dados_tecnicos, true]], tt);
   } else l.campos([['Dados técnicos', 'Dados técnicos não cadastrados para este local.']], tt);
 }
@@ -337,6 +352,7 @@ function imagensLegadas(dados) {
   return imagens;
 }
 async function gerarPdfRelatorio(dados, opcoes = {}) {
+  const { espacoConfinado } = await import('../../../shared/espacoConfinado.mjs');
   const somenteBuffer = opcoes.somenteBuffer === true;
   const doc = new PDFDocument({ size: 'A4', margins: { top: TOP, bottom: 55, left: M, right: M }, bufferPages: true,
     info: { Title: `Relatório - ${texto(dados.nome_local)}`, Author: dados.responsavel || 'Inventário de Espaços Confinados', Subject: 'Relatório Técnico de Inventário de Espaço Confinado' } });
@@ -345,7 +361,7 @@ async function gerarPdfRelatorio(dados, opcoes = {}) {
     doc.on('data', p => partes.push(p)); doc.on('end', () => resolve(Buffer.concat(partes))); doc.on('error', reject);
     try {
       const geracao = new Date(), layout = new Layout(doc, dados);
-      campanhaLocal(layout, dados); checklistTecnicos(layout, dados);
+      campanhaLocal(layout, dados, espacoConfinado(dados)); checklistTecnicos(layout, dados);
       evidencias(layout, dados, opcoes.imagens || (somenteBuffer ? new Map() : imagensLegadas(dados)));
       identificacao(layout, dados);
       layout.rodapes(geracao); doc.end();

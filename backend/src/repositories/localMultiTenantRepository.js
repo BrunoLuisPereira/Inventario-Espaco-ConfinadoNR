@@ -307,8 +307,19 @@ async function listarParaExportacaoPorAmbiente(idAmbiente, usuarioAutenticado) {
 async function listarPermitidosNoAmbiente(usuarioAutenticado) {
   const u = validarIdentidade(usuarioAutenticado);
   const resultado = await pool.query(`
-    SELECT ${COLUNAS_LOCAL}, c.nome_campanha
+    SELECT ${COLUNAS_LOCAL}, c.nome_campanha, ch.criterio_a, ch.criterio_b, ch.criterio_c
     FROM local AS l INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha
+    -- UNIQUE (id_local): o checklist vinculado é único, sem seleção por status/data.
+    LEFT JOIN checklist_nr33 AS ch ON ch.id_local = l.id_local
+      AND EXISTS (
+        SELECT 1 FROM usuario AS leitor
+        WHERE leitor.id_usuario = $2 AND leitor.id_ambiente = c.id_ambiente
+          AND leitor.ativo = TRUE AND ${sqlCapacidade('leitor', 'checklists.consultar')}
+      )
+      AND EXISTS (
+        SELECT 1 FROM usuario AS criador
+        WHERE criador.id_usuario = ch.id_usuario AND criador.id_ambiente = c.id_ambiente
+      )
     WHERE c.id_ambiente = $1 ${AUTORIZACAO_LEITURA.replace(/\$3/g, "$2")}
     ORDER BY l.data_criacao DESC
   `, [u.id_ambiente, u.id_usuario]);

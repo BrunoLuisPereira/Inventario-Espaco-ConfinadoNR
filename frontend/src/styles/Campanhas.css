@@ -183,7 +183,7 @@
 
 .campanhas-table th {
   background-color: var(--color-surface-secondary);
-  color: var(--color-text-secondary);
+  color: var(--color-text-heading);
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -319,7 +319,7 @@
   font-weight: 500;
 }
 
-.campanha-form-field input {
+.campanha-form-field input, .campanha-form-field select {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--color-border);
@@ -329,10 +329,18 @@
   font: inherit;
 }
 
-.campanha-form-field input:focus {
+.campanha-form-field input:focus, .campanha-form-field select:focus {
   border-color: var(--color-primary);
   outline: 2px solid rgba(245, 183, 0, 0.15);
 }
+
+.campanha-nome { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: center; gap: 10px; }
+.campanha-nome strong { min-width: 0; overflow-wrap: anywhere; font-weight: 400; color: inherit; font-size: inherit; }
+.campanha-editar-icone { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; padding: 0; border: 0; border-radius: 9px; background: transparent; color: var(--color-text-secondary); cursor: pointer; transition: background-color .15s; }
+.campanha-editar-icone:hover:not(:disabled), .campanha-editar-icone:focus-visible { background: var(--color-surface-secondary); color: var(--color-text-heading); }
+.campanha-editar-icone:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 3px; }
+.campanha-editar-icone:disabled { cursor: default; opacity: .6; }
+.campanhas-feedback { padding: 12px 16px; border-left: 3px solid var(--color-primary); background: var(--color-surface); color: var(--color-text); }
 
 .campanha-form-actions {
   display: flex;
