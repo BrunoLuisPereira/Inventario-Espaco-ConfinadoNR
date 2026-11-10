@@ -1,6 +1,7 @@
 // Executado somente com autorizacao do PASSO 715. Nao importa app/.env/arquivos.
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+const { compararLexicograficamente } = require('../src/utils/ordenacaoLexicografica');
 const BANCO='inventario_nr33_multitenant_dev';
 const tabelas=['ambiente','usuario','convite','campanha','local','checklist_nr33','dados_tecnicos','evidencia','relatorio','sincronizacao','versao_entidade'];
 async function executar(etapa) {
@@ -27,7 +28,7 @@ async function executar(etapa) {
     }
     fase='inventario';
     const ts=(await pool.query("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename")).rows.map(r=>r.tablename);
-    assert.deepEqual(ts,[...tabelas].sort());
+    assert.deepEqual(ts,[...tabelas].sort(compararLexicograficamente));
     const cs=(await pool.query(`SELECT contype,count(*)::int AS total FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE n.nspname='public' GROUP BY contype ORDER BY contype`)).rows;
     assert.equal(cs.find(r=>r.contype==='p').total,11);
     const triggers=(await pool.query(`SELECT tgname FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND NOT t.tgisinternal ORDER BY tgname`)).rows.map(r=>r.tgname);

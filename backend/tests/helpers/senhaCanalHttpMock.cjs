@@ -1,6 +1,7 @@
 // Dados exclusivamente ficticios. Nunca conecta a API ou PostgreSQL reais.
 const http=require('node:http');
 const assert=require('node:assert/strict');
+const { compararLexicograficamente } = require('../../src/utils/ordenacaoLexicografica');
 const casos=[
   ['letras_numeros','Abc12345'],
   ['especiais','!@#%^&*()_+-=[]{};:,.?/|\\'],
@@ -21,7 +22,7 @@ async function principal(){
     try{
       const atual=JSON.parse(body),esperado=casos[recebidas];
       assert.equal(req.url,'/destino-simulado');
-      assert.deepEqual(Object.keys(atual).sort(),['email','senha']);
+      assert.deepEqual(Object.keys(atual).sort(compararLexicograficamente),['email','senha']);
       assert.equal(atual.email,'Testeacesso@inventario.com');
       assert.equal(atual.senha,esperado[1]);
       recebidas++;ok=true;

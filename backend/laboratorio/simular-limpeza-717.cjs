@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
 const fs=require('node:fs');
 const path=require('node:path');
+const { compararLexicograficamente } = require('../src/utils/ordenacaoLexicografica');
 const BANCO='inventario_nr33_multitenant_dev';
 const preservar=[{id_usuario:'21',email:process.env.NR33_PRESERVAR_EMAIL_21},{id_usuario:'22',email:process.env.NR33_PRESERVAR_EMAIL_22}];
 const especificacoes={
@@ -46,7 +47,7 @@ async function executar() {
     const ambientesProtegidos=new Set(protegidos.map(u=>u.id_ambiente));
     fase='inventario';
     const tabelasAtuais=(await c.query("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename")).rows.map(r=>r.tablename);
-    assert.deepEqual(tabelasAtuais,Object.keys(especificacoes).sort(),'Escopo estrutural inesperado.');
+    assert.deepEqual(tabelasAtuais,Object.keys(especificacoes).sort(compararLexicograficamente),'Escopo estrutural inesperado.');
     const registros={usuario:usuarios};
     for(const [tabela,s] of Object.entries(especificacoes))if(tabela!=='usuario')registros[tabela]=(await c.query(s.sql)).rows;
     const ambientesCandidatos=registros.ambiente.filter(a=>!ambientesProtegidos.has(a.id_ambiente));

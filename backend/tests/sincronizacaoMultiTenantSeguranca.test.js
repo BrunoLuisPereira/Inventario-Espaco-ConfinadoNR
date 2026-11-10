@@ -1,6 +1,7 @@
 const caracterizacao = require('../src/utils/caracterizacaoChecklist');
 const { conferir: conferirCapacidadeSql } = require('./helpers/rbacSqlSimulado.cjs');
 const politicaRbac723 = require('../src/utils/permissoes');
+const ordenacaoLexicografica = require('../src/utils/ordenacaoLexicografica');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
@@ -167,6 +168,7 @@ function preparar(t) {
       // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
       if (r === '../utils/permissoes') return politicaRbac723;
       if (r === '../utils/caracterizacaoChecklist') return caracterizacao;
+      if (r === '../utils/ordenacaoLexicografica' && parent?.filename === repoPath) return ordenacaoLexicografica;
       if (parent?.filename===repoPath) { if (r==='../config/database') return pool; throw new Error('Dependência real proibida: '+r); }
       if (parent?.filename===servicePath) { if (r==='../repositories/sincronizacaoMultiTenantRepository') return repo; throw new Error('Dependência real proibida: '+r); }
       return load.call(this,r,parent,...args);
@@ -261,6 +263,17 @@ test('payload equivalente com ordem de propriedades diferente é repetição vá
   const s=preparar(t),d=s.dados();d.dados_cliente={nome_local:'Nome',latitude:0,longitude:0};
   const primeiro=await s.service.criarSincronizacao(d,s.u); d.dados_cliente={longitude:0,nome_local:'Nome',latitude:0};
   assert.deepEqual(await s.service.criarSincronizacao(d,s.u),primeiro);
+});
+
+test('canonicalizacao preserva objetos aninhados, Unicode e ordem dos arrays',async t=>{
+  const s=preparar(t),d=s.dados();s.u.id_usuario=12;
+  d.dados_cliente={nome_local:'João 李',detalhes:{'é':1,'e\u0301':2,z:{b:2,a:1}},lista:[{b:2,a:1},'😀','𐀀']};
+  const primeiro=await s.repo.registrar(d,s.u);
+  d.dados_cliente={lista:[{a:1,b:2},'😀','𐀀'],detalhes:{z:{a:1,b:2},'e\u0301':2,'é':1},nome_local:'João 李'};
+  assert.deepEqual(await s.repo.registrar(d,s.u),primeiro);
+  assert.equal(s.estado.escritas.filter(x=>x==='INSERT_SYNC').length,1);
+  d.dados_cliente.lista.reverse();
+  await assert.rejects(s.repo.registrar(d,s.u),{statusCode:409});
 });
 for(const constraint of ['uq_sincronizacao_operacao_cliente','uq_sincronizacao_registro_cliente_criar','outra_constraint'])test('colisão 23505 '+constraint,async t=>{
   const s=preparar(t), d=s.dados(), falha=Object.assign(tecnico(),{code:'23505',constraint});s.estado.conflitosInsercao=falha;

@@ -1,6 +1,7 @@
 const { CAMPOS: CAMPOS_CARACTERIZACAO, selecionarCaracterizacao } = require("../utils/caracterizacaoChecklist");
 const { perfis, exigir, sqlCapacidade } = require('../utils/permissoes');
 const pool = require('../config/database');
+const { compararLexicograficamente } = require('../utils/ordenacaoLexicografica');
 const erro = (message, statusCode) => Object.assign(new Error(message), { statusCode });
 const ausente = () => erro('Registro de sincronização ou entidade não encontrado.', 404);
 const conflito = () => erro('Conflito de sincronização. Verifique a operação e tente novamente.', 409);
@@ -123,7 +124,7 @@ async function resolverPai(client, e, dados, u, aplicar, autor = u.id_usuario) {
 }
 function canonico(v) {
   if (Array.isArray(v)) return v.map(canonico);
-  if (v && typeof v === 'object') return Object.fromEntries(Object.keys(v).sort().map(k => [k, canonico(v[k])]));
+  if (v && typeof v === 'object') return Object.fromEntries(Object.keys(v).sort(compararLexicograficamente).map(k => [k, canonico(v[k])]));
   return v;
 }
 function mesmaOperacao(s, d, u) {
