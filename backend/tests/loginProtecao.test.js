@@ -37,7 +37,10 @@ function preparar(t, banco = criarBanco()) {
   }
   t.after(() => { for (const [p, anterior] of anteriores) { if (anterior) require.cache[p] = anterior; else delete require.cache[p]; } });
   function reiniciar() {
-    const repo = carregar('repositories/loginTentativaRepository', { '../config/database': banco.pool });
+    const repo = carregar('repositories/loginTentativaRepository', {
+      '../config/database': banco.pool,
+      './loginTentativaRepositoryFactory': require('../src/repositories/loginTentativaRepositoryFactory'),
+    });
     const protecao = carregar('services/loginProtecaoService', { '../repositories/loginTentativaRepository': repo,
       '../utils/loginHmac': require('../src/utils/loginHmac') });
     const service = carregar('services/authService', {
@@ -281,7 +284,7 @@ test('chaves persistidas e parâmetros de controle não contêm e-mail, IP, senh
 
 test('migration 023 isolada e SQL de controle usam relógio PostgreSQL e locks', () => {
   const migration = fs.readFileSync(require.resolve('../database/023_controle_tentativas_login.sql'), 'utf8');
-  const repo = fs.readFileSync(require.resolve('../src/repositories/loginTentativaRepository.js'), 'utf8');
+  const repo = fs.readFileSync(require.resolve('../src/repositories/loginTentativaRepositoryFactory.js'), 'utf8');
   assert.match(migration, /PRIMARY KEY \(tipo, chave_hash\)/);
   assert.match(migration, /idx_login_tentativa_limpeza/);
   assert.doesNotMatch(migration, /ALTER TABLE|DROP TABLE|UPDATE (?:public\.)?usuario|senha_hash|id_usuario/);

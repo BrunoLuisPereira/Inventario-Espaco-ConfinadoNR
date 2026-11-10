@@ -9,10 +9,22 @@ const ExcelJS = require('exceljs');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const UUID = '33333333-3333-4333-8333-333333333333';
-const SECRET = 'segredo-ficticio-regressoes-bigint';
+let preparacaoAtiva = false;
 const PDF = Buffer.from('%PDF-1.7\nPDF inteiramente simulado\n%%EOF');
 
 function preparar(t, opcoes = {}) {
+  // Este simulador também modifica mocks e cache globais: não admite contextos
+  // sobrepostos no mesmo processo. A recusa ocorre antes de qualquer mutação.
+  if (preparacaoAtiva) throw new Error('Preparações BIGINT sobrepostas: execute sequencialmente ou em processos isolados.');
+  const segredo = crypto.randomBytes(32).toString('hex');
+  const segredoAnterior = process.env.JWT_SECRET;
+  preparacaoAtiva = true;
+  process.env.JWT_SECRET = segredo;
+  t.after(() => {
+    if (segredoAnterior === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = segredoAnterior;
+    preparacaoAtiva = false;
+  });
   const inesperados = [], consultas = [], fisico = [], logs = [], liberacoes = [];
   const usuarios = [
     { id_usuario: opcoes.idA ?? '10', id_ambiente: A, nome: 'Pessoa A', email: 'a@example.invalid', eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', ativo: true, senha_hash: 'hash:antiga123' },
@@ -171,9 +183,7 @@ function preparar(t, opcoes = {}) {
     t.after(() => { if (anterior) require.cache[alvo] = anterior; else delete require.cache[alvo]; });
     return require(alvo);
   }
-  const segredoAnterior = process.env.JWT_SECRET;
-  process.env.JWT_SECRET = SECRET;
-  t.after(() => { if (segredoAnterior === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = segredoAnterior; assert.deepEqual(inesperados, []); });
+  t.after(() => assert.deepEqual(inesperados, []));
   t.mock.method(console, 'error', (...args) => logs.push(args));
   const bcrypt = { compare: async (senha, hash) => hash === 'hash:' + senha, hash: async (senha, rounds) => { assert.equal(rounds, 12); return 'hash:' + senha; } };
   const email = carregar('repositories/emailLockRepository', {});
@@ -232,7 +242,7 @@ function preparar(t, opcoes = {}) {
     json(body) { assert.equal(this.headersSent, false); this.envios++; this.headersSent = true; this.body = body; return this; } }; }
   async function autenticar(env = A, executar = async () => {}) {
     const usuario = usuarios.find(u => u.id_ambiente === env);
-    const token = jwt.sign({ perfil: 'ADMINISTRADOR', id_ambiente: env === A ? B : A }, SECRET, {
+    const token = jwt.sign({ perfil: 'ADMINISTRADOR', id_ambiente: env === A ? B : A }, segredo, {
       subject: String(usuario.id_usuario), algorithm: 'HS256', expiresIn: '1h', issuer: process.env.JWT_ISSUER || 'inventario-espacos-confinados-api', audience: process.env.JWT_AUDIENCE || 'inventario-espacos-confinados-pwa' });
     const req = { headers: { authorization: 'Bearer ' + token }, body: {}, params: {}, query: { id_ambiente: env === A ? B : A } }, res = resposta();
     let avancou = false;
@@ -242,6 +252,7 @@ function preparar(t, opcoes = {}) {
   }
   return { carregar, usuarios, ativo, relatorios, sincronizacoes, consultas, fisico, logs, liberacoes,
     authService, authController, middleware, contaRepo, contaService, usuarioService, usuarioRepo, conviteController,
-    excel, sync, relatorio, utils, resposta, autenticar, ExcelJS };
+    excel, sync, relatorio, utils, resposta, autenticar, ExcelJS,
+    verificarToken: token => jwt.verify(token, segredo, { algorithms: ['HS256'] }) };
 }
 module.exports = { preparar, A, B, UUID, PDF };
