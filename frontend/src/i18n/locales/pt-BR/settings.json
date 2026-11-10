@@ -45,5 +45,7 @@
   "languagePending": "Preferência salva neste dispositivo. Aguardando sincronização com sua conta.",
   "languageError": "A preferência permanece neste dispositivo. Não foi possível sincronizar; tentaremos ao reconectar ou voltar à janela.",
   "portuguese": "Português (Brasil)",
-  "english": "English"
+  "english": "English",
+  "securityTab": "Segurança",
+  "appearanceTab": "Aparência"
 }
