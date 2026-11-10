@@ -21,12 +21,12 @@ function instalarMetricas(app, env = process.env) {
   const latency = new Histogram({ ...options, name: 'nr33_http_request_duration_seconds', help: 'HTTP response duration.',
     buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10] });
   const active = new Gauge({ registers: [registry], name: 'nr33_http_requests_in_flight', help: 'Active HTTP requests.' });
-  new Gauge({ registers: [registry], name: 'nr33_process_resident_memory_bytes', help: 'Node process RSS.',
-    collect() { this.set(process.memoryUsage().rss); } });
-  new Gauge({ registers: [registry], name: 'nr33_process_heap_used_bytes', help: 'Node heap used.',
-    collect() { this.set(process.memoryUsage().heapUsed); } });
-  new Counter({ registers: [registry], name: 'nr33_process_cpu_seconds_total', help: 'Cumulative Node CPU seconds.',
-    collect() { const cpu = process.cpuUsage(); this.reset(); this.inc((cpu.user + cpu.system) / 1e6); } });
+  registry.registerMetric(new Gauge({ registers: [], name: 'nr33_process_resident_memory_bytes', help: 'Node process RSS.',
+    collect() { this.set(process.memoryUsage().rss); } }));
+  registry.registerMetric(new Gauge({ registers: [], name: 'nr33_process_heap_used_bytes', help: 'Node heap used.',
+    collect() { this.set(process.memoryUsage().heapUsed); } }));
+  registry.registerMetric(new Counter({ registers: [], name: 'nr33_process_cpu_seconds_total', help: 'Cumulative Node CPU seconds.',
+    collect() { const cpu = process.cpuUsage(); this.reset(); this.inc((cpu.user + cpu.system) / 1e6); } }));
 
   app.use((req, res, next) => {
     // Exclui a coleta e tentativas de acesso a ela dos indicadores da API.
