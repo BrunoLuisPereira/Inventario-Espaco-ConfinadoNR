@@ -12,6 +12,7 @@ const relatorioRoutes = require("./routes/relatorioRoutes");
 const sincronizacaoRoutes = require("./routes/sincronizacaoRoutes");
 
 const app = express();
+require('./observabilidade/metricas').instalarMetricas(app);
 
 
 // ======================================================

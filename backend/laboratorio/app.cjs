@@ -4,6 +4,7 @@ function criarApp(banco) {
   destino(banco);
   const express = require('express');
   const app = express();
+  require('../src/observabilidade/metricas').instalarMetricas(app);
   app.disable('x-powered-by');
   app.use(express.json({ limit: '64kb' }));
   app.get('/api/health', (_req, res) => res.json({ status: 'success', laboratorio: true, banco }));

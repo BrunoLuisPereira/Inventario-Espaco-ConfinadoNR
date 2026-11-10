@@ -36,6 +36,7 @@ function preparar(router = express.Router()) {
   }
   expressCapturado.json = express.json;
   const dependencias = {
+    '../src/observabilidade/metricas': require('../src/observabilidade/metricas'),
     express: expressCapturado,
     './config.cjs': carregar('../laboratorio/config.cjs', {}),
   };

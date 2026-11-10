@@ -1,0 +1,52 @@
+name: nr33-observabilidade
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    ports:
+      - "127.0.0.1:9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - type: bind
+        source: ${NR33_PROMETHEUS_TARGETS_FILE:?Informe o arquivo externo de alvos}
+        target: /etc/prometheus/targets.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - prometheus-data:/prometheus
+    secrets:
+      - metrics-token
+    restart: unless-stopped
+  grafana:
+    image: grafana/grafana:12.3.1
+    ports:
+      - "127.0.0.1:3002:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_AUTH_DISABLE_LOGIN_FORM: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana-password
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    secrets:
+      - grafana-password
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+secrets:
+  metrics-token:
+    file: ${NR33_METRICS_TOKEN_FILE:?Informe o arquivo externo do token}
+  grafana-password:
+    file: ${NR33_GRAFANA_PASSWORD_FILE:?Informe o arquivo externo da senha}
+volumes:
+  prometheus-data:
+  grafana-data:
