@@ -1,3 +1,4 @@
+import { useTraducao } from '../hooks/useTraducao.js'
 import { useCapacidade } from '../hooks/useCapacidade'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -26,6 +27,8 @@ const FORMULARIO_INICIAL = {
 }
 
 function DadosTecnicosLocal() {
+  const { aviso, numero, rotulo, tr } = useTraducao()
+
   const podeEditar = useCapacidade('dados_tecnicos.editar')
   const { idLocal } = useParams()
 
@@ -263,13 +266,11 @@ function DadosTecnicosLocal() {
         className="dados-tecnicos-form"
         onSubmit={onSubmit}
       >
-        {!podeEditar && <p role="status">Seu perfil permite somente consulta nesta tela.</p>}
+        {!podeEditar && <p role="status">{tr("Seu perfil permite somente consulta nesta tela.")}</p>}
         <fieldset disabled={!podeEditar} style={{border:0,padding:0,margin:0,minWidth:0}}>
         <div className="dados-tecnicos-grid">
           <div className="dados-tecnicos-field">
-            <label htmlFor="pressao_atmosferica">
-              Pressão atmosférica
-            </label>
+            <label htmlFor="pressao_atmosferica">{tr("Pressão atmosférica")}</label>
 
             <input
               id="pressao_atmosferica"
@@ -278,14 +279,12 @@ function DadosTecnicosLocal() {
               step="any"
               value={formulario.pressao_atmosferica}
               onChange={atualizarCampo}
-              placeholder="Informe o valor"
+              placeholder={tr("Informe o valor")}
             />
           </div>
 
           <div className="dados-tecnicos-field">
-            <label htmlFor="ventilacao">
-              Ventilação
-            </label>
+            <label htmlFor="ventilacao">{tr("Ventilação")}</label>
 
             <select
               id="ventilacao"
@@ -293,28 +292,18 @@ function DadosTecnicosLocal() {
               value={formulario.ventilacao}
               onChange={atualizarCampo}
             >
-              <option value="NAO_INFORMADA">
-                Não informada
-              </option>
+              <option value="NAO_INFORMADA">{tr("Não informada")}</option>
 
-              <option value="NATURAL">
-                Natural
-              </option>
+              <option value="NATURAL">{tr("Natural")}</option>
 
-              <option value="MECANICA">
-                Mecânica
-              </option>
+              <option value="MECANICA">{tr("Mecânica")}</option>
 
-              <option value="FORCADA">
-                Forçada
-              </option>
+              <option value="FORCADA">{tr("Forçada")}</option>
             </select>
           </div>
 
           <div className="dados-tecnicos-field">
-            <label htmlFor="oxigenio">
-              Oxigênio
-            </label>
+            <label htmlFor="oxigenio">{tr("Oxigênio")}</label>
 
             <input
               id="oxigenio"
@@ -323,14 +312,12 @@ function DadosTecnicosLocal() {
               step="any"
               value={formulario.oxigenio}
               onChange={atualizarCampo}
-              placeholder="Informe o valor"
+              placeholder={tr("Informe o valor")}
             />
           </div>
 
           <div className="dados-tecnicos-field">
-            <label htmlFor="gas_inflamavel">
-              Gás inflamável
-            </label>
+            <label htmlFor="gas_inflamavel">{tr("Gás inflamável")}</label>
 
             <input
               id="gas_inflamavel"
@@ -339,14 +326,12 @@ function DadosTecnicosLocal() {
               step="any"
               value={formulario.gas_inflamavel}
               onChange={atualizarCampo}
-              placeholder="Informe o valor"
+              placeholder={tr("Informe o valor")}
             />
           </div>
 
           <div className="dados-tecnicos-field">
-            <label htmlFor="monoxido_carbono">
-              Monóxido de carbono
-            </label>
+            <label htmlFor="monoxido_carbono">{tr("Monóxido de carbono")}</label>
 
             <input
               id="monoxido_carbono"
@@ -355,14 +340,12 @@ function DadosTecnicosLocal() {
               step="any"
               value={formulario.monoxido_carbono}
               onChange={atualizarCampo}
-              placeholder="Informe o valor"
+              placeholder={tr("Informe o valor")}
             />
           </div>
 
           <div className="dados-tecnicos-field">
-            <label htmlFor="sulfeto_hidrogenio">
-              Sulfeto de hidrogênio
-            </label>
+            <label htmlFor="sulfeto_hidrogenio">{tr("Sulfeto de hidrogênio")}</label>
 
             <input
               id="sulfeto_hidrogenio"
@@ -371,14 +354,12 @@ function DadosTecnicosLocal() {
               step="any"
               value={formulario.sulfeto_hidrogenio}
               onChange={atualizarCampo}
-              placeholder="Informe o valor"
+              placeholder={tr("Informe o valor")}
             />
           </div>
 
           <div className="dados-tecnicos-field">
-            <label htmlFor="temperatura">
-              Temperatura
-            </label>
+            <label htmlFor="temperatura">{tr("Temperatura")}</label>
 
             <input
               id="temperatura"
@@ -387,14 +368,12 @@ function DadosTecnicosLocal() {
               step="any"
               value={formulario.temperatura}
               onChange={atualizarCampo}
-              placeholder="Informe o valor"
+              placeholder={tr("Informe o valor")}
             />
           </div>
 
           <div className="dados-tecnicos-field">
-            <label htmlFor="umidade">
-              Umidade
-            </label>
+            <label htmlFor="umidade">{tr("Umidade")}</label>
 
             <input
               id="umidade"
@@ -403,14 +382,12 @@ function DadosTecnicosLocal() {
               step="any"
               value={formulario.umidade}
               onChange={atualizarCampo}
-              placeholder="Informe o valor"
+              placeholder={tr("Informe o valor")}
             />
           </div>
 
           <div className="dados-tecnicos-field">
-            <label htmlFor="status">
-              Status
-            </label>
+            <label htmlFor="status">{tr("Status")}</label>
 
             <select
               id="status"
@@ -418,21 +395,15 @@ function DadosTecnicosLocal() {
               value={formulario.status}
               onChange={atualizarCampo}
             >
-              <option value="PENDENTE">
-                Pendente
-              </option>
+              <option value="PENDENTE">{tr("Pendente")}</option>
 
-              <option value="CONCLUIDO">
-                Concluído
-              </option>
+              <option value="CONCLUIDO">{tr("Concluído")}</option>
             </select>
           </div>
         </div>
 
         <div className="dados-tecnicos-field">
-          <label htmlFor="observacoes">
-            Observações
-          </label>
+          <label htmlFor="observacoes">{tr("Observações")}</label>
 
           <textarea
             id="observacoes"
@@ -440,7 +411,7 @@ function DadosTecnicosLocal() {
             rows="4"
             value={formulario.observacoes}
             onChange={atualizarCampo}
-            placeholder="Digite observações sobre as condições do local"
+            placeholder={tr("Digite observações sobre as condições do local")}
           />
         </div>
 
@@ -451,9 +422,7 @@ function DadosTecnicosLocal() {
               className="dados-tecnicos-cancel-button"
               onClick={cancelarEdicao}
               disabled={salvando}
-            >
-              Cancelar
-            </button>
+            >{tr("Cancelar")}</button>
           )}
 
           <button
@@ -461,10 +430,10 @@ function DadosTecnicosLocal() {
             disabled={salvando}
           >
             {salvando
-              ? 'Salvando...'
+              ? tr('Salvando...')
               : editando
-                ? 'Salvar alterações'
-                : 'Salvar dados técnicos'}
+                ? tr('Salvar alterações')
+                : tr('Salvar dados técnicos')}
           </button>
         </div>
       </fieldset>
@@ -478,22 +447,18 @@ function DadosTecnicosLocal() {
 
       <main className="inventario-content">
         <Header
-          titulo="Dados Técnicos"
-          subtitulo="Características técnicas do espaço confinado"
+          titulo={tr("Dados Técnicos")}
+          subtitulo={tr("Características técnicas do espaço confinado")}
         />
 
         <section className="inventario-main">
           <Link
             to={`/locais/${idLocal}/inventario`}
             className="inventario-back"
-          >
-            ← Voltar para o inventário
-          </Link>
+          >{tr("← Voltar para o inventário")}</Link>
 
           {carregando && (
-            <p className="inventario-message">
-              Carregando dados técnicos...
-            </p>
+            <p className="inventario-message">{tr("Carregando dados técnicos...")}</p>
           )}
 
           {erro && (
@@ -501,13 +466,13 @@ function DadosTecnicosLocal() {
               className="inventario-error"
               role="alert"
             >
-              {erro}
+              {aviso(erro)}
             </p>
           )}
 
           {sucesso && (
             <p className="dados-tecnicos-success">
-              {sucesso}
+              {aviso(sucesso)}
             </p>
           )}
 
@@ -515,26 +480,21 @@ function DadosTecnicosLocal() {
             <>
               <div className="inventario-title">
                 <div>
-                  <span className="inventario-label">
-                    Espaço confinado
-                  </span>
+                  <span className="inventario-label">{tr("Espaço confinado")}</span>
 
                   <h2>{local.nome_local}</h2>
 
                   <p>
                     {local.nome_campanha ||
-                      'Campanha não informada'}
+                      tr('Campanha não informada')}
                   </p>
                 </div>
               </div>
 
               <div className="inventario-section-title">
-                <h3>Dados Técnicos</h3>
+                <h3>{tr("Dados Técnicos")}</h3>
 
-                <p>
-                  Características técnicas e ambientais
-                  registradas para este espaço confinado.
-                </p>
+                <p>{tr("Características técnicas e ambientais registradas para este espaço confinado.")}</p>
               </div>
 
               {!dadosTecnicos &&
@@ -545,78 +505,70 @@ function DadosTecnicosLocal() {
 
               {dadosTecnicos && !editando && (
                 <div className="dados-tecnicos-existing">
-                  <h4>Dados técnicos cadastrados</h4>
+                  <h4>{tr("Dados técnicos cadastrados")}</h4>
 
                   <div className="dados-tecnicos-grid">
                     <p>
-                      <strong>
-                        Pressão atmosférica:
-                      </strong>{' '}
-                      {dadosTecnicos.pressao_atmosferica ??
-                        'Não informada'}
+                      <strong>{tr("Pressão atmosférica:")}</strong>{' '}
+                      {numero(dadosTecnicos.pressao_atmosferica ??
+                        tr('Não informada'))}
                     </p>
 
                     <p>
-                      <strong>Ventilação:</strong>{' '}
-                      {dadosTecnicos.ventilacao ||
-                        'Não informada'}
+                      <strong>{tr("Ventilação:")}</strong>{' '}
+                      {rotulo(dadosTecnicos.ventilacao ||
+                        tr('Não informada'))}
                     </p>
 
                     <p>
-                      <strong>Oxigênio:</strong>{' '}
-                      {dadosTecnicos.oxigenio ??
-                        'Não informado'}
+                      <strong>{tr("Oxigênio:")}</strong>{' '}
+                      {numero(dadosTecnicos.oxigenio ??
+                        tr('Não informado'))}
                     </p>
 
                     <p>
-                      <strong>
-                        Gás inflamável:
-                      </strong>{' '}
-                      {dadosTecnicos.gas_inflamavel ??
-                        'Não informado'}
+                      <strong>{tr("Gás inflamável:")}</strong>{' '}
+                      {numero(dadosTecnicos.gas_inflamavel ??
+                        tr('Não informado'))}
                     </p>
 
                     <p>
-                      <strong>
-                        Monóxido de carbono:
-                      </strong>{' '}
-                      {dadosTecnicos.monoxido_carbono ??
-                        'Não informado'}
+                      <strong>{tr("Monóxido de carbono:")}</strong>{' '}
+                      {numero(dadosTecnicos.monoxido_carbono ??
+                        tr('Não informado'))}
                     </p>
 
                     <p>
-                      <strong>
-                        Sulfeto de hidrogênio:
-                      </strong>{' '}
-                      {dadosTecnicos.sulfeto_hidrogenio ??
-                        'Não informado'}
+                      <strong>{tr("Sulfeto de hidrogênio:")}</strong>{' '}
+                      {numero(dadosTecnicos.sulfeto_hidrogenio ??
+                        tr('Não informado'))}
                     </p>
 
                     <p>
-                      <strong>Temperatura:</strong>{' '}
-                      {dadosTecnicos.temperatura ??
-                        'Não informada'}
+                      <strong>{tr("Temperatura:")}</strong>{' '}
+                      {numero(dadosTecnicos.temperatura ??
+                        tr('Não informada'))}
                     </p>
 
                     <p>
-                      <strong>Umidade:</strong>{' '}
-                      {dadosTecnicos.umidade ??
-                        'Não informada'}
+                      <strong>{tr("Umidade:")}</strong>{' '}
+                      {numero(dadosTecnicos.umidade ??
+                        tr('Não informada'))}
                     </p>
 
                     <p>
-                      <strong>Status:</strong>{' '}
-                      {dadosTecnicos.status ||
-                        'Não informado'}
+                      <strong>{tr("Status:")}</strong>{' '}
+                      {rotulo(dadosTecnicos.status ||
+                        tr('Não informado'))}
                     </p>
                   </div>
 
                   <div className="dados-tecnicos-observacoes">
-                    <strong>Observações</strong>
+                    <strong>{tr("Observações")}</strong>
 
                     <p>
                       {dadosTecnicos.observacoes ||
-                        'Nenhuma observação registrada.'}
+                        tr('Nenhuma observação registrada.')}
                     </p>
                   </div>
 
@@ -625,9 +577,7 @@ function DadosTecnicosLocal() {
                       type="button"
                       onClick={iniciarEdicao}
                       disabled={!podeEditar || (alterandoStatus)}
-                    >
-                      Editar dados técnicos
-                    </button>
+                    >{tr("Editar dados técnicos")}</button>
 
                     {dadosTecnicos.status ===
                       'PENDENTE' && (
@@ -640,8 +590,8 @@ function DadosTecnicosLocal() {
                         disabled={!podeEditar || (alterandoStatus)}
                       >
                         {alterandoStatus
-                          ? 'Alterando...'
-                          : 'Concluir'}
+                          ? tr('Alterando...')
+                          : tr('Concluir')}
                       </button>
                     )}
 
@@ -656,8 +606,8 @@ function DadosTecnicosLocal() {
                         disabled={!podeEditar || (alterandoStatus)}
                       >
                         {alterandoStatus
-                          ? 'Alterando...'
-                          : 'Reabrir'}
+                          ? tr('Alterando...')
+                          : tr('Reabrir')}
                       </button>
                     )}
                   </div>

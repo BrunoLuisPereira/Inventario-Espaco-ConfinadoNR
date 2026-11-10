@@ -23,6 +23,8 @@ function preparar(t) {
     return !!(c && atual?.ativo && atual.ambienteAtivo && !estado.revogado && c.id_ambiente === u.id_ambiente && atual.id_ambiente === u.id_ambiente && ['ADMINISTRADOR','ENGENHEIRO_SEGURANCA','TECNICO_SEGURANCA','COORDENADOR','SUPERVISOR','AUDITOR','VISUALIZADOR'].includes(atual.perfil_acesso));
   };
   estado.fisico = [];
+  estado.geracoes = new Map();
+  estado.arquivos = new Map();
   const completo = r => ({ ...r, nome_local: 'LOCAL_' + r.id_local, nome_campanha: 'CAMPANHA_' + r.id_local, criterio_a: 'SIM', oxigenio: 0, evidencias: [{ id_evidencia: r.id_local * 10, tipo: 'FOTO', caminho_arquivo: 'uploads/evidencias/foto-' + r.id_local + '.jpg', latitude: 0, longitude: 0 }] });
   const autorizado = (id, u) => { falhar(); const r = estado.registros.get(id); return r && permitido(r.id_local, u) ? r : null; };
   const repo = {
@@ -34,7 +36,26 @@ function preparar(t) {
     async atualizarNoAmbiente(id, d, u) { const r = autorizado(id, u); if (!r) return null; estado.escritas.push('UPDATE'); return Object.assign(r, d); },
     async excluirNoAmbiente(id, u) { const r = autorizado(id, u); if (!r) return null; estado.escritas.push('DELETE'); estado.registros.delete(id); return r; },
     async buscarCompletoNoAmbiente(id, u) { const r = autorizado(id, u); return r ? completo(r) : null; },
-    async gerarNoAmbiente(id, u, gerar) { const r = autorizado(id, u); if (!r) return null; const arquivo = await gerar(completo(r)); estado.escritas.push('PDF'); return { relatorio: Object.assign(r, { caminho_pdf: arquivo.caminhoRelativo, hash_pdf: arquivo.hash, status: 'GERADO' }), arquivo: { caminho: arquivo.caminhoRelativo, hash_sha256: arquivo.hash } }; },
+    async gerarNoAmbiente(id, u, gerar) {
+      const r = autorizado(id, u); if (!r) return null;
+      const arquivo = await gerar({ ...completo(r), idioma_solicitante: estado.usuarios.get(u.id_usuario).idioma });
+      const geracao = { id_geracao: arquivo.idGeracao, id_relatorio: id, id_ambiente: u.id_ambiente, id_solicitante: u.id_usuario,
+        idioma: arquivo.idioma, caminho_pdf: arquivo.caminhoRelativo, hash_pdf: arquivo.hash, versao_template: 'nr33-i18n-1' };
+      estado.geracoes.set(geracao.id_geracao, geracao);
+      estado.escritas.push('PDF');
+      return { relatorio: Object.assign(r, { status: 'GERADO' }), geracao, arquivo: { caminho: arquivo.caminhoRelativo, hash_sha256: arquivo.hash } };
+    },
+    async listarGeracoesNoAmbiente(id, u, idioma) {
+      const r = autorizado(id, u); if (!r) return null;
+      return { geracoes: [...estado.geracoes.values()].filter(g => g.id_relatorio === id && g.id_ambiente === u.id_ambiente && g.idioma === idioma),
+        legado: r.caminho_pdf ? { legado: true, idioma: null } : null };
+    },
+    async comGeracaoAutorizada(id, u, uuid, executar) {
+      const r = autorizado(id, u); if (!r) return null;
+      const g = estado.geracoes.get(uuid);
+      if (!g || g.id_relatorio !== id || g.id_ambiente !== u.id_ambiente) throw Object.assign(Error('Geração PDF não encontrada.'), { statusCode: 404 });
+      return executar(g, r);
+    },
     async comRelatorioAutorizado(id, u, executar) { const r = autorizado(id, u); return r ? executar(r) : null; },
   };
   const legadoRepo = {
@@ -47,11 +68,20 @@ function preparar(t) {
     async atualizar(id, d) { falhar(); estado.escritas.push('UPDATE GLOBAL'); return Object.assign(estado.registros.get(id), d); },
     async excluir(id) { falhar(); estado.escritas.push('DELETE GLOBAL'); const r = estado.registros.get(id); estado.registros.delete(id); return r; },
   };
-  const pdf = { async gerarPdfRelatorio(d, opcoes) { estado.fisico.push(['renderizar', d.id_local]); if (estado.falhaRender) throw estado.falhaRender; if (opcoes?.somenteBuffer) return Buffer.from('%PDF-1.7 ' + d.nome_local + ' %%EOF'); return { caminhoRelativo: 'uploads/relatorios/gerado.pdf', hash: 'a'.repeat(64) }; } };
+  const pdf = { async gerarPdfRelatorio(d, opcoes) { estado.fisico.push(['renderizar', d.id_local]); estado.idiomaRenderizado = opcoes.idioma; if (estado.falhaRender) throw estado.falhaRender; if (opcoes?.somenteBuffer) return Buffer.from('%PDF-1.7 ' + opcoes.idioma + ' ' + d.nome_local + ' %%EOF'); return { caminhoRelativo: 'uploads/relatorios/gerado.pdf', hash: 'a'.repeat(64) }; } };
   const arquivos = {
     async lerFoto(e) { estado.fisico.push(['foto', e.id_evidencia]); return Buffer.from('IMAGEM'); },
-    async persistirPdf(buffer, u, id) { estado.fisico.push(['persistir', id, u.id_ambiente]); if (estado.falhaPersistir) throw estado.falhaPersistir; assert.ok(Buffer.isBuffer(buffer)); return { caminhoRelativo: 'uploads/relatorios/gerado-' + id + '.pdf', hash: 'a'.repeat(64) }; },
-    async lerPdf(r) { estado.fisico.push(['ler', r.id_relatorio]); if (estado.falhaArquivo) throw estado.falhaArquivo; return { buffer: Buffer.from('%PDF-1.7 LOCAL_' + r.id_local + ' %%EOF'), modificado: new Date('2026-10-18T00:00:00Z') }; },
+    async persistirPdf(buffer, u, id) {
+      estado.fisico.push(['persistir', id, u.id_ambiente]); if (estado.falhaPersistir) throw estado.falhaPersistir;
+      const idGeracao = require('crypto').randomUUID();
+      const caminhoRelativo = `uploads/relatorios/relatorio-${id}-${u.id_ambiente}_${idGeracao}.pdf`;
+      estado.arquivos.set(caminhoRelativo, Buffer.from(buffer));
+      return { idGeracao, caminhoRelativo, hash: require('crypto').createHash('sha256').update(buffer).digest('hex') };
+    },
+    async lerPdf(r) {
+      estado.fisico.push(['ler', r.id_relatorio]); if (estado.falhaArquivo) throw estado.falhaArquivo;
+      return { buffer: estado.arquivos.get(r.caminho_pdf) || Buffer.from('%PDF-1.7 LOCAL_' + r.id_local + ' %%EOF'), modificado: new Date('2026-10-18T00:00:00Z') };
+    },
   };
   const paths = Object.fromEntries(Object.entries({ router: '../src/routes/relatorioRoutes', controller: '../src/controllers/relatorioController', legado: '../src/services/relatorioService', auth: '../src/middlewares/autenticacaoMiddleware' }).map(([k,p]) => [k, require.resolve(p)]));
   paths.service = require('node:path').resolve(__dirname, '../src/services/relatorioMultiTenantService.js');
@@ -65,6 +95,7 @@ function preparar(t) {
     Module._load = function(request, parent, ...args) {
       // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
       if (request === '../utils/permissoes') return politicaRbac723;
+      if (request === '../utils/idiomaPdf') return require('../src/utils/idiomaPdf');
       // Utilitario puro real, restrito aos tres consumidores autorizados.
       if (request === '../utils/normalizarIdDominio' && ['middlewares/autenticacaoMiddleware', 'services/authService', 'services/relatorioMultiTenantService'].some(p => parent?.filename === require.resolve('../src/' + p))) return require('../src/utils/normalizarIdDominio');
       if (cache.has(parent?.filename)) {
@@ -108,7 +139,7 @@ function preparar(t) {
     }
     let concluir;
     const fim = new Promise(resolve => { concluir = resolve; });
-    const req = { method, url, headers: token === null ? {} : { authorization: 'Bearer ' + token }, body, query: { id_usuario: 21, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' }, usuario: { id_usuario: 21, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' } };
+    const req = { method, url, headers: token === null ? {} : { authorization: 'Bearer ' + token }, body, query: { id_usuario: 21, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR', ...Object.fromEntries(new URL(url, 'http://teste').searchParams) }, usuario: { id_usuario: 21, id_ambiente: B, eh_fundador: true, perfil_acesso: 'ADMINISTRADOR' } };
     if (estado.range !== undefined) req.range = () => estado.range;
     let envios = 0;
     const res = { headersSent: estado.iniciada, statusCode: 200, status(n) { this.statusCode = n; return this; }, json(value) { envios++; this.body = value; this.headersSent = true; concluir(); if (estado.falhaEnvio) throw new Error('Falha de transporte'); return this; } };
@@ -128,7 +159,7 @@ function preparar(t) {
     });
     await fim; await new Promise(resolve => setImmediate(resolve)); clearTimeout(timer);
     assert.equal(envios, estado.iniciada || estado.iniciadaDurante ? 0 : 1);
-    if (!estado.iniciada && !estado.iniciadaDurante && res.statusCode !== 416) assert.ok(res.body);
+    if (!estado.iniciada && !estado.iniciadaDurante && res.statusCode !== 416 && method !== 'HEAD') assert.ok(res.body);
     return { req, res };
   }
   return { estado, solicitar };
@@ -142,7 +173,7 @@ for (const [method, url, nome] of operacoes) {
     else if (nome === 'gerar') assert.equal(res.body.data.relatorio.id_local, id);
     else assert.equal(res.body.data.id_local, id);
     assert.deepEqual(ctx.estado.identidades, [Number(token)]); assert.deepEqual(ctx.estado.globais, []);
-    assert.strictEqual(ctx.estado.argumentosServico.at(-1).args.at(-1), req.usuario);
+    assert.ok(ctx.estado.argumentosServico.at(-1).args.includes(req.usuario));
   });
   for (const condicao of ['semJWT', 'invalido', 'adulterado', 'usuarioInativo', 'ambienteInativo', 'perfilRevogado', 'responsavelAlterado']) test(nome + ': revalida ' + condicao, async t => {
     const ctx = preparar(t);
@@ -218,3 +249,50 @@ test('download: Range fora do arquivo retorna 416 sem conteúdo', async t => {
   assert.equal(res.statusCode, 416); assert.equal(res.body, undefined); assert.match(res.headers['content-range'], /^bytes \*\//);
 });
 
+
+for (const valor of ['en', 'pt-BR', 'fr', null, undefined]) test('idioma efetivo e solicitante autenticado: ' + String(valor), async t => {
+  const c = preparar(t);
+  c.estado.usuarios.get(12).idioma = 'en';
+  const anterior = { ...c.estado.registros.get(10) };
+  const body = { id_ambiente: B, id_usuario: 21, ...(valor === undefined ? {} : { idioma: valor }) };
+  const { res } = await c.solicitar('POST', '/10/gerar-pdf', '12', body);
+  assert.equal(res.statusCode, 200);
+  const g = res.body.data.geracao;
+  assert.equal(g.idioma, valor === undefined || valor === 'en' ? 'en' : 'pt-BR');
+  assert.equal(c.estado.idiomaRenderizado, g.idioma);
+  assert.equal(g.id_solicitante, 12); assert.equal(g.id_ambiente, A);
+  assert.notEqual(g.id_solicitante, anterior.id_usuario_responsavel);
+  assert.equal(c.estado.registros.get(10).caminho_pdf, anterior.caminho_pdf);
+  assert.equal(c.estado.registros.get(10).hash_pdf, anterior.hash_pdf);
+});
+
+test('POST sempre cria geração única; GET/HEAD exatos não geram e não misturam idiomas', async t => {
+  const c = preparar(t), geracoes = [];
+  for (const idioma of ['en', 'pt-BR', 'en']) {
+    const { res } = await c.solicitar('POST', '/10/gerar-pdf', '12', { idioma });
+    assert.equal(res.statusCode, 200); geracoes.push(res.body.data.geracao);
+  }
+  assert.equal(new Set(geracoes.map(g => g.id_geracao)).size, 3);
+  assert.equal(new Set(geracoes.map(g => g.caminho_pdf)).size, 3);
+  const escritas = c.estado.escritas.length;
+  for (const g of geracoes) for (const method of ['GET', 'HEAD']) {
+    const url = `/10/geracoes-pdf/${g.id_geracao}/pdf?idioma=${g.idioma}`;
+    const { res } = await c.solicitar(method, url, '13');
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.headers['content-language'], g.idioma);
+    assert.equal(res.headers['x-pdf-geracao'], g.id_geracao);
+    assert.equal(res.headers['cache-control'], 'private, no-store');
+    if (method === 'GET') assert.ok(res.body.toString().includes(g.idioma)); else assert.equal(res.body, undefined);
+  }
+  const g = geracoes[0];
+  assert.equal((await c.solicitar('GET', `/10/geracoes-pdf/${g.id_geracao}/pdf?idioma=pt-BR`)).res.statusCode, 409);
+  assert.equal((await c.solicitar('GET', `/20/geracoes-pdf/${g.id_geracao}/pdf?idioma=en`, '21')).res.statusCode, 404);
+  assert.equal((await c.solicitar('GET', `/10/geracoes-pdf/${g.id_geracao}/pdf?idioma=en`, '21')).res.statusCode, 404);
+  assert.equal((await c.solicitar('GET', `/10/geracoes-pdf/${g.id_geracao}/pdf`, null)).res.statusCode, 401);
+  assert.equal(c.estado.escritas.length, escritas);
+  const { res } = await c.solicitar('GET', '/10/geracoes-pdf?idioma=en', '13');
+  assert.deepEqual(res.body.data.geracoes.map(g => g.idioma), ['en', 'en']);
+  assert.equal(res.body.data.legado.idioma, null);
+  assert.equal((await c.solicitar('GET', '/10/pdf?idioma=en')).res.statusCode, 404);
+  assert.equal((await c.solicitar('HEAD', '/10/pdf')).res.statusCode, 200);
+});

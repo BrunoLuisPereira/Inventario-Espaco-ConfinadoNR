@@ -1,3 +1,5 @@
+import { useTraducao } from '../../hooks/useTraducao.js'
+import { useTranslation } from 'react-i18next'
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import logoInventario from '../../assets/logo-inventario.png'
@@ -10,6 +12,9 @@ import { pode } from '../../services/permissoes'
 import '../../styles/Sidebar.css'
 
 function Sidebar() {
+  const { aviso, rotulo } = useTraducao()
+
+  const { t } = useTranslation('navigation')
   const { usuario, logout } = useAuth()
   const ambiente = useAmbienteAtual()
   const { menuAberto, fecharMenu } = useLayout()
@@ -101,8 +106,8 @@ function Sidebar() {
       )
 
       window.alert(
-        error.message ||
-          'Não foi possível exportar os locais.'
+        aviso(error.message ||
+          'Não foi possível exportar os locais.')
       )
     } finally {
       setExportando(false)
@@ -119,7 +124,7 @@ function Sidebar() {
             : ''
         }`}
         onClick={fecharMenu}
-        aria-label="Fechar menu"
+        aria-label={t('closeMenu')}
         tabIndex={menuAberto ? 0 : -1}
       />
 
@@ -128,25 +133,25 @@ function Sidebar() {
         className={`sidebar ${
           menuAberto ? 'sidebar-open' : ''
         }`}
-        aria-label="Menu principal"
+        aria-label={t('mainMenu')}
       >
         <div className="sidebar-header">
           <img
             src={logoInventario}
-            alt="Inventário de Espaços Confinados"
+            alt={t('brandAlt')}
             className="sidebar-logo"
           />
 
           <div className="sidebar-brand">
-            <strong>Inventário</strong>
-            <span>Espaços Confinados</span>
+            <strong>{t('brandTitle')}</strong>
+            <span>{t('brandSubtitle')}</span>
           </div>
 
           <button
             type="button"
             className="sidebar-close"
             onClick={fecharMenu}
-            aria-label="Fechar menu"
+            aria-label={t('closeMenu')}
           >
             ×
           </button>
@@ -157,25 +162,25 @@ function Sidebar() {
             <path d="M4 21V3h12v18M16 9h4v12M2 21h20M8 7h4M8 11h4M8 15h4M8 21v-3h4v3" />
           </svg>
           <div className="sidebar-ambiente-texto">
-            <span>AMBIENTE ATUAL</span>
+            <span>{t('currentEnvironment')}</span>
             <strong title={ambiente.nome || undefined}>{ambiente.mensagem}</strong>
           </div>
         </div>
 
         <nav
           className="sidebar-nav"
-          aria-label="Navegação principal"
+          aria-label={t('mainNavigation')}
         >
           <NavLink to="/dashboard">
-            Dashboard
+            {t('dashboard')}
           </NavLink>
 
           <NavLink to="/campanhas">
-            Campanhas
+            {t('campaigns')}
           </NavLink>
 
           <NavLink to="/locais">
-            Locais
+            {t('locations')}
           </NavLink>
           {pode(usuario, 'locais.exportar') && <button
             type="button"
@@ -184,25 +189,25 @@ function Sidebar() {
             disabled={exportando}
           >
             {exportando
-              ? 'Exportando...'
-              : 'Exportar Locais'}
+              ? t('exporting')
+              : t('exportLocations')}
           </button>}
 
           <hr className="sidebar-divider" />
 
           {podeAdministrar(usuario) && <>
-            <NavLink to="/usuarios">Usuários</NavLink>
-            <NavLink to="/convites">Convite</NavLink>
+            <NavLink to="/usuarios">{t('users')}</NavLink>
+            <NavLink to="/convites">{t('invite')}</NavLink>
           </>}
           <NavLink to="/configuracoes" className="sidebar-settings-link">
-            ⚙ Configurações
+            ⚙ {t('settings')}
           </NavLink>
         </nav>
 
         <div className="sidebar-footer">
           <div className="sidebar-user">
             <strong>{usuario?.nome}</strong>
-            <span>{usuario?.perfil_acesso}</span>
+            <span>{rotulo(usuario?.perfil_acesso)}</span>
           </div>
 
           <button
@@ -210,7 +215,7 @@ function Sidebar() {
             className="sidebar-logout"
             onClick={handleLogout}
           >
-            Sair
+            {t('logout')}
           </button>
         </div>
       </aside>

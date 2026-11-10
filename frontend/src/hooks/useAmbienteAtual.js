@@ -1,6 +1,8 @@
 import { useAuth } from './useAuth'
+import { useTraducao } from './useTraducao.js'
 
 export function useAmbienteAtual() {
+  const { tr } = useTraducao()
   const { usuario, autenticado, carregandoSessao, erroSessao } = useAuth()
   // O perfil revalidado pelo servidor é a fonte; nunca o snapshot persistido.
   const nome = autenticado && !erroSessao && typeof usuario?.nome_ambiente === 'string'
@@ -8,6 +10,6 @@ export function useAmbienteAtual() {
   return {
     nome,
     podeEditar: Boolean(autenticado && !erroSessao && usuario?.eh_fundador === true && usuario?.perfil_acesso === 'ADMINISTRADOR'),
-    mensagem: carregandoSessao ? 'Carregando ambiente...' : nome || 'Ambiente indisponível',
+    mensagem: carregandoSessao ? tr('Carregando ambiente...') : nome || tr('Ambiente indisponível'),
   }
 }

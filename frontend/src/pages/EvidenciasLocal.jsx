@@ -1,3 +1,4 @@
+import { useTraducao } from '../hooks/useTraducao.js'
 import { useCapacidade } from '../hooks/useCapacidade'
 import { useEffect, useRef, useState } from 'react'
 
@@ -80,6 +81,8 @@ const TIPOS_PERMITIDOS = [
 ]
 
 function EvidenciasLocal() {
+  const { aviso, numero, rotulo, tr } = useTraducao()
+
   const podeEditar = useCapacidade('evidencias.editar')
   const podeExcluir = useCapacidade('evidencias.excluir')
 
@@ -925,9 +928,9 @@ function EvidenciasLocal() {
 
     const confirmou = window.confirm(
 
-      `Tem certeza que deseja excluir a evidência #${evidencia.id_evidencia}?\n\n` +
+      aviso(`Tem certeza que deseja excluir a evidência #${evidencia.id_evidencia}?\n\n` +
 
-        'Esta ação removerá o registro e o arquivo associado.'
+        'Esta ação removerá o registro e o arquivo associado.')
 
     )
 
@@ -1023,7 +1026,7 @@ function EvidenciasLocal() {
 
       bytes / (1024 * 1024)
 
-    return `${tamanhoMB.toFixed(2)} MB`
+    return `${numero(tamanhoMB, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MB`
 
   }
 
@@ -1037,9 +1040,9 @@ function EvidenciasLocal() {
 
         <Header
 
-          titulo="Evidências / Fotos"
+          titulo={tr("Evidências / Fotos")}
 
-          subtitulo="Registros e evidências do espaço confinado"
+          subtitulo={tr("Registros e evidências do espaço confinado")}
 
         />
 
@@ -1051,19 +1054,11 @@ function EvidenciasLocal() {
 
             className="evidencias-back"
 
-          >
-
-            ← Voltar para o inventário
-
-          </Link>
+          >{tr("← Voltar para o inventário")}</Link>
 
           {carregando && (
 
-            <p className="evidencias-message">
-
-              Carregando evidências...
-
-            </p>
+            <p className="evidencias-message">{tr("Carregando evidências...")}</p>
 
           )}
 
@@ -1073,17 +1068,11 @@ function EvidenciasLocal() {
 
               <div className="evidencias-title">
 
-                <span>Espaço confinado</span>
+                <span>{tr("Espaço confinado")}</span>
 
                 <h2>{local.nome_local}</h2>
 
-                <p>
-
-                  Adicione fotos ou documentos
-
-                  relacionados a este local.
-
-                </p>
+                <p>{tr("Adicione fotos ou documentos relacionados a este local.")}</p>
 
               </div>
 
@@ -1097,7 +1086,7 @@ function EvidenciasLocal() {
 
                 >
 
-                  {erro}
+                  {aviso(erro)}
 
                 </p>
 
@@ -1113,7 +1102,7 @@ function EvidenciasLocal() {
 
                 >
 
-                  {sucesso}
+                  {aviso(sucesso)}
 
                 </p>
 
@@ -1126,22 +1115,16 @@ function EvidenciasLocal() {
                 onSubmit={enviar}
 
               >
-        {!podeEditar && <p role="status">Seu perfil permite somente consulta nesta tela.</p>}
+        {!podeEditar && <p role="status">{tr("Seu perfil permite somente consulta nesta tela.")}</p>}
         <fieldset disabled={!podeEditar} style={{border:0,padding:0,margin:0,minWidth:0}}>
 
                 <div className="evidencias-form-header">
 
                   <div>
 
-                    <h3>Nova evidência</h3>
+                    <h3>{tr("Nova evidência")}</h3>
 
-                    <p>
-
-                      Envie uma foto ou documento
-
-                      relacionado ao local.
-
-                    </p>
+                    <p>{tr("Envie uma foto ou documento relacionado ao local.")}</p>
 
                   </div>
 
@@ -1149,11 +1132,7 @@ function EvidenciasLocal() {
 
                 <div className="evidencias-field">
 
-                  <label htmlFor="arquivo">
-
-                    Arquivo
-
-                  </label>
+                  <label htmlFor="arquivo">{tr("Arquivo")}</label>
 
                   <div className="evidencias-file-options">
 
@@ -1187,11 +1166,7 @@ function EvidenciasLocal() {
 
                       disabled={enviando}
 
-                    >
-
-                      📷 Tirar foto
-
-                    </button>
+                    >{tr("📷 Tirar foto")}</button>
 
                   </div>
 
@@ -1231,19 +1206,7 @@ function EvidenciasLocal() {
 
                   />
 
-                  <small>
-
-                    Formatos permitidos: JPG, PNG
-
-                    e PDF. Tamanho máximo: 10 MB.
-
-                    Você também pode tirar uma
-
-                    foto diretamente pelo
-
-                    dispositivo.
-
-                  </small>
+                  <small>{tr("Formatos permitidos: JPG, PNG e PDF. Tamanho máximo: 10 MB. Você também pode tirar uma foto diretamente pelo dispositivo.")}</small>
 
                 </div>
 
@@ -1275,17 +1238,13 @@ function EvidenciasLocal() {
 
                       <div className="evidencias-preview">
 
-                        <span>
-
-                          Pré-visualização
-
-                        </span>
+                        <span>{tr("Pré-visualização")}</span>
 
                         <img
 
                           src={previewArquivo}
 
-                          alt="Pré-visualização da evidência selecionada"
+                          alt={tr("Pré-visualização da evidência selecionada")}
 
                         />
 
@@ -1301,13 +1260,9 @@ function EvidenciasLocal() {
 
                         <div className="evidencias-pdf-selected">
 
-                          <span>PDF</span>
+                          <span>{tr("PDF")}</span>
 
-                          <strong>
-
-                            Documento selecionado
-
-                          </strong>
+                          <strong>{tr("Documento selecionado")}</strong>
 
                         </div>
 
@@ -1319,11 +1274,7 @@ function EvidenciasLocal() {
 
                 <div className="evidencias-field">
 
-                  <label htmlFor="descricao">
-
-                    Descrição
-
-                  </label>
+                  <label htmlFor="descricao">{tr("Descrição")}</label>
 
                   <textarea
 
@@ -1343,7 +1294,7 @@ function EvidenciasLocal() {
 
                     }
 
-                    placeholder="Descreva a evidência..."
+                    placeholder={tr("Descreva a evidência...")}
 
                     disabled={enviando}
 
@@ -1355,24 +1306,22 @@ function EvidenciasLocal() {
 
                   <div className="evidencias-field">
 
-                    <h4>Localização da fotografia (opcional)</h4>
+                    <h4>{tr("Localização da fotografia (opcional)")}</h4>
 
-                    <p>O GPS informa a localização atual do celular, não necessariamente o ponto fotografado.</p>
+                    <p>{tr("O GPS informa a localização atual do celular, não necessariamente o ponto fotografado.")}</p>
 
                     <button type="button" onClick={obterGps} disabled={enviando || obtendoGps}>
 
-                      {obtendoGps ? 'Obtendo localização...' : 'Obter localização do celular'}
+                      {obtendoGps ? tr('Obtendo localização...') : tr('Obter localização do celular')}
 
                     </button>
 
-                    {statusGps && <p role="status">{statusGps}</p>}
+                    {statusGps && <p role="status">{aviso(statusGps)}</p>}
                       {obtendoGps && (
-                        <button type="button" onClick={cancelarGps}>
-                          Cancelar espera do GPS
-                        </button>
+                        <button type="button" onClick={cancelarGps}>{tr("Cancelar espera do GPS")}</button>
                       )}
 
-                    <label htmlFor="foto-latitude">Latitude</label>
+                    <label htmlFor="foto-latitude">{tr("Latitude")}</label>
 
                     <input id="foto-latitude" type="text" inputMode="decimal"
 
@@ -1380,9 +1329,9 @@ function EvidenciasLocal() {
 
                       onChange={event => editarCoordenada('latitude', event.target.value)}
 
-                      placeholder="Ex.: -26.3044" />
+                      placeholder={tr("Ex.: -26.3044")} />
 
-                    <label htmlFor="foto-longitude">Longitude</label>
+                    <label htmlFor="foto-longitude">{tr("Longitude")}</label>
 
                     <input id="foto-longitude" type="text" inputMode="decimal"
 
@@ -1390,11 +1339,11 @@ function EvidenciasLocal() {
 
                       onChange={event => editarCoordenada('longitude', event.target.value)}
 
-                      placeholder="Ex.: -48.8487" />
+                      placeholder={tr("Ex.: -48.8487")} />
 
                     {coordenadas.origem_coordenadas === 'GPS' && (
 
-                      <small>Origem: GPS | Precisão estimada: {Math.round(coordenadas.precisao_gps)} m</small>
+                      <small>{tr("Origem: GPS | Precisão estimada:") + ' '}{numero(Math.round(coordenadas.precisao_gps))}{' ' + tr("m")}</small>
 
                     )}
 
@@ -1422,9 +1371,9 @@ function EvidenciasLocal() {
 
                     {enviando
 
-                      ? 'Enviando...'
+                      ? tr('Enviando...')
 
-                      : 'Enviar evidência'}
+                      : tr('Enviar evidência')}
 
                   </button>
 
@@ -1439,19 +1388,15 @@ function EvidenciasLocal() {
 
                   <div>
 
-                    <h3>
-
-                      Evidências cadastradas
-
-                    </h3>
+                    <h3>{tr("Evidências cadastradas")}</h3>
 
                     <p>
 
                       {evidencias.length === 1
 
-                        ? '1 evidência cadastrada'
+                        ? tr('1 evidência cadastrada')
 
-                        : `${evidencias.length} evidências cadastradas`}
+                        : tr("{{p0}} evidências cadastradas", { p0: evidencias.length })}
 
                     </p>
 
@@ -1463,19 +1408,9 @@ function EvidenciasLocal() {
 
                   <div className="evidencias-empty">
 
-                    <strong>
+                    <strong>{tr("Nenhuma evidência cadastrada")}</strong>
 
-                      Nenhuma evidência cadastrada
-
-                    </strong>
-
-                    <p>
-
-                      Envie a primeira foto ou
-
-                      documento deste local.
-
-                    </p>
+                    <p>{tr("Envie a primeira foto ou documento deste local.")}</p>
 
                   </div>
 
@@ -1507,11 +1442,11 @@ function EvidenciasLocal() {
 
                             >
 
-                              {formatarTipo(
+                              {tr(formatarTipo(
 
                                 evidencia.tipo
 
-                              )}
+                              ))}
 
                             </span>
 
@@ -1539,11 +1474,7 @@ function EvidenciasLocal() {
 
                                 htmlFor={`descricao-evidencia-${evidencia.id_evidencia}`}
 
-                              >
-
-                                Descrição
-
-                              </label>
+                              >{tr("Descrição")}</label>
 
                               <textarea
 
@@ -1577,7 +1508,7 @@ function EvidenciasLocal() {
 
                               />
 
-                                                            <label htmlFor={`lat-edicao-${evidencia.id_evidencia}`}>Latitude (opcional)</label>
+                                                            <label htmlFor={`lat-edicao-${evidencia.id_evidencia}`}>{tr("Latitude (opcional)")}</label>
 
                               <input id={`lat-edicao-${evidencia.id_evidencia}`}
 
@@ -1587,7 +1518,7 @@ function EvidenciasLocal() {
 
                                 disabled={salvandoEdicao} />
 
-                              <label htmlFor={`lon-edicao-${evidencia.id_evidencia}`}>Longitude (opcional)</label>
+                              <label htmlFor={`lon-edicao-${evidencia.id_evidencia}`}>{tr("Longitude (opcional)")}</label>
 
                               <input id={`lon-edicao-${evidencia.id_evidencia}`}
 
@@ -1597,7 +1528,7 @@ function EvidenciasLocal() {
 
                                 disabled={salvandoEdicao} />
 
-                              <small>Alterações nas coordenadas serão registradas como MANUAL.</small>
+                              <small>{tr("Alterações nas coordenadas serão registradas como MANUAL.")}</small>
 
 
 
@@ -1629,9 +1560,9 @@ function EvidenciasLocal() {
 
                                   {salvandoEdicao
 
-                                    ? 'Salvando...'
+                                    ? tr('Salvando...')
 
-                                    : 'Salvar'}
+                                    : tr('Salvar')}
 
                                 </button>
 
@@ -1653,11 +1584,7 @@ function EvidenciasLocal() {
 
                                   }
 
-                                >
-
-                                  Cancelar
-
-                                </button>
+                                >{tr("Cancelar")}</button>
 
                               </div>
 
@@ -1669,7 +1596,7 @@ function EvidenciasLocal() {
 
                               {evidencia.descricao ||
 
-                                'Sem descrição'}
+                                tr('Sem descrição')}
 
                             </h4>
 
@@ -1679,15 +1606,15 @@ function EvidenciasLocal() {
 
                               <div className="evidencia-details">
 
-                                <span>Localização da evidência</span>
+                                <span>{tr("Localização da evidência")}</span>
 
-                                <strong>{evidencia.latitude}, {evidencia.longitude}</strong>
+                                <strong>{numero(evidencia.latitude)}, {numero(evidencia.longitude)}</strong>
 
-                                <small>Origem: {evidencia.origem_coordenadas || 'Não informada'}
+                                <small>{tr("Origem:") + ' '}{rotulo(evidencia.origem_coordenadas || tr('Não informada'))}
 
                                   {evidencia.precisao_gps != null &&
 
-                                    ` | Precisão: ${evidencia.precisao_gps} m`}</small>
+                                    tr("| Precisão: {{p0}} m", { p0: numero(evidencia.precisao_gps) })}</small>
 
                               </div>
 
@@ -1697,17 +1624,13 @@ function EvidenciasLocal() {
 
 <div className="evidencia-details">
 
-                            <span>
-
-                              Responsável
-
-                            </span>
+                            <span>{tr("Responsável")}</span>
 
                             <strong>
 
                               {evidencia.usuario_responsavel ||
 
-                                'Usuário autenticado'}
+                                tr('Usuário autenticado')}
 
                             </strong>
 
@@ -1759,9 +1682,9 @@ function EvidenciasLocal() {
 
                                     'visualizar'
 
-                                    ? 'Abrindo...'
+                                    ? tr('Abrindo...')
 
-                                    : 'Visualizar'}
+                                    : tr('Visualizar')}
 
                                 </button>
 
@@ -1805,9 +1728,9 @@ function EvidenciasLocal() {
 
                                     'baixar'
 
-                                    ? 'Baixando...'
+                                    ? tr('Baixando...')
 
-                                    : 'Baixar'}
+                                    : tr('Baixar')}
 
                                 </button>
 
@@ -1849,11 +1772,7 @@ function EvidenciasLocal() {
 
                                 }
 
-                              >
-
-                                Editar
-
-                              </button>
+                              >{tr("Editar")}</button>
 
                             )}
 
@@ -1901,9 +1820,9 @@ function EvidenciasLocal() {
 
                                 evidencia.id_evidencia
 
-                                  ? 'Excluindo...'
+                                  ? tr('Excluindo...')
 
-                                  : 'Excluir'}
+                                  : tr('Excluir')}
 
                               </button>
 
@@ -1941,7 +1860,7 @@ function EvidenciasLocal() {
 
               >
 
-                {erro}
+                {aviso(erro)}
 
               </p>
 

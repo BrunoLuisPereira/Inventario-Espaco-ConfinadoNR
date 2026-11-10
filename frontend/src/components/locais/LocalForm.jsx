@@ -1,3 +1,4 @@
+import { useTraducao } from '../../hooks/useTraducao.js'
 import { useState } from 'react'
 import {
   atualizarLocal,
@@ -10,6 +11,8 @@ function LocalForm({
   onCancelar,
   onLocalSalvo,
 }) {
+  const { aviso, tr } = useTraducao()
+
   const editando = Boolean(localEdicao)
 
   const [formulario, setFormulario] = useState({
@@ -85,9 +88,7 @@ function LocalForm({
     >
       <div className="local-form-grid">
         <div className="local-form-field">
-          <label htmlFor="nome_local">
-            Nome do local *
-          </label>
+          <label htmlFor="nome_local">{tr("Nome do local *")}</label>
 
           <input
             id="nome_local"
@@ -96,15 +97,13 @@ function LocalForm({
             type="text"
             value={formulario.nome_local}
             onChange={atualizarCampo}
-            placeholder="Ex.: Tanque de Gás TG-01"
+            placeholder={tr("Ex.: Tanque de Gás TG-01")}
             required
           />
         </div>
 
         <div className="local-form-field">
-          <label htmlFor="setor">
-            Setor
-          </label>
+          <label htmlFor="setor">{tr("Setor")}</label>
 
           <input
             id="setor"
@@ -113,29 +112,25 @@ function LocalForm({
             type="text"
             value={formulario.setor}
             onChange={atualizarCampo}
-            placeholder="Ex.: Produção"
+            placeholder={tr("Ex.: Produção")}
           />
         </div>
 
         <div className="local-form-field local-form-field-full">
-          <label htmlFor="descricao">
-            Descrição
-          </label>
+          <label htmlFor="descricao">{tr("Descrição")}</label>
 
           <textarea
             id="descricao"
             name="descricao"
             value={formulario.descricao}
             onChange={atualizarCampo}
-            placeholder="Descreva o espaço confinado."
+            placeholder={tr("Descreva o espaço confinado.")}
             rows="4"
           />
         </div>
 
         <div className="local-form-field local-form-field-full">
-          <label htmlFor="endereco">
-            Endereço
-          </label>
+          <label htmlFor="endereco">{tr("Endereço")}</label>
 
           <input
             id="endereco"
@@ -144,14 +139,12 @@ function LocalForm({
             type="text"
             value={formulario.endereco}
             onChange={atualizarCampo}
-            placeholder="Ex.: Rua das Indústrias, 1200"
+            placeholder={tr("Ex.: Rua das Indústrias, 1200")}
           />
         </div>
 
         <div className="local-form-field">
-          <label htmlFor="latitude">
-            Latitude
-          </label>
+          <label htmlFor="latitude">{tr("Latitude")}</label>
 
           <input
             id="latitude"
@@ -162,14 +155,12 @@ function LocalForm({
             step="any"
             value={formulario.latitude}
             onChange={atualizarCampo}
-            placeholder="Ex.: -26.3044"
+            placeholder={tr("Ex.: -26.3044")}
           />
         </div>
 
         <div className="local-form-field">
-          <label htmlFor="longitude">
-            Longitude
-          </label>
+          <label htmlFor="longitude">{tr("Longitude")}</label>
 
           <input
             id="longitude"
@@ -180,14 +171,14 @@ function LocalForm({
             step="any"
             value={formulario.longitude}
             onChange={atualizarCampo}
-            placeholder="Ex.: -48.8487"
+            placeholder={tr("Ex.: -48.8487")}
           />
         </div>
       </div>
 
       {erro && (
         <p className="local-form-error" role="alert">
-          {erro}
+          {aviso(erro)}
         </p>
       )}
 
@@ -197,9 +188,7 @@ function LocalForm({
           className="local-button-secondary"
           onClick={onCancelar}
           disabled={salvando}
-        >
-          Cancelar
-        </button>
+        >{tr("Cancelar")}</button>
 
         <button
           type="submit"
@@ -207,10 +196,10 @@ function LocalForm({
           disabled={salvando}
         >
           {salvando
-            ? 'Salvando...'
+            ? tr('Salvando...')
             : editando
-              ? 'Salvar alterações'
-              : 'Cadastrar local'}
+              ? tr('Salvar alterações')
+              : tr('Cadastrar local')}
         </button>
       </div>
     </form>

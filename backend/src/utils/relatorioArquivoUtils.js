@@ -88,7 +88,8 @@ async function persistirPdf(buffer, usuario, idRelatorio) {
   const raizDepois = await fs.promises.lstat(raiz, { bigint: true });
   if (identidade(raizStat) !== identidade(raizDepois)) throw erroArquivo();
   const pastas = await diretorios(pdfs);
-  const nome = `relatorio-${idRelatorio}-${usuario.id_ambiente}_${crypto.randomUUID()}.pdf`;
+  const idGeracao = crypto.randomUUID();
+  const nome = `relatorio-${idRelatorio}-${usuario.id_ambiente}_${idGeracao}.pdf`;
   const destino = path.join(pdfs, nome);
   const handle = await fs.promises.open(destino, "wx", 0o600);
   try {
@@ -98,6 +99,6 @@ async function persistirPdf(buffer, usuario, idRelatorio) {
     if (BigInt(stat.size) !== BigInt(buffer.length)) throw erroArquivo();
   } finally { await handle.close(); }
   // Não faz unlink após falha: o nome pode ter sido substituído/associado.
-  return { caminhoRelativo: `uploads/relatorios/${nome}`, hash: crypto.createHash("sha256").update(buffer).digest("hex") };
+  return { idGeracao, caminhoRelativo: `uploads/relatorios/${nome}`, hash: crypto.createHash("sha256").update(buffer).digest("hex") };
 }
 module.exports = { persistirPdf, lerPdf, lerFoto };

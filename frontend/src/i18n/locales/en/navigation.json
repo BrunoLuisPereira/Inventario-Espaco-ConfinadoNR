@@ -1,0 +1,19 @@
+{
+  "closeMenu": "Close menu",
+  "mainMenu": "Main menu",
+  "brandAlt": "Confined Space Inventory",
+  "brandTitle": "Inventory",
+  "brandSubtitle": "Confined Spaces",
+  "currentEnvironment": "CURRENT ENVIRONMENT",
+  "mainNavigation": "Main navigation",
+  "dashboard": "Dashboard",
+  "campaigns": "Campaigns",
+  "locations": "Locations",
+  "exporting": "Exporting...",
+  "exportLocations": "Export Locations",
+  "users": "Users",
+  "invite": "Invitation",
+  "settings": "Settings",
+  "logout": "Sign out",
+  "openMenu": "Open main menu"
+}

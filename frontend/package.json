@@ -8,6 +8,8 @@
     "build:demo": "vite build --mode demo --outDir dist-demo",
     "test": "node --test",
     "test:browser": "node --experimental-websocket scripts/testar-demo-navegador.mjs",
+    "test:i18n-browser": "node --experimental-websocket scripts/testar-demo-navegador.mjs --i18n-only",
+    "test:interface-i18n": "node --experimental-websocket scripts/testar-interface-i18n.mjs",
     "test:rbac-browser": "node --experimental-websocket scripts/verificar-rbac-723.mjs",
     "test:nr33-browser": "node --experimental-websocket scripts/verificar-nr33-checklist.mjs",
     "dev": "vite",
@@ -16,8 +18,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "i18next": "^26.7.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-i18next": "^17.1.13",
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {

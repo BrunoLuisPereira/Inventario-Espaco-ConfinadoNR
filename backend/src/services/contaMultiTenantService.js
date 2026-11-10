@@ -4,7 +4,17 @@ const { erroConta } = repository;
 const tem = (objeto, campo) => Object.prototype.hasOwnProperty.call(objeto, campo);
 
 async function buscarPerfil(usuario) {
-  return repository.buscarPerfil(usuario);
+  const perfil = await repository.buscarPerfil(usuario);
+  return { ...perfil, idioma: perfil.idioma === 'en' ? 'en' : 'pt-BR' };
+}
+
+async function atualizarIdioma(dados, usuario) {
+  repository.validarIdentidade(usuario);
+  if (!dados || typeof dados !== 'object' || Array.isArray(dados) ||
+      Object.keys(dados).some(campo => campo !== 'idioma')) {
+    throw erroConta('Informe somente a preferência de idioma.', 400);
+  }
+  return repository.atualizarIdioma(usuario, dados.idioma === 'en' ? 'en' : 'pt-BR');
 }
 
 async function atualizarPerfil(dados, usuario) {
@@ -47,4 +57,4 @@ async function atualizarNomeAmbiente(dados, usuario) {
   return repository.atualizarNomeAmbiente(usuario, nome.trim());
 }
 
-module.exports = { buscarPerfil, atualizarPerfil, alterarSenha, atualizarNomeAmbiente };
+module.exports = { buscarPerfil, atualizarPerfil, alterarSenha, atualizarNomeAmbiente, atualizarIdioma };

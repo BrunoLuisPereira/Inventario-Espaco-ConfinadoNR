@@ -1,4 +1,5 @@
 import { criarHttp } from './http.js'
+import { escopoIdioma } from './preferenciaIdioma.js'
 import { exigirConexaoChecklist } from './camposNr33.js'
 import { receberAuditoriaCompleta } from './auditoriaExportacao.js'
 import { modoDemo, sessaoAtual, eventoSessaoExpirada } from './sessao.js'
@@ -77,6 +78,14 @@ export async function login(email, senha) {
  */
 export async function buscarMeuPerfil() {
   return request('/auth/perfil')
+}
+
+export function atualizarIdioma(idioma, esperada) {
+  const sessao = sessaoAtual().ler()
+  if (sessao.token !== esperada.token || escopoIdioma(sessao) !== esperada.escopo) {
+    return Promise.reject(new Error('Sessão alterada.'))
+  }
+  return request('/auth/preferencias/idioma', { method: 'PATCH', body: JSON.stringify({ idioma }) })
 }
 
 export function atualizarNomeAmbiente(nome_ambiente) {
@@ -413,8 +422,17 @@ export async function buscarRelatorioPorLocal(
 }
 
 // Express atende HEAD pela rota GET existente; confirma o arquivo sem gerar PDF.
-export function verificarPdfRelatorio(idRelatorio) {
-  return request(`/relatorios/${idRelatorio}/pdf`, { method: 'HEAD', cache: 'no-store' }, true)
+function rotaArquivoPdf(idRelatorio, documento) {
+  const base = `/relatorios/${encodeURIComponent(idRelatorio)}`
+  return documento?.id_geracao
+    ? `${base}/geracoes-pdf/${encodeURIComponent(documento.id_geracao)}/pdf?idioma=${encodeURIComponent(documento.idioma)}`
+    : `${base}/pdf`
+}
+export function listarGeracoesPdf(idRelatorio, idioma) {
+  return request(`/relatorios/${encodeURIComponent(idRelatorio)}/geracoes-pdf?idioma=${encodeURIComponent(idioma)}`, { cache: 'no-store' })
+}
+export function verificarPdfRelatorio(idRelatorio, documento) {
+  return request(rotaArquivoPdf(idRelatorio, documento), { method: 'HEAD', cache: 'no-store' }, true)
 }
 
 export async function criarRelatorio(dados) {
@@ -435,20 +453,19 @@ export async function atualizarRelatorio(
 }
 
 export async function gerarPdfRelatorio(
-  idRelatorio
+  idRelatorio, idioma
 ) {
   return request(
     `/relatorios/${idRelatorio}/gerar-pdf`,
     {
       method: 'POST',
+      body: JSON.stringify({ idioma }),
     }
   )
 }
 
 export async function buscarPdfRelatorio(
-  idRelatorio
+  idRelatorio, documento
 ) {
-  return requestArquivo(
-    `/relatorios/${idRelatorio}/pdf`
-  )
+  return request(rotaArquivoPdf(idRelatorio, documento), { method: 'GET', cache: 'no-store' }, true)
 }

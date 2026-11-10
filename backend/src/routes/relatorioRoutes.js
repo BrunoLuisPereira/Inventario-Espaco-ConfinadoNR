@@ -28,6 +28,8 @@ router.post(
   "/:id/gerar-pdf",
   relatorioController.gerarPdf
 );
+router.get('/:id/geracoes-pdf', relatorioController.listarGeracoesPdf);
+router.get('/:id/geracoes-pdf/:idGeracao/pdf', relatorioController.baixarPdf);
 
 router.get(
   "/:id/pdf",

@@ -5,6 +5,23 @@ const Module = require('node:module');
 const PDFDocument = require('pdfkit');
 const fonte = require.resolve('../src/services/pdfService');
 const fixture = require('./helpers/pdfNr33Fixture.cjs');
+const { criarIdiomaPdf } = require('../src/utils/idiomaPdf');
+
+test('catálogo PDF cobre rótulos, interpolações, precisão e fallback sem estado global', () => {
+  const catalogo = require('../src/i18n/pdf.en.json');
+  assert.ok(Object.keys(catalogo).length > 100);
+  for (const [chave, valor] of Object.entries(catalogo)) {
+    assert.ok(valor.trim(), chave);
+    assert.deepEqual(chave.match(/\{\{\w+\}\}/g), valor.match(/\{\{\w+\}\}/g));
+  }
+  const pt = criarIdiomaPdf('invalido'), en = criarIdiomaPdf('en');
+  assert.equal(pt.idioma, 'pt-BR');
+  assert.equal(en.numero('999999999999.123456'), '999,999,999,999.123456');
+  assert.equal(pt.numero('-0.000123'), '-0,000123');
+  assert.equal(en.numero('12.340000'), '12.340000');
+  assert.equal(en.data('2026-11-09'), '09/11/2026');
+  assert.equal(en.t('Página {{pagina}} de {{total}}', { pagina: 1, total: 2 }), 'Page 1 of 2');
+});
 // Leitura das páginas e streams dos PDFs sintéticos emitidos pelo PDFKit.
 // Confere bytes efetivos, além dos registros de chamadas do renderizador.
 function paginasGravadas(buffer) {
@@ -21,7 +38,9 @@ function paginasGravadas(buffer) {
     const inicio = stream.index + stream[0].length;
     const bytes = Buffer.from(objeto, 'latin1').subarray(inicio, inicio + tamanho);
     const conteudo = /\/Filter \/FlateDecode/.test(objeto) ? require('node:zlib').inflateSync(bytes).toString('latin1') : bytes.toString('latin1');
-    return Array.from(conteudo.matchAll(/<([0-9a-f]+)>/gi), m => Buffer.from(m[1], 'hex').toString('latin1')).join('');
+    // Helvetica usa WinAnsi: o marcador não é U+0095 do Latin-1.
+    return Array.from(conteudo.matchAll(/<([0-9a-f]+)>/gi), m => Buffer.from(m[1], 'hex').toString('latin1')
+      .replace(/\x95/g, '•').replace(/\x96/g, '–').replace(/\x97/g, '—')).join('');
   });
 }
 test('leitor de páginas preserva byte 0x0D no final do stream comprimido', () => {
@@ -155,7 +174,7 @@ test('valores técnicos negativos e potencialmente perigosos não são limitados
   const s = preparar(t), d = { ...fixture.dados(), pressao_atmosferica: '-7.25', oxigenio: '99.99',
     gas_inflamavel: '999999.99', monoxido_carbono: '2500.00', sulfeto_hidrogenio: '6500.00', temperatura: '-45.50', umidade: '120.00' };
   await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
-  for (const valor of ['-7,25', '99,99', '999.999,99', '2.500,00', '6.500,00', '-45,50', '120,00']) assert.ok(s.textos.includes(valor), valor);
+  for (const valor of ['-7,25', '99,99 %', '999.999,99', '2.500,00', '6.500,00', '-45,50 °C', '120,00 %']) assert.ok(s.textos.includes(valor), valor);
 });
 
 for (const id of [null, 1]) test(`histórico sem novos campos e sem respostas ABC: checklist=${id}`, async t => {
@@ -169,14 +188,15 @@ for (const id of [null, 1]) test(`histórico sem novos campos e sem respostas AB
   } else assert.ok(s.textos.includes('Checklist não cadastrado para este local.'));
   validarPaginas(s, buffer);
 });
-function validarPaginas(s, buffer) {
+function validarPaginas(s, buffer, idioma = 'pt-BR') {
+  const en = idioma === 'en';
   const paginas = paginasGravadas(buffer);
-  assert.deepEqual(s.textos.filter(v => /^Página \d+ de/.test(v)), paginas.map((_, i) => `Página ${i + 1} de ${paginas.length}`));
+  assert.deepEqual(s.textos.filter(v => (en ? /^Page \d+ of/ : /^Página \d+ de/).test(v)), paginas.map((_, i) => en ? `Page ${i + 1} of ${paginas.length}` : `Página ${i + 1} de ${paginas.length}`));
   for (let i = 0; i < paginas.length; i++) {
     const corpo = s.registros.filter(r => r.pagina === i && r.y >= 119 && r.y < 790);
     assert.ok(corpo.some(r => r.y >= 156), 'cada página deve ter conteúdo, não apenas cabeçalho/título');
     assert.ok(corpo.every(r => r.y + r.tamanho <= 776), 'conteúdo deve respeitar o rodapé');
-    const inicio = s.registros.findIndex(r => r.pagina === i && r.texto === 'INVENTÁRIO DE');
+    const inicio = s.registros.findIndex(r => r.pagina === i && r.texto === (en ? 'INVENTORY OF' : 'INVENTÁRIO DE'));
     assert.ok(inicio >= 0, 'cabeçalho em cada página');
   }
   return paginas;
@@ -380,8 +400,8 @@ test('zeros, acentos, unidades e GPS são preservados; fórmulas usam subscritos
   d.observacoes_dados_tecnicos = 'Atenção: ventilação, oxigênio, pressão e manutenção.';
   await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
   for (const valor of ['0,00', '0,0000000', '0,00 m', d.observacoes_dados_tecnicos, 'Captura GPS', 'Registro da evidência']) assert.ok(s.textos.includes(valor), valor);
-  assert.equal(s.textos.includes('0,00 %'), false);
-  assert.equal(s.textos.includes('0,00 °C'), false);
+  assert.equal(s.textos.includes('0,00 %'), true);
+  assert.equal(s.textos.includes('0,00 °C'), true);
   assert.ok(s.registros.some(r => r.texto === '2' && r.tamanho === 7));
   assert.doesNotMatch(s.textos.join(''), /uploads\/|hash_pdf|hash_sha256|Liberado para entrada/);
 });
@@ -540,4 +560,50 @@ test('tratamento legado mantém bloqueio de caminhos externos, tipos e extensõe
   assert.deepEqual(fs.consultas, []);
   assert.deepEqual(fs.leituras, []);
   assert.equal(fs.escritas.length, 1);
+});
+
+for (const idioma of ['pt-BR', 'en']) for (const variante of ['completo', 'extenso', 'incompleto']) {
+  test(`PDF internacionalizado ${idioma}: ${variante}, texto livre, unidades e layout real`, async t => {
+    const s = preparar(t), d = { ...fixture.dados(), ...fixture.caracterizacao() };
+    d.nome_local = 'LOCAL LIVRE — NÃO TRADUZIR';
+    d.observacoes_checklist = 'Não informado';
+    d.oxigenio = '20.123456'; d.temperatura = '-0.000123';
+    if (variante === 'extenso') {
+      d.descricao_local = ('Texto livre extenso para conferir paginação e legibilidade. ').repeat(150);
+      d.evidencias[0].descricao = ('Legenda livre preservada. ').repeat(200);
+    }
+    if (variante === 'incompleto') { delete d.id_checklist; delete d.id_dados; d.evidencias = []; }
+    const antes = structuredClone(d);
+    const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true, idioma,
+      imagens: new Map([[1, fixture.imagem(900, 520)]]) });
+    assert.deepEqual(d, antes);
+    const textos = s.textos.join(' ');
+    assert.match(textos, /LOCAL LIVRE/);
+    assert.ok(textos.includes(idioma === 'en' ? 'INVENTORY OF' : 'INVENTÁRIO DE'));
+    assert.ok(textos.includes(idioma === 'en' ? '6. Identification and Responsibility' : '6. Identificação e Responsabilidade'));
+    if (variante !== 'incompleto') {
+      assert.ok(textos.includes('Não informado'), 'texto livre preservado');
+      assert.ok(textos.includes(idioma === 'en' ? '20.123456 %' : '20,123456 %'));
+      assert.ok(textos.includes(idioma === 'en' ? '-0.000123 °C' : '-0,000123 °C'));
+      assert.ok(textos.includes(idioma === 'en' ? '125.123456' : '125,123456'));
+      assert.ok(s.imagens.length > 0);
+    } else assert.ok(textos.includes(idioma === 'en' ? 'No checklist registered' : 'Checklist não cadastrado'));
+    validarPaginas(s, buffer, idioma);
+    // Bytes efetivos, não apenas chamadas instrumentadas.
+    assert.ok(paginasGravadas(buffer).join('').includes(idioma === 'en' ? 'CONFINED SPACES' : 'ESPAÇOS CONFINADOS'));
+    if (idioma === 'en') {
+      const gravado = paginasGravadas(buffer).join('').replace(/\s/g, '');
+      const controlados = new Set(Object.values(require('../src/i18n/pdf.en.json')));
+      for (const texto of s.textos.filter(v => controlados.has(v))) {
+        assert.ok(gravado.includes(texto.replace(/\s/g, '')), `Rótulo não pode ser cortado: ${texto}`);
+      }
+    }
+  });
+}
+test('gerações simultâneas fixam contextos independentes de idioma', async t => {
+  const { service } = preparar(t);
+  const [pt, en] = await Promise.all(['pt-BR', 'en'].map(idioma => service.gerarPdfRelatorio(fixture.dados(), { somenteBuffer: true, idioma })));
+  const a = paginasGravadas(pt).join(''), b = paginasGravadas(en).join('');
+  assert.ok(a.includes('INVENTÁRIO DE')); assert.ok(!a.includes('INVENTORY OF'));
+  assert.ok(b.includes('INVENTORY OF')); assert.ok(!b.includes('INVENTÁRIO DE'));
 });

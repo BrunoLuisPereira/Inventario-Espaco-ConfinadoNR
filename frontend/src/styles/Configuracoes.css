@@ -178,7 +178,8 @@
   font-weight: 600;
 }
 
-.configuracoes-campo input {
+.configuracoes-campo input,
+.configuracoes-campo select {
   width: 100%;
   box-sizing: border-box;
   padding: 12px 14px;
@@ -190,7 +191,8 @@
   transition: border-color 0.2s ease;
 }
 
-.configuracoes-campo input:focus {
+.configuracoes-campo input:focus,
+.configuracoes-campo select:focus {
   outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }

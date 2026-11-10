@@ -1,3 +1,5 @@
+import SeletorIdiomaPublico from '../components/SeletorIdiomaPublico.jsx'
+import { useTraducao } from '../hooks/useTraducao.js'
 import { useState } from 'react'
 import logoInventario from '../assets/logo-inventario.png'
 import { login } from '../services/api'
@@ -9,6 +11,8 @@ import { contasDemo, senhaDemo } from '../services/demoApi.js'
 import RecuperarSenha from '../components/RecuperarSenha.jsx'
 
 function Login() {
+  const { aviso, tr } = useTraducao()
+
   const { autenticar, erroSessao } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -49,35 +53,33 @@ function Login() {
   return (
     <main className="login-page">
       <section className="login-card">
+        <SeletorIdiomaPublico />
         <div className="login-header">
           <img
             src={logoInventario}
-            alt="Inventário de Espaços Confinados"
+            alt={tr("Inventário de Espaços Confinados")}
             className="login-logo"
           />
 
-          <p>
-            Acesse o sistema para gerenciar campanhas,
-            locais, inspeções e evidências.
-          </p>
+          <p>{tr("Acesse o sistema para gerenciar campanhas, locais, inspeções e evidências.")}</p>
         </div>
 
-        {modoDemo && <section className="demo-contas" aria-label="Contas fictícias">
-          <strong>Contas fictícias para teste</strong>
-          <p>Senha: {senhaDemo}</p>
+        {modoDemo && <section className="demo-contas" aria-label={tr("Contas fictícias")}>
+          <strong>{tr("Contas fictícias para teste")}</strong>
+          <p>{tr("Senha:") + ' '}{senhaDemo}</p>
           {contasDemo.map(conta => <button type="button" key={conta} onClick={() => { setEmail(conta); setSenha(senhaDemo); setErro('') }}>{conta}</button>)}
         </section>}
-        {erroSessao && <p role="alert">{erroSessao}</p>}
-        {location.state?.mensagem && <p role="status">{location.state.mensagem}</p>}
+        {erroSessao && <p role="alert">{aviso(erroSessao)}</p>}
+        {location.state?.mensagem && <p role="status">{aviso(location.state.mensagem)}</p>}
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="email">E-mail</label>
+            <label htmlFor="email">{tr("E-mail")}</label>
 
             <input
               id="email"
               name="email"
               type="email"
-              placeholder="seu@email.com"
+              placeholder={tr('seu@email.com')}
               autoComplete="email"
               required
               value={email}
@@ -86,20 +88,20 @@ function Login() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="senha">Senha</label>
+            <label htmlFor="senha">{tr("Senha")}</label>
 
             <div className="login-senha">
             <input
               id="senha"
               name="senha"
               type={senhaVisivel ? 'text' : 'password'}
-              placeholder="Digite sua senha"
+              placeholder={tr("Digite sua senha")}
               autoComplete="current-password"
               required
               value={senha}
               onChange={(event) => setSenha(event.target.value)}
             />
-            <button type="button" className="login-olho" aria-label={senhaVisivel ? 'Ocultar senha' : 'Mostrar senha'} aria-controls="senha" aria-pressed={senhaVisivel} onClick={() => setSenhaVisivel(v => !v)}>
+            <button type="button" className="login-olho" aria-label={senhaVisivel ? tr('Ocultar senha') : tr('Mostrar senha')} aria-controls="senha" aria-pressed={senhaVisivel} onClick={() => setSenhaVisivel(v => !v)}>
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
                 <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
                 <circle cx="12" cy="12" r="3" />
@@ -111,16 +113,14 @@ function Login() {
 
           {erro && (
             <p className="login-error" role="alert">
-              {erro}
+              {aviso(erro)}
             </p>
           )}
 
           <div className="login-options">
-            <Link to="/cadastro">Criar conta</Link>
+            <Link to="/cadastro">{tr("Criar conta")}</Link>
 
-            <button type="button" aria-haspopup="dialog" onClick={() => setRecuperacaoAberta(true)}>
-              Esqueci minha senha
-            </button>
+            <button type="button" aria-haspopup="dialog" onClick={() => setRecuperacaoAberta(true)}>{tr("Esqueci minha senha")}</button>
           </div>
 
           <button
@@ -128,13 +128,11 @@ function Login() {
             className="login-button"
             disabled={carregando}
           >
-            {carregando ? 'Entrando...' : 'Entrar'}
+            {carregando ? tr('Entrando...') : tr('Entrar')}
           </button>
         </form>
 
-        <p className="login-footer">
-          Sistema de Gestão de Espaços Confinados
-        </p>
+        <p className="login-footer">{tr("Sistema de Gestão de Espaços Confinados")}</p>
       </section>
       {recuperacaoAberta && <RecuperarSenha onClose={() => setRecuperacaoAberta(false)} />}
     </main>

@@ -2,24 +2,26 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { consultarPdfLocal } from '../src/services/pdfLocal.js'
 
+const documento = { id_geracao: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', id_relatorio: 91, idioma: 'pt-BR' }
 function apiFixture(relatorio, status) {
   const chamadas = []
   return { chamadas,
     async buscarRelatorioPorLocal(id) { chamadas.push(['consulta', id]); return { data: relatorio } },
+    async listarGeracoesPdf(id, idioma) { chamadas.push(['geracoes', id, idioma]); return { data: { geracoes: relatorio?.caminho_pdf?.trim() ? [{ ...documento, id_relatorio: id }] : [] } } },
     async verificarPdfRelatorio(id) { chamadas.push(['HEAD', id]); if (status) throw Object.assign(Error(), { status }) },
   }
 }
-test('arquivo confirmado habilita PDF mesmo sem depender do status do inventario', async () => {
+test('geração confirmada no idioma padrão habilita PDF sem depender do status do inventario', async () => {
   const api = apiFixture({ id_local: '12', id_relatorio: 91, caminho_pdf: 'uploads/relatorios/fixture.pdf', status: 'RASCUNHO' })
-  assert.deepEqual(await consultarPdfLocal(12, api), { estado: 'disponivel', idRelatorio: 91 })
-  assert.deepEqual(api.chamadas, [['consulta', 12], ['HEAD', 91]])
+  assert.deepEqual(await consultarPdfLocal(12, api), { estado: 'disponivel', idRelatorio: 91, documento })
+  assert.deepEqual(api.chamadas, [['consulta', 12], ['geracoes', 91, 'pt-BR'], ['HEAD', 91]])
 })
 for (const relatorio of [null, { id_local: 12, id_relatorio: 91, status: 'GERADO' },
   { id_local: 12, id_relatorio: 91, caminho_pdf: ' ' }, { id_local: 13, id_relatorio: 91, caminho_pdf: 'fixture.pdf' }]) {
   test('metadados sem PDF ou de outro local nunca habilitam nem consultam arquivo: '+JSON.stringify(relatorio), async () => {
     const api = apiFixture(relatorio)
     assert.deepEqual(await consultarPdfLocal(12, api), { estado: 'ausente' })
-    assert.equal(api.chamadas.length, 1)
+    assert.equal(api.chamadas.length, relatorio?.id_relatorio && String(relatorio.id_local) === '12' ? 2 : 1)
   })
 }
 for (const [status, esperado] of [[404, 'ausente'], [403, 'nao-autorizado'], [500, 'erro'], [503, 'erro']]) {
@@ -48,7 +50,7 @@ test('no maximo quatro locais em consulta simultanea', async () => {
     ativos++; maximo = Math.max(maximo, ativos)
     await new Promise(resolve => setTimeout(resolve, 5)); ativos--
     return { data: { id_local: id, id_relatorio: id, caminho_pdf: 'fixture.pdf' } }
-  }, async verificarPdfRelatorio() {} }
+  }, async listarGeracoesPdf(id) { return { data: { geracoes: [{ ...documento, id_relatorio: id }] } } }, async verificarPdfRelatorio() {} }
   assert.ok((await Promise.all(Array.from({ length: 15 }, (_, i) => consultarPdfLocal(i+1, api)))).every(r => r.estado === 'disponivel'))
   assert.equal(maximo, 4)
 })

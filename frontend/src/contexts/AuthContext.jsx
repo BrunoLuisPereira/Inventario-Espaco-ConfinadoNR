@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { AuthContext } from './AuthContext.js'
 import { buscarMeuPerfil, atualizarNomeAmbiente } from '../services/api.js'
-import { sessaoAtual, eventoSessaoExpirada } from '../services/sessao.js'
+import { sessaoAtual, eventoSessaoExpirada, modoDemo } from '../services/sessao.js'
+import { capturarConsultaIdioma } from '../services/preferenciaIdioma.js'
 
 export function AuthProvider({ children }) {
   const [sessao, setSessao] = useState(() => sessaoAtual().ler())
@@ -33,12 +34,14 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!token) return
     let atual = true
+    const consultaIdioma = capturarConsultaIdioma(modoDemo ? sessionStorage : localStorage,
+      sessaoAtual().ler(), modoDemo ? 'nr33-demo:idioma:v1:' : 'nr33:idioma:v1:')
     buscarMeuPerfil().then(resposta => {
-      if (!atual) return
+      if (!atual || sessaoAtual().ler().token !== token) return
       if (!resposta.data?.id_usuario) throw new Error('Resposta de sessão inválida.')
       const dados = { token, usuario: resposta.data }
       sessaoAtual().salvar(dados)
-      setSessao(dados)
+      setSessao({ ...dados, consultaIdioma })
       setValidacao(token)
       setErroSessao('')
     }).catch(error => {
@@ -79,7 +82,7 @@ export function AuthProvider({ children }) {
       ? { ...anterior, usuario: { ...anterior.usuario, nome_ambiente: resposta.data.nome_ambiente } } : anterior)
     setTentativa(n => n + 1)
   }
-  return <AuthContext.Provider value={{ usuario: sessao.usuario, token,
+  return <AuthContext.Provider value={{ usuario: sessao.usuario, token, consultaIdioma: sessao.consultaIdioma,
     autenticado: Boolean(token && validacao === token),
     carregandoSessao: Boolean(token && validacao !== token && !erroSessao),
     erroSessao, tentarNovamente, autenticar, atualizarUsuario, salvarNomeAmbiente, logout }}>{children}</AuthContext.Provider>

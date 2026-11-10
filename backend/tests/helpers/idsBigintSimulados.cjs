@@ -126,10 +126,15 @@ function preparar(t, opcoes = {}) {
         if (s.includes('FOR ')) { assert.ok(aberta); return row({ id_local: r.id_local, id_campanha: env === A ? '30' : 31 }); }
         return row({ ...r });
       }
-      if (s.startsWith('UPDATE relatorio AS r SET caminho_pdf')) {
+      if (s.startsWith('SELECT to_regclass')) return row({ tabela: 'relatorio_pdf_geracao' });
+      if (s.startsWith('INSERT INTO public.relatorio_pdf_geracao')) {
+        assert.ok(aberta);
+        return row({ id_geracao: params[3], id_relatorio: params[0], id_ambiente: params[1], id_solicitante: params[2], idioma: params[4], caminho_pdf: params[5], hash_pdf: params[6] });
+      }
+      if (s.startsWith('UPDATE relatorio AS r SET status')) {
         assert.ok(aberta); assert.match(s, /c.id_ambiente = \$2/);
         const r = relatorios.find(r => igual(r.id_relatorio, params[0]) && r.id_ambiente === params[1]);
-        assert.ok(r); r.caminho_pdf = params[3]; r.hash_pdf = params[4]; return row({ ...r });
+        assert.ok(r); assert.equal(params.length, 3); r.status = 'GERADO'; return row({ ...r });
       }
       if (s.startsWith('SELECT s.* FROM sincronizacao s')) {
         assert.match(s, /s.id_ambiente = \$1/); assert.match(s, /solicitante.id_usuario = \$2/);
@@ -147,6 +152,7 @@ function preparar(t, opcoes = {}) {
   t.mock.method(Module, '_load', function (r, parent, ...args) {
       // Politica RBAC pura; demais imports desconhecidos continuam proibidos.
       if (r === '../utils/permissoes') return politicaRbac723;
+      if (r === '../utils/idiomaPdf') return require('../../src/utils/idiomaPdf');
       if (r === '../utils/caracterizacaoChecklist') return caracterizacaoChecklist;
     const deps = dependencias.get(parent?.filename);
     if (deps) return Object.hasOwn(deps, r) ? deps[r] : proibido('import ' + r);

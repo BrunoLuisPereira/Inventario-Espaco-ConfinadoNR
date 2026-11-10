@@ -1,0 +1,19 @@
+{
+  "closeMenu": "Fechar menu",
+  "mainMenu": "Menu principal",
+  "brandAlt": "Inventário de Espaços Confinados",
+  "brandTitle": "Inventário",
+  "brandSubtitle": "Espaços Confinados",
+  "currentEnvironment": "AMBIENTE ATUAL",
+  "mainNavigation": "Navegação principal",
+  "dashboard": "Dashboard",
+  "campaigns": "Campanhas",
+  "locations": "Locais",
+  "exporting": "Exportando...",
+  "exportLocations": "Exportar Locais",
+  "users": "Usuários",
+  "invite": "Convite",
+  "settings": "Configurações",
+  "logout": "Sair",
+  "openMenu": "Abrir menu principal"
+}

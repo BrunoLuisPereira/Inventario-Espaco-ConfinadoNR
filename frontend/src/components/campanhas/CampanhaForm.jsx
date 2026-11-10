@@ -1,3 +1,4 @@
+import { useTraducao } from '../../hooks/useTraducao.js'
 import { useState } from 'react'
 import {
   atualizarCampanha,
@@ -17,6 +18,8 @@ function CampanhaForm({
   onCancelar,
   onCampanhaSalva,
 }) {
+  const { aviso, tr } = useTraducao()
+
   const editando = Boolean(campanha)
 
   const [formulario, setFormulario] = useState({
@@ -82,17 +85,15 @@ function CampanhaForm({
     >
       <div className="campanha-form-grid">
         {editando && <div className="campanha-form-field">
-          <label htmlFor="status-campanha">Status da campanha</label>
+          <label htmlFor="status-campanha">{tr("Status da campanha")}</label>
           <select id="status-campanha" name="status" value={formulario.status} onChange={atualizarCampo} disabled={salvando} required>
-            <option value="EM ANDAMENTO">EM ANDAMENTO</option>
-            <option value="CONCLUIDO">CONCLUÍDO</option>
-            <option value="CANCELADA">CANCELADA</option>
+            <option value="EM ANDAMENTO">{tr("EM ANDAMENTO")}</option>
+            <option value="CONCLUIDO">{tr("CONCLUÍDO")}</option>
+            <option value="CANCELADA">{tr("CANCELADA")}</option>
           </select>
         </div>}
         <div className="campanha-form-field">
-          <label htmlFor="nome_campanha">
-            Nome da campanha
-          </label>
+          <label htmlFor="nome_campanha">{tr("Nome da campanha")}</label>
 
           <input
             id="nome_campanha"
@@ -106,9 +107,7 @@ function CampanhaForm({
         </div>
 
         <div className="campanha-form-field">
-          <label htmlFor="empresa">
-            Empresa
-          </label>
+          <label htmlFor="empresa">{tr("Empresa")}</label>
 
           <input
             id="empresa"
@@ -122,9 +121,7 @@ function CampanhaForm({
         </div>
 
         <div className="campanha-form-field">
-          <label htmlFor="responsavel">
-            Responsável
-          </label>
+          <label htmlFor="responsavel">{tr("Responsável")}</label>
 
           <input
             id="responsavel"
@@ -138,9 +135,7 @@ function CampanhaForm({
         </div>
 
         <div className="campanha-form-field">
-          <label htmlFor="data_inicio">
-            Data de início
-          </label>
+          <label htmlFor="data_inicio">{tr("Data de início")}</label>
 
           <input
             id="data_inicio"
@@ -155,7 +150,7 @@ function CampanhaForm({
 
       {erro && (
         <p className="campanhas-error" role="alert">
-          {erro}
+          {aviso(erro)}
         </p>
       )}
 
@@ -165,9 +160,7 @@ function CampanhaForm({
           className="campanha-button-secondary"
           onClick={onCancelar}
           disabled={salvando}
-        >
-          Cancelar
-        </button>
+        >{tr("Cancelar")}</button>
 
         <button
           type="submit"
@@ -175,10 +168,10 @@ function CampanhaForm({
           disabled={salvando}
         >
           {salvando
-            ? 'Salvando...'
+            ? tr('Salvando...')
             : editando
-              ? 'Salvar alterações'
-              : 'Cadastrar campanha'}
+              ? tr('Salvar alterações')
+              : tr('Cadastrar campanha')}
         </button>
       </div>
     </form>

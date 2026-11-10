@@ -40,6 +40,10 @@ router.get('/perfil', autenticarMultiTenant, handler(
   (req) => contaService.buscarPerfil(req.usuario),
   'Perfil consultado com sucesso.', 'Erro interno ao consultar perfil.'
 ));
+router.patch('/preferencias/idioma', autenticarMultiTenant, handler(
+  (req) => contaService.atualizarIdioma(req.body, req.usuario),
+  'Preferência de idioma atualizada.', 'Preferência de idioma indisponível.'
+));
 router.put('/perfil', autenticarMultiTenant, handler(
   (req) => contaService.atualizarPerfil(req.body, req.usuario),
   'Perfil atualizado com sucesso.', 'Erro interno ao atualizar perfil.'

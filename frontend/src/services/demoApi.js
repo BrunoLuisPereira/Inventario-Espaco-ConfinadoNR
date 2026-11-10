@@ -63,7 +63,13 @@ export function criarDemo(storage) {
     }
     const u = estado.usuarios.find(u => u.id_usuario === estado.sessoes[token] && u.ativo)
     if (!u) throw erro(401, 'Sessão de demonstração expirada. Entre novamente.')
-    if (endpoint === '/auth/perfil' && method === 'GET') return sucesso(u)
+    if (endpoint === '/auth/perfil' && method === 'GET') return sucesso({ ...u, idioma: u.idioma === 'en' ? 'en' : 'pt-BR' })
+    if (endpoint === '/auth/preferencias/idioma' && method === 'PATCH') {
+      if (Object.keys(dados).some(campo => campo !== 'idioma')) throw erro(400, 'Informe somente o idioma.')
+      u.idioma = dados.idioma === 'en' ? 'en' : 'pt-BR'
+      salvar()
+      return sucesso({ id_usuario: u.id_usuario, id_ambiente: u.id_ambiente, idioma: u.idioma })
+    }
     if (endpoint === '/campanhas' && method === 'GET') return sucesso(estado.campanhas.filter(c => campanhaPermitida(c, u)))
     if (/^\/campanhas\/[^/]+$/.test(endpoint) && method === 'GET') return sucesso(campanha(endpoint.split('/')[2], u))
     if (endpoint === '/campanhas' && method === 'POST') {
