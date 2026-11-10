@@ -139,7 +139,8 @@ test('Armazenamento de sessão tolera JSON inválido, isola demo e limpa logout'
   const memoria = storage(), real = criarSessao(memoria), demo = criarSessao(memoria, 'nr33-demo:')
   memoria.setItem('usuario', '{invalido'); memoria.setItem('token', 'real')
   assert.equal(real.ler().token, null)
-  demo.salvar({ token: 'demo', usuario: { id_usuario: '10' } })
+  demo.salvar({ token: 'demo', usuario: { id_usuario: '10', id_ambiente: '11111111-1111-4111-8111-111111111111',
+    nome: 'Pessoa Demo', email: 'demo@example.invalid', perfil_acesso: 'ADMINISTRADOR', eh_fundador: true } })
   assert.equal(demo.ler().token, 'demo'); assert.equal(memoria.getItem('token'), 'real')
   demo.limpar(); assert.equal(demo.ler().token, null); assert.equal(memoria.getItem('token'), 'real')
   assert.throws(() => demo.salvar({ token: null, usuario: {} }))

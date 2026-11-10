@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AuthContext } from './AuthContext.js'
 import { buscarMeuPerfil, atualizarNomeAmbiente } from '../services/api.js'
 import { sessaoAtual, eventoSessaoExpirada, modoDemo } from '../services/sessao.js'
 import { capturarConsultaIdioma } from '../services/preferenciaIdioma.js'
+
+const mesmaSessao = (a, b) => a.token === b.token &&
+  String(a.usuario?.id_usuario) === String(b.usuario?.id_usuario) && a.usuario?.id_ambiente === b.usuario?.id_ambiente
 
 export function AuthProvider({ children }) {
   const [sessao, setSessao] = useState(() => sessaoAtual().ler())
@@ -10,6 +13,15 @@ export function AuthProvider({ children }) {
   const [erroSessao, setErroSessao] = useState('')
   const [tentativa, setTentativa] = useState(0)
   const { token } = sessao
+  const salvarSessao = useCallback(entrada => {
+    try { return sessaoAtual().salvar(entrada) }
+    catch (error) {
+      const preservada = sessaoAtual().ler()
+      setSessao(preservada)
+      if (preservada.token !== token) setValidacao(null)
+      throw error
+    }
+  }, [token])
   useEffect(() => {
     if (!token) return
     const revalidar = () => { if (document.visibilityState !== 'hidden') setTentativa(n => n + 1) }
@@ -38,34 +50,34 @@ export function AuthProvider({ children }) {
       sessaoAtual().ler(), modoDemo ? 'nr33-demo:idioma:v1:' : 'nr33:idioma:v1:')
     buscarMeuPerfil().then(resposta => {
       if (!atual || sessaoAtual().ler().token !== token) return
-      if (!resposta.data?.id_usuario) throw new Error('Resposta de sessão inválida.')
-      const dados = { token, usuario: resposta.data }
-      sessaoAtual().salvar(dados)
+      const dados = salvarSessao({ token, usuario: resposta.data })
       setSessao({ ...dados, consultaIdioma })
       setValidacao(token)
       setErroSessao('')
     }).catch(error => {
       // O evento central já encerrou a sessão e definiu a mensagem pública.
-      if (atual && error.status !== 401) setErroSessao(error.message)
+      if (atual && sessaoAtual().ler().token === token && error.status !== 401) setErroSessao(error.message)
     })
     return () => { atual = false }
-  }, [token, tentativa])
+  }, [token, tentativa, salvarSessao])
   function autenticar(dadosLogin) {
-    sessaoAtual().salvar(dadosLogin)
+    const dados = salvarSessao(dadosLogin)
     setValidacao(null)
     setErroSessao('')
-    setSessao({ token: dadosLogin.token, usuario: dadosLogin.usuario })
+    setSessao(dados)
   }
   function logout() {
-    sessaoAtual().limpar()
-    setSessao({ token: null, usuario: null })
-    setValidacao(null)
-    setErroSessao('')
+    try { sessaoAtual().limpar() }
+    finally {
+      setSessao({ token: null, usuario: null })
+      setValidacao(null)
+      setErroSessao('')
+    }
   }
   function atualizarUsuario(dadosAtualizados) {
-    if (!sessao.usuario) return
-    const dados = { token, usuario: { ...sessao.usuario, nome: dadosAtualizados.nome, email: dadosAtualizados.email } }
-    sessaoAtual().salvar(dados)
+    const atual = sessaoAtual().ler()
+    if (!sessao.usuario || !mesmaSessao(atual, sessao)) return
+    const dados = salvarSessao({ token, usuario: { ...atual.usuario, nome: dadosAtualizados.nome, email: dadosAtualizados.email } })
     setSessao(dados)
   }
   function tentarNovamente() {
@@ -74,12 +86,14 @@ export function AuthProvider({ children }) {
   }
   async function salvarNomeAmbiente(nome) {
     const resposta = await atualizarNomeAmbiente(nome)
+    const atual = sessaoAtual().ler()
+    if (!mesmaSessao(atual, sessao)) return
     if (typeof resposta.data?.nome_ambiente !== 'string' || !resposta.data.nome_ambiente.trim()) {
       throw new Error('Resposta de ambiente inválida.')
     }
     // Só aplica uma resposta confirmada à mesma sessão que iniciou a escrita.
-    setSessao(anterior => anterior.token === token && anterior.usuario?.id_usuario === sessao.usuario?.id_usuario
-      ? { ...anterior, usuario: { ...anterior.usuario, nome_ambiente: resposta.data.nome_ambiente } } : anterior)
+    const dados = salvarSessao({ token, usuario: { ...atual.usuario, nome_ambiente: resposta.data.nome_ambiente } })
+    setSessao(anterior => mesmaSessao(anterior, dados) ? { ...dados, consultaIdioma: anterior.consultaIdioma } : anterior)
     setTentativa(n => n + 1)
   }
   return <AuthContext.Provider value={{ usuario: sessao.usuario, token, consultaIdioma: sessao.consultaIdioma,
