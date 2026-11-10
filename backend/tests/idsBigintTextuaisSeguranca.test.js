@@ -1,6 +1,5 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const jwt = require('jsonwebtoken');
 const { preparar, A, B, UUID, PDF } = require('./helpers/idsBigintSimulados.cjs');
 
 // Regressões desejadas: falhas de sucesso devem permanecer visíveis até a
@@ -24,7 +23,7 @@ for (const ids of [[10, 10], ['10', '10'], [10, '10'], ['10', 10]]) {
     assert.equal(res.body.message, 'Login realizado com sucesso.');
     assert.equal(String(res.body.data.usuario.id_usuario), '10'); assert.equal(res.body.data.usuario.perfil_acesso, 'ADMINISTRADOR');
     assert.equal(res.body.data.usuario.senha_hash, undefined);
-    const claims = jwt.verify(res.body.data.token, 'segredo-ficticio-regressoes-bigint');
+    const claims = c.verificarToken(res.body.data.token);
     assert.equal(claims.sub, '10'); assert.equal(claims.id_ambiente, undefined);
     assert.equal(c.consultas.filter(q => q.sql.includes('WHERE LOWER(u.email)')).length, 2);
   });

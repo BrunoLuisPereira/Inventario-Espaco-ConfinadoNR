@@ -1,8 +1,6 @@
 // Homologação futura, SOMENTE após aprovação e aplicação manual da 023.
 // Não lê .env, não cria estruturas e não consulta usuário/ambiente.
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
 const { createHash, randomUUID } = require('node:crypto');
 const { promisify } = require('node:util');
 const { execFile } = require('node:child_process');
@@ -32,11 +30,8 @@ async function main() {
     assert.equal(identidade.privilegiado, false);
     const { rows: tabelas } = await pool.query(`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`);
     assert.deepEqual(tabelas, [{ tablename: 'login_tentativa' }], 'Exige banco descartável só com a tabela 023');
-    const fonte = fs.readFileSync(require.resolve('../src/repositories/loginTentativaRepository'), 'utf8');
-    const modulo = { exports: {} };
-    vm.runInThisContext(`(function(require,module,exports){${fonte}\n})`, { filename: 'loginTentativaRepository-isolado.js' })
-      (nome => { assert.equal(nome, '../config/database'); return pool; }, modulo, modulo.exports);
-    const repo = modulo.exports;
+    const { criarLoginTentativaRepository } = require('../src/repositories/loginTentativaRepositoryFactory');
+    const repo = criarLoginTentativaRepository(pool);
     const invalido = () => { throw Object.assign(Error('E-mail ou senha inválidos.'), { statusCode: 401 }); };
     const recusa = (promessa, statusCode) => assert.rejects(promessa, { statusCode });
     const nova = () => { const chave = createHash('sha256').update('PASSO25:' + randomUUID()).digest('hex'); chaves.push(chave); return chave; };
@@ -98,6 +93,7 @@ async function main() {
     }
   }
 }
+module.exports = { main };
 if (require.main === module) main().catch(() => {
   console.error('Homologação isolada não aprovada. Confira destino, pré-requisitos e asserções; detalhes internos omitidos.');
   process.exitCode = 1;

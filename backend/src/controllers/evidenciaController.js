@@ -44,7 +44,7 @@ async function criar(req, res, next) {
  * a sincronização offline.
  */
 async function criarComUpload(req, res, next) {
-  if (res.headersSent) return;
+  if (res.headersSent || res.destroyed) { req.uploadEvidenciaRecursos?.finalizar(); return; }
   let arquivoPersistido = false;
   let associado = false;
   try {
@@ -61,7 +61,7 @@ async function criarComUpload(req, res, next) {
     const preparado = await evidenciaMultiTenantService.prepararUpload({
       ...req.body, tipo: formato.tipo, caminho_arquivo: null,
     }, req.usuario);
-    if (res.headersSent) return;
+    if (res.headersSent || res.destroyed || req.uploadEvidenciaRecursos?.cancelado) return;
     if (preparado.existente) {
       return res.status(200).json({
         status: "success",
@@ -69,9 +69,10 @@ async function criarComUpload(req, res, next) {
         data: preparado.existente,
       });
     }
-    const arquivo = await evidenciaArquivoUtils.persistirUploadAutorizado(
-      req.file, req.usuario, preparado.dados.id_local
-    );
+    const persistir = file => evidenciaArquivoUtils.persistirUploadAutorizado(file, req.usuario, preparado.dados.id_local);
+    const arquivo = req.uploadEvidenciaRecursos
+      ? await req.uploadEvidenciaRecursos.usarArquivo(persistir)
+      : await persistir(req.file);
     arquivoPersistido = true;
     // A escrita SQL revalida o contexto; não usa a leitura prévia como autorização final.
     const resultado = await evidenciaMultiTenantService.criarEvidencia({
@@ -79,7 +80,7 @@ async function criarComUpload(req, res, next) {
     }, req.usuario, { incluirResultadoCriacao: true });
     associado = resultado.criada === true;
     if (!associado) console.warn("Upload sem associação: reconciliação segura pendente.");
-    if (res.headersSent) return;
+    if (res.headersSent || res.destroyed) return;
     // Nenhum unlink automático: falha ou corrida não comprova ausência de
     // referência. Arquivo não associado fica pendente para reconciliação segura.
     return res.status(resultado.criada ? 201 : 200).json({
@@ -91,8 +92,10 @@ async function criarComUpload(req, res, next) {
     });
   } catch (erro) {
     if (arquivoPersistido && !associado) console.warn("Upload sem associação: reconciliação segura pendente.");
-    if (res.headersSent) return;
+    if (res.headersSent || res.destroyed) return;
     next(erro);
+  } finally {
+    req.uploadEvidenciaRecursos?.finalizar();
   }
 }
 

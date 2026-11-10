@@ -75,7 +75,7 @@ async function preparar(t) {
       },
     },
   });
-  const upload = carregar('../src/middlewares/uploadEvidenciaMiddleware.js', { multer });
+  const upload = carregar('../src/middlewares/uploadEvidenciaMiddleware.js', { multer, 'node:stream': require('node:stream') });
   const routerEvidencia = carregar('../src/routes/evidenciaRoutes.js', {
     express, '../utils/permissoes': politica, '../controllers/evidenciaController': controllerEvidencia,
     '../middlewares/autenticacaoMiddleware': auth, '../middlewares/uploadEvidenciaMiddleware': upload,
