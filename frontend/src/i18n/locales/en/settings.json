@@ -45,5 +45,7 @@
   "languagePending": "Preference saved on this device. Waiting to sync with your account.",
   "languageError": "Your preference remains on this device. Sync failed; we will retry when you reconnect or return to this window.",
   "portuguese": "Português (Brasil)",
-  "english": "English"
+  "english": "English",
+  "securityTab": "Security",
+  "appearanceTab": "Appearance"
 }

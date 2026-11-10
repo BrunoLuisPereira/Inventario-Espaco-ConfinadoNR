@@ -29,6 +29,35 @@ function Configuracoes() {
   const [salvandoAmbiente, setSalvandoAmbiente] = useState(false)
   const [mensagemAmbiente, setMensagemAmbiente] = useState(null)
   const navigate = useNavigate()
+  const [abaAtiva, setAbaAtiva] = useState('perfil')
+  const abas = [
+    { id: 'perfil', label: t('profileTitle') },
+    { id: 'seguranca', label: t('securityTab') },
+    { id: 'aparencia', label: t('appearanceTab') },
+    { id: 'ambiente', label: t('environmentTitle') },
+  ]
+
+  function navegarAbas(evento, indice) {
+    let destino
+    if (evento.key === 'ArrowRight') destino = (indice + 1) % abas.length
+    if (evento.key === 'ArrowLeft') destino = (indice - 1 + abas.length) % abas.length
+    if (evento.key === 'Home') destino = 0
+    if (evento.key === 'End') destino = abas.length - 1
+    if (destino === undefined) return
+    evento.preventDefault()
+    setAbaAtiva(abas[destino].id)
+    document.getElementById('configuracoes-aba-' + abas[destino].id)?.focus()
+  }
+
+  function painel(id) {
+    return {
+      id: 'configuracoes-painel-' + id,
+      role: 'tabpanel',
+      'aria-labelledby': 'configuracoes-aba-' + id,
+      hidden: abaAtiva !== id,
+      tabIndex: 0,
+    }
+  }
 
   const [perfil, setPerfil] = useState({
     nome: '',
@@ -232,37 +261,21 @@ function Configuracoes() {
             </p>
           </div>
 
-          {/* MEU PERFIL */}
-          <section className="configuracoes-card">
-            <div className="configuracoes-card-header">
-              <span className="configuracoes-section-label">{t('currentEnvironment')}</span>
-              <h2>{t('environmentTitle')}</h2>
-            </div>
-            <form className="configuracoes-form" onSubmit={salvarAmbiente}>
-            <div className="configuracoes-campo">
-              <label htmlFor="empresa-ambiente">{t('environmentName')}</label>
-              <input id="empresa-ambiente" type="text"
-                value={editandoAmbiente && ambiente.podeEditar ? nomeAmbiente : ambiente.mensagem}
-                onChange={evento => { setNomeAmbiente(evento.target.value); setMensagemAmbiente(null) }}
-                maxLength={180} required={editandoAmbiente && ambiente.podeEditar}
-                disabled={salvandoAmbiente} title={ambiente.nome || undefined}
-                readOnly={!editandoAmbiente || !ambiente.podeEditar} />
-            </div>
-            {mensagemAmbiente && <div className="configuracoes-mensagem"
-              role={mensagemAmbiente.tipo === 'erro' ? 'alert' : 'status'}>{aviso(mensagemAmbiente.texto)}</div>}
-            {ambiente.podeEditar && <div className="configuracoes-acoes configuracoes-ambiente-acoes">
-              {editandoAmbiente ? <>
-                <button type="button" className="configuracoes-botao configuracoes-botao-secundario"
-                  disabled={salvandoAmbiente} onClick={() => { setEditandoAmbiente(false); setMensagemAmbiente(null) }}>{t('cancel')}</button>
-                <button type="submit" className="configuracoes-botao" disabled={salvandoAmbiente}>
-                  {salvandoAmbiente ? t('savingEnvironment') : t('saveEnvironment')}</button>
-              </> : <button type="button" className="configuracoes-botao"
-                onClick={() => { setNomeAmbiente(ambiente.nome); setEditandoAmbiente(true); setMensagemAmbiente(null) }}>{t('editEnvironment')}</button>}
-            </div>}
-            </form>
-          </section>
+          <div className="configuracoes-abas" role="tablist" aria-label={t('title')}>
+            {abas.map((aba, indice) => (
+              <button key={aba.id} id={'configuracoes-aba-' + aba.id}
+                type="button" role="tab" className="configuracoes-aba"
+                aria-selected={abaAtiva === aba.id}
+                aria-controls={'configuracoes-painel-' + aba.id}
+                tabIndex={abaAtiva === aba.id ? 0 : -1}
+                onClick={() => setAbaAtiva(aba.id)}
+                onKeyDown={evento => navegarAbas(evento, indice)}>
+                {aba.label}
+              </button>
+            ))}
+          </div>
 
-          <section className="configuracoes-card">
+          <section className="configuracoes-card" {...painel('perfil')}>
             <div className="configuracoes-card-header">
               <span className="configuracoes-section-label">
                 {t('account')}
@@ -356,7 +369,7 @@ function Configuracoes() {
           </section>
 
           {/* ALTERAR SENHA */}
-          <section className="configuracoes-card">
+          <section className="configuracoes-card" {...painel('seguranca')}>
             <div className="configuracoes-card-header">
               <span className="configuracoes-section-label">
                 {t('security')}
@@ -448,7 +461,7 @@ function Configuracoes() {
           </section>
 
           {/* APARÊNCIA */}
-          <section className="configuracoes-card">
+          <section className="configuracoes-card" {...painel('aparencia')}>
             <div className="configuracoes-card-header">
               <span className="configuracoes-section-label">
                 {t('appearance')}
@@ -516,8 +529,7 @@ function Configuracoes() {
             <p className="tema-observacao">
               {t('themeNote')}
             </p>
-          </section>
-          <section className="configuracoes-card">
+          <div className="configuracoes-idioma">
             <div className="configuracoes-card-header">
               <span className="configuracoes-section-label">{t('languageSection')}</span>
               <h2>{t('languageTitle')}</h2>
@@ -535,7 +547,38 @@ function Configuracoes() {
             <p id="idioma-observacao" className="tema-observacao" role="status">
               {t(erroIdioma ? 'languageError' : pendente ? 'languagePending' : 'languageNote')}
             </p>
+          </div>
           </section>
+
+          <section className="configuracoes-card" {...painel('ambiente')}>
+            <div className="configuracoes-card-header">
+              <span className="configuracoes-section-label">{t('currentEnvironment')}</span>
+              <h2>{t('environmentTitle')}</h2>
+            </div>
+            <form className="configuracoes-form" onSubmit={salvarAmbiente}>
+            <div className="configuracoes-campo">
+              <label htmlFor="empresa-ambiente">{t('environmentName')}</label>
+              <input id="empresa-ambiente" type="text"
+                value={editandoAmbiente && ambiente.podeEditar ? nomeAmbiente : ambiente.mensagem}
+                onChange={evento => { setNomeAmbiente(evento.target.value); setMensagemAmbiente(null) }}
+                maxLength={180} required={editandoAmbiente && ambiente.podeEditar}
+                disabled={salvandoAmbiente} title={ambiente.nome || undefined}
+                readOnly={!editandoAmbiente || !ambiente.podeEditar} />
+            </div>
+            {mensagemAmbiente && <div className="configuracoes-mensagem"
+              role={mensagemAmbiente.tipo === 'erro' ? 'alert' : 'status'}>{aviso(mensagemAmbiente.texto)}</div>}
+            {ambiente.podeEditar && <div className="configuracoes-acoes configuracoes-ambiente-acoes">
+              {editandoAmbiente ? <>
+                <button type="button" className="configuracoes-botao configuracoes-botao-secundario"
+                  disabled={salvandoAmbiente} onClick={() => { setEditandoAmbiente(false); setMensagemAmbiente(null) }}>{t('cancel')}</button>
+                <button type="submit" className="configuracoes-botao" disabled={salvandoAmbiente}>
+                  {salvandoAmbiente ? t('savingEnvironment') : t('saveEnvironment')}</button>
+              </> : <button type="button" className="configuracoes-botao"
+                onClick={() => { setNomeAmbiente(ambiente.nome); setEditandoAmbiente(true); setMensagemAmbiente(null) }}>{t('editEnvironment')}</button>}
+            </div>}
+            </form>
+          </section>
+
         </main>
       </div>
     </div>
