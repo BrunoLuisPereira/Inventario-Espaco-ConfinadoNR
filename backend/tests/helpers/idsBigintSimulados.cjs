@@ -212,7 +212,10 @@ function preparar(t, opcoes = {}) {
   const conviteController = carregar('controllers/conviteController', { '../services/conviteService': conviteService });
   const localRepo = carregar('repositories/localRepository', { '../config/database': pool });
   const excel = carregar('services/excelService', { exceljs: ExcelJS, '../repositories/localRepository': localRepo });
-  const syncRepo = carregar('repositories/sincronizacaoMultiTenantRepository', { '../config/database': pool });
+  const syncRepo = carregar('repositories/sincronizacaoMultiTenantRepository', {
+    '../config/database': pool,
+    '../utils/ordenacaoLexicografica': require('../../src/utils/ordenacaoLexicografica'),
+  });
   const sync = carregar('services/sincronizacaoMultiTenantService', { '../repositories/sincronizacaoMultiTenantRepository': syncRepo });
 
   // Somente filesystem fictício. Nenhuma função fs real é encaminhada.

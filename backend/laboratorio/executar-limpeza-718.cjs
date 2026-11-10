@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { compararLexicograficamente } = require('../src/utils/ordenacaoLexicografica');
 const BANCO = 'inventario_nr33_multitenant_dev';
 const HASH = 'a869beca282e4878e1d9c0b882319e209441d0f517c2468c7b63f16c5dc8406e';
 const tabelas = {
@@ -19,7 +20,7 @@ const tabelas = {
   sincronizacao: ['id_sincronizacao', 'SELECT id_sincronizacao,id_ambiente,id_usuario,id_usuario_resolucao,entidade,id_entidade,status FROM public.sincronizacao ORDER BY id_sincronizacao'],
   versao_entidade: ['id_versao', 'SELECT id_versao,id_ambiente,entidade,id_entidade,versao,excluido FROM public.versao_entidade ORDER BY id_versao'],
 };
-const ordenar = xs => [...xs].sort();
+const ordenar = xs => [...xs].sort(compararLexicograficamente);
 async function verificarFKs(c) {
   const fks=(await c.query(`SELECT c.conname,a.relname AS origem,b.relname AS destino,
     array_agg(x.attname::text ORDER BY k.ord) AS cols_origem,array_agg(y.attname::text ORDER BY k.ord) AS cols_destino
@@ -92,9 +93,9 @@ async function executar() {
     const destino=(await c.query('SELECT current_database() AS banco,host(inet_server_addr()) AS host,inet_server_port() AS porta,current_user AS papel')).rows[0];
     assert.deepEqual(destino,{banco:BANCO,host:'127.0.0.1',porta:5432,papel:'nr33_dev_app'});
     fase='bloqueio';
-    await c.query(`LOCK TABLE ${Object.keys(tabelas).sort().map(t=>'public.'+t).join(',')} IN SHARE ROW EXCLUSIVE MODE`);
+    await c.query(`LOCK TABLE ${Object.keys(tabelas).sort(compararLexicograficamente).map(t=>'public.'+t).join(',')} IN SHARE ROW EXCLUSIVE MODE`);
     const inventario=(await c.query("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename")).rows.map(r=>r.tablename);
-    assert.deepEqual(inventario,Object.keys(tabelas).sort());
+    assert.deepEqual(inventario,Object.keys(tabelas).sort(compararLexicograficamente));
     const protecoesSQL=`SELECT
       (SELECT count(*)::int FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE n.nspname='public' AND NOT c.convalidated) AS constraints_nao_validadas,
       (SELECT count(*)::int FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND t.tgenabled NOT IN ('O','A')) AS triggers_inativos`;
