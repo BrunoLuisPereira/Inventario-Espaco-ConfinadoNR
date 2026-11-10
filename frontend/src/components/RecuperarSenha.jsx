@@ -1,7 +1,10 @@
+import { useTraducao } from '../hooks/useTraducao.js'
 import { useEffect, useRef, useState } from 'react'
 import { solicitarRecuperacaoSenha } from '../services/api'
 
 export default function RecuperarSenha({ onClose }) {
+  const { aviso, tr } = useTraducao()
+
   const dialog = useRef(null)
   const [email, setEmail] = useState('')
   const [erro, setErro] = useState('')
@@ -55,20 +58,20 @@ export default function RecuperarSenha({ onClose }) {
   return (
     <dialog ref={dialog} className="recuperacao-dialog" aria-labelledby="recuperacao-titulo" aria-describedby="recuperacao-descricao" onKeyDown={conterFoco} onCancel={event => { event.preventDefault(); onClose() }}>
       <div className="recuperacao-header">
-        <h2 id="recuperacao-titulo">Recuperar senha</h2>
-        <button type="button" className="recuperacao-fechar" aria-label="Fechar recuperação de senha" onClick={onClose}>×</button>
+        <h2 id="recuperacao-titulo">{tr("Recuperar senha")}</h2>
+        <button type="button" className="recuperacao-fechar" aria-label={tr("Fechar recuperação de senha")} onClick={onClose}>×</button>
       </div>
-      <p id="recuperacao-descricao">Informe o e-mail da sua conta para solicitar um link de redefinição de senha.</p>
+      <p id="recuperacao-descricao">{tr("Informe o e-mail da sua conta para solicitar um link de redefinição de senha.")}</p>
       <form noValidate onSubmit={enviar} aria-busy={ocupado}>
         <div className="form-group">
-          <label htmlFor="email-recuperacao">E-mail</label>
-          <input id="email-recuperacao" name="emailRecuperacao" type="email" autoComplete="email" placeholder="seu@email.com" required autoFocus value={email} aria-invalid={Boolean(erro)} aria-describedby={erro ? 'recuperacao-erro' : undefined} onBlur={event => validar(event.target)} onChange={event => { setEmail(event.target.value); setErro('') }} />
+          <label htmlFor="email-recuperacao">{tr("E-mail")}</label>
+          <input id="email-recuperacao" name="emailRecuperacao" type="email" autoComplete="email" placeholder={tr('seu@email.com')} required autoFocus value={email} aria-invalid={Boolean(erro)} aria-describedby={erro ? 'recuperacao-erro' : undefined} onBlur={event => validar(event.target)} onChange={event => { setEmail(event.target.value); setErro('') }} />
         </div>
-        {erro && <p id="recuperacao-erro" className="login-error" role="alert">{erro}</p>}
-        {mensagem && <p role="status">{mensagem}</p>}
+        {erro && <p id="recuperacao-erro" className="login-error" role="alert">{aviso(erro)}</p>}
+        {mensagem && <p role="status">{aviso(mensagem)}</p>}
         <div className="recuperacao-acoes">
-          <button type="button" onClick={onClose}>Cancelar</button>
-          <button type="submit" disabled={ocupado || Boolean(mensagem)}>{ocupado ? 'Solicitando...' : 'Enviar link'}</button>
+          <button type="button" onClick={onClose}>{tr("Cancelar")}</button>
+          <button type="submit" disabled={ocupado || Boolean(mensagem)}>{ocupado ? tr('Solicitando...') : tr('Enviar link')}</button>
         </div>
       </form>
     </dialog>

@@ -1,3 +1,5 @@
+import { nomePerfil } from '../services/usuarios.js'
+import { useTraducao } from '../hooks/useTraducao.js'
 import { useCapacidade } from '../hooks/useCapacidade'
 import {
   useEffect,
@@ -29,20 +31,11 @@ function converterDataParaInput(data) {
   return String(data).slice(0, 10)
 }
 
-function formatarPerfil(perfil) {
-  if (!perfil) {
-    return 'Não informado'
-  }
-
-  return perfil
-    .replaceAll('_', ' ')
-    .toLowerCase()
-    .replace(/\b\w/g, (letra) =>
-      letra.toUpperCase()
-    )
-}
+function formatarPerfil(perfil) { return nomePerfil(perfil) }
 
 function ResponsaveisRelatorio() {
+  const { aviso, tr } = useTraducao()
+
   const podeEditar = useCapacidade('relatorios.editar')
   const { idLocal } = useParams()
 
@@ -225,22 +218,18 @@ function ResponsaveisRelatorio() {
 
       <main className="responsaveis-content">
         <Header
-          titulo="Responsáveis pelo Relatório"
-          subtitulo="Responsabilidade e identificação técnica do relatório"
+          titulo={tr("Responsáveis pelo Relatório")}
+          subtitulo={tr("Responsabilidade e identificação técnica do relatório")}
         />
 
         <section className="responsaveis-main">
           <Link
             to={`/locais/${idLocal}/inventario`}
             className="responsaveis-back"
-          >
-            ← Voltar para o inventário
-          </Link>
+          >{tr("← Voltar para o inventário")}</Link>
 
           {carregando && (
-            <p className="responsaveis-message">
-              Carregando responsáveis...
-            </p>
+            <p className="responsaveis-message">{tr("Carregando responsáveis...")}</p>
           )}
 
           {erro && (
@@ -248,7 +237,7 @@ function ResponsaveisRelatorio() {
               className="responsaveis-error"
               role="alert"
             >
-              {erro}
+              {aviso(erro)}
             </p>
           )}
 
@@ -257,7 +246,7 @@ function ResponsaveisRelatorio() {
               className="responsaveis-success"
               role="status"
             >
-              {sucesso}
+              {aviso(sucesso)}
             </p>
           )}
 
@@ -267,16 +256,13 @@ function ResponsaveisRelatorio() {
               <>
                 <div className="responsaveis-title">
                   <div>
-                    <span className="responsaveis-label">
-                      Espaço confinado
-                    </span>
+                    <span className="responsaveis-label">{tr("Espaço confinado")}</span>
 
                     <h2>
                       {local.nome_local}
                     </h2>
 
-                    <p>
-                      Relatório nº{' '}
+                    <p>{tr("Relatório nº")}{' '}
                       {relatorio.id_relatorio}
                     </p>
                   </div>
@@ -285,56 +271,45 @@ function ResponsaveisRelatorio() {
                 <section className="responsaveis-card">
                   <div className="responsaveis-card-header">
                     <div>
-                      <span className="responsaveis-section-label">
-                        Responsabilidade
-                      </span>
+                      <span className="responsaveis-section-label">{tr("Responsabilidade")}</span>
 
-                      <h3>
-                        Responsável pelo
-                        relatório
-                      </h3>
+                      <h3>{tr("Responsável pelo relatório")}</h3>
 
-                      <p>
-                        Usuário registrado como
-                        responsável pelo
-                        relatório no sistema.
-                      </p>
+                      <p>{tr("Usuário registrado como responsável pelo relatório no sistema.")}</p>
                     </div>
 
-                    <span className="responsaveis-readonly">
-                      Somente leitura
-                    </span>
+                    <span className="responsaveis-readonly">{tr("Somente leitura")}</span>
                   </div>
 
                   <div className="responsaveis-user-grid">
                     <div className="responsaveis-field-info">
-                      <span>Nome</span>
+                      <span>{tr("Nome")}</span>
 
                       <strong>
                         {relatorio
                           .usuario_responsavel ||
-                          'Não informado'}
+                          tr('Não informado')}
                       </strong>
                     </div>
 
                     <div className="responsaveis-field-info">
-                      <span>E-mail</span>
+                      <span>{tr("E-mail")}</span>
 
                       <strong>
                         {relatorio
                           .email_usuario_responsavel ||
-                          'Não informado'}
+                          tr('Não informado')}
                       </strong>
                     </div>
 
                     <div className="responsaveis-field-info">
-                      <span>Perfil</span>
+                      <span>{tr("Perfil")}</span>
 
                       <strong>
-                        {formatarPerfil(
+                        {tr(formatarPerfil(
                           relatorio
                             .perfil_usuario_responsavel
-                        )}
+                        ))}
                       </strong>
                     </div>
                   </div>
@@ -343,20 +318,11 @@ function ResponsaveisRelatorio() {
                 <section className="responsaveis-card">
                   <div className="responsaveis-card-header">
                     <div>
-                      <span className="responsaveis-section-label">
-                        Informações técnicas
-                      </span>
+                      <span className="responsaveis-section-label">{tr("Informações técnicas")}</span>
 
-                      <h3>
-                        Responsável técnico
-                      </h3>
+                      <h3>{tr("Responsável técnico")}</h3>
 
-                      <p>
-                        Informe o engenheiro
-                        responsável e os dados
-                        da ART vinculada ao
-                        relatório.
-                      </p>
+                      <p>{tr("Informe o engenheiro responsável e os dados da ART vinculada ao relatório.")}</p>
                     </div>
                   </div>
 
@@ -366,12 +332,10 @@ function ResponsaveisRelatorio() {
                       salvarResponsavelTecnico
                     }
                   >
-        {!podeEditar && <p role="status">Seu perfil permite somente consulta nesta tela.</p>}
+        {!podeEditar && <p role="status">{tr("Seu perfil permite somente consulta nesta tela.")}</p>}
         <fieldset disabled={!podeEditar} style={{border:0,padding:0,margin:0,minWidth:0}}>
                     <div className="responsaveis-form-group responsaveis-form-full">
-                      <label htmlFor="nomeResponsavelTecnico">
-                        Nome do engenheiro
-                      </label>
+                      <label htmlFor="nomeResponsavelTecnico">{tr("Nome do engenheiro")}</label>
 
                       <input
                         id="nomeResponsavelTecnico"
@@ -384,15 +348,13 @@ function ResponsaveisRelatorio() {
                             event.target.value
                           )
                         }
-                        placeholder="Ex.: João da Silva"
+                        placeholder={tr("Ex.: João da Silva")}
                         maxLength={150}
                       />
                     </div>
 
                     <div className="responsaveis-form-group">
-                      <label htmlFor="crea">
-                        CREA
-                      </label>
+                      <label htmlFor="crea">{tr("CREA")}</label>
 
                       <input
                         id="crea"
@@ -403,15 +365,13 @@ function ResponsaveisRelatorio() {
                             event.target.value
                           )
                         }
-                        placeholder="Ex.: CREA-SC 123456-7"
+                        placeholder={tr("Ex.: CREA-SC 123456-7")}
                         maxLength={50}
                       />
                     </div>
 
                     <div className="responsaveis-form-group">
-                      <label htmlFor="numeroArt">
-                        Número da ART
-                      </label>
+                      <label htmlFor="numeroArt">{tr("Número da ART")}</label>
 
                       <input
                         id="numeroArt"
@@ -422,15 +382,13 @@ function ResponsaveisRelatorio() {
                             event.target.value
                           )
                         }
-                        placeholder="Ex.: ART-2026-00123"
+                        placeholder={tr("Ex.: ART-2026-00123")}
                         maxLength={100}
                       />
                     </div>
 
                     <div className="responsaveis-form-group">
-                      <label htmlFor="dataArt">
-                        Data da ART
-                      </label>
+                      <label htmlFor="dataArt">{tr("Data da ART")}</label>
 
                       <input
                         id="dataArt"
@@ -451,8 +409,8 @@ function ResponsaveisRelatorio() {
                         disabled={salvando}
                       >
                         {salvando
-                          ? 'Salvando...'
-                          : 'Salvar responsável técnico'}
+                          ? tr('Salvando...')
+                          : tr('Salvar responsável técnico')}
                       </button>
                     </div>
                   </fieldset>

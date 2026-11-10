@@ -27,13 +27,14 @@ function preparar(t, ambiente = A, engenheiro = false, criacao = false) {
     conferirCapacidadeSql(sql, 'u');
     assert.ok(params.includes(u.id_ambiente)); assert.ok(params.includes(u.id_usuario)); assert.equal(sql.includes(u.id_ambiente), false);
   }
+  estado.geracoes = [];
   const client = {
     async query(texto, params = []) {
       const sql = texto.replace(/\s+/g, ' ').trim(); estado.consultas.push({ sql, params: [...params] });
       if (estado.falha?.prefixo && sql.startsWith(estado.falha.prefixo)) throw estado.falha.erro;
-      if (sql === 'BEGIN ISOLATION LEVEL READ COMMITTED') { assert.equal(estado.aberta, false); estado.aberta = true; estado.trabalho = undefined; return { rows: [] }; }
-      if (sql === 'ROLLBACK') { if (estado.rollbackFalha) throw new Error('Rollback falhou'); estado.trabalho = undefined; estado.aberta = false; return { rows: [] }; }
-      if (sql === 'COMMIT') { assert.equal(estado.aberta, true); if (estado.trabalho !== undefined) estado.registro = estado.trabalho; estado.aberta = false; return { rows: [] }; }
+      if (sql === 'BEGIN ISOLATION LEVEL READ COMMITTED') { assert.equal(estado.aberta, false); estado.aberta = true; estado.trabalho = undefined; estado.geracoesTrabalho = [...estado.geracoes]; return { rows: [] }; }
+      if (sql === 'ROLLBACK') { if (estado.rollbackFalha) throw new Error('Rollback falhou'); estado.trabalho = undefined; estado.geracoesTrabalho = undefined; estado.aberta = false; return { rows: [] }; }
+      if (sql === 'COMMIT') { assert.equal(estado.aberta, true); if (estado.trabalho !== undefined) estado.registro = estado.trabalho; estado.geracoes = estado.geracoesTrabalho; estado.aberta = false; return { rows: [] }; }
       const lock = sql.match(/FOR (?:UPDATE|SHARE) OF (a|u|c|l|r)$/);
       if (lock && sql.startsWith('SELECT c.id_campanha, l.id_local FROM ambiente AS a')) {
         assert.equal(estado.aberta, true); contexto(sql, params);
@@ -58,11 +59,30 @@ function preparar(t, ambiente = A, engenheiro = false, criacao = false) {
         assert.match(sql, /u\.id_ambiente = c\.id_ambiente/);
         return { rows: permitido() ? [{ ...estado.registro, ...caracterizacao(estado.ambiente), id_checklist: 7, criterio_a: 'SIM', id_dados: 8, oxigenio: 0, evidencias: [{ id_evidencia: 9, latitude: 0, longitude: 0, id_local: 40 }] }] : [] };
       }
-      if (sql.startsWith('UPDATE relatorio AS r SET caminho_pdf')) {
-        contexto(sql, params); assert.equal(estado.aberta, true); assert.deepEqual(params.slice(0,3), [50, u.id_ambiente, u.id_usuario]);
+      if (sql.startsWith('SELECT to_regclass')) return { rows: [{ tabela: estado.semMigration ? null : 'relatorio_pdf_geracao' }] };
+      if (sql.startsWith('SELECT g.')) {
+        assert.equal(estado.aberta, true);
+        assert.match(sql, /g.id_relatorio = \$1 AND g.id_ambiente = \$2/);
+        assert.equal(params[0], 50); assert.equal(params[1], u.id_ambiente);
+        const uuid = sql.includes('g.id_geracao = $3');
+        return { rows: estado.geracoesTrabalho.filter(g => g.id_relatorio === params[0] && g.id_ambiente === params[1] && (uuid ? g.id_geracao === params[2] : g.idioma === params[2])) };
+      }
+      if (sql.startsWith('INSERT INTO public.relatorio_pdf_geracao')) {
+        assert.equal(estado.aberta, true);
+        assert.deepEqual(params.slice(0, 3), [50, u.id_ambiente, u.id_usuario]);
+        const inicio = estado.consultas.findLastIndex(q => q.sql === 'BEGIN ISOLATION LEVEL READ COMMITTED');
+        assert.equal(estado.consultas.slice(inicio).filter(q => /FOR (?:UPDATE|SHARE) OF/.test(q.sql)).length, 5);
+        estado.geracao = { id_geracao: params[3], id_relatorio: params[0], id_ambiente: params[1], id_solicitante: params[2], idioma: params[4], caminho_pdf: params[5], hash_pdf: params[6] };
+        estado.geracoesTrabalho.push(estado.geracao);
+        return { rows: [estado.geracao] };
+      }
+      if (sql.startsWith('UPDATE relatorio AS r SET status')) {
+        contexto(sql, params); assert.equal(estado.aberta, true);
+        assert.deepEqual(params, [50, u.id_ambiente, u.id_usuario]);
         estado.escritas.push({ sql, params });
-        const set = sql.split(' FROM ')[0]; assert.doesNotMatch(set, /numero_art|nome_responsavel_tecnico|crea\s*=/);
-        estado.trabalho = { ...estado.registro, caminho_pdf: params[3], hash_pdf: params[4], status: 'GERADO' };
+        const set = sql.split(' FROM ')[0];
+        assert.doesNotMatch(set, /caminho_pdf|hash_pdf|numero_art|nome_responsavel_tecnico|crea\s*=/);
+        estado.trabalho = { ...estado.registro, status: 'GERADO' };
         return { rows: [estado.trabalho] };
       }
       if (/^(INSERT INTO relatorio AS r|UPDATE relatorio AS r|DELETE FROM relatorio AS r)\b/.test(sql)) {
@@ -190,7 +210,7 @@ for (const tipo of ['gerar', 'baixar']) for (const condicao of ['autorizado', 'r
     assert.equal(estado.aberta, true);
     assert.equal(estado.consultas.filter(q => /FOR (?:UPDATE|SHARE) OF/.test(q.sql)).length, 5);
     if (condicao === 'falhaCallback') throw erro;
-    if (tipo === 'gerar') { assert.equal(dados.criterio_a, 'SIM'); assert.equal(dados.oxigenio, 0); assert.deepEqual(dados.evidencias.map(e => e.id_local), [40]); return { caminhoRelativo: 'uploads/relatorios/novo.pdf', hash: 'b'.repeat(64) }; }
+    if (tipo === 'gerar') { assert.equal(dados.criterio_a, 'SIM'); assert.equal(dados.oxigenio, 0); assert.deepEqual(dados.evidencias.map(e => e.id_local), [40]); return { idGeracao: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', idioma: 'en', caminhoRelativo: 'uploads/relatorios/novo.pdf', hash: 'b'.repeat(64) }; }
     return { buffer: Buffer.from('%PDF-1.7 TESTE %%EOF') };
   };
   const executar = () => tipo === 'gerar' ? repo.gerarNoAmbiente(50, u, callback) : repo.comRelatorioAutorizado(50, u, callback);
@@ -226,4 +246,35 @@ for(const ambiente of [A,B])test('Caracterizacao completa e geracao usam somente
   assert.equal(chamadas,1);
   u.id_ambiente=ambiente===A?B:A;
   assert.equal(await repo.gerarNoAmbiente(50,u,async()=>{throw Error('Nao deve renderizar outro ambiente');}),null);
+});
+
+const geracaoFixture = { idGeracao: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', idioma: 'en', caminhoRelativo: 'uploads/relatorios/sintetico.pdf', hash: 'b'.repeat(64) };
+test('migration ausente recusa antes de renderizar/persistir arquivos', async t => {
+  const { estado, u } = preparar(t); estado.semMigration = true;
+  let renderizou = false;
+  await assert.rejects(repo.gerarNoAmbiente(50, u, async () => { renderizou = true }), { statusCode: 503 });
+  assert.equal(renderizou, false); assert.deepEqual(estado.geracoes, []);
+  assert.equal(estado.consultas.at(-1).sql, 'ROLLBACK');
+});
+test('histórico e arquivo legado preservados, rollback mantém geração invisível', async t => {
+  const { estado, u } = preparar(t), antes = { ...estado.registro };
+  const g = await repo.gerarNoAmbiente(50, u, async () => geracaoFixture);
+  assert.equal(estado.registro.caminho_pdf, antes.caminho_pdf); assert.equal(estado.registro.hash_pdf, antes.hash_pdf);
+  assert.equal(g.geracao.id_solicitante, u.id_usuario); assert.equal(g.geracao.id_ambiente, u.id_ambiente);
+  assert.equal(estado.geracoes.length, 1);
+  estado.falha = { prefixo: 'COMMIT', erro: Error('Falha simulada') };
+  await assert.rejects(repo.gerarNoAmbiente(50, u, async () => ({ ...geracaoFixture, idGeracao: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' })));
+  assert.equal(estado.geracoes.length, 1);
+});
+test('consultas de gerações exigem UUID/relatório/ambiente após locks de autorização', async t => {
+  const { estado, u } = preparar(t);
+  await repo.gerarNoAmbiente(50, u, async () => geracaoFixture);
+  let r = await repo.listarGeracoesNoAmbiente(50, u, 'en');
+  assert.equal(r.geracoes.length, 1); assert.equal(r.legado.idioma, null);
+  r = await repo.listarGeracoesNoAmbiente(50, u, 'pt-BR'); assert.equal(r.geracoes.length, 0);
+  assert.equal((await repo.comGeracaoAutorizada(50, u, geracaoFixture.idGeracao, async g => g)).idioma, 'en');
+  await assert.rejects(repo.comGeracaoAutorizada(50, u, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', async () => { throw Error('Não deve ler arquivo') }), { statusCode: 404 });
+  estado.ativo = false;
+  assert.equal(await repo.listarGeracoesNoAmbiente(50, u, 'en'), null);
+  assert.equal(await repo.comGeracaoAutorizada(50, u, geracaoFixture.idGeracao, async () => { throw Error('Não deve ler arquivo') }), null);
 });

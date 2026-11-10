@@ -65,9 +65,11 @@ for (const ambiente of [A, B]) for (const papel of ['ADMINISTRADOR', 'ENGENHEIRO
         assert.deepEqual(c.bcryptChamadas, [['compare', 'antiga123', 'hash:antiga123'], ['hash', 'novaSenha123', 12]]);
       } else {
         assert.equal(c.res.body.message, method === 'get' ? 'Perfil consultado com sucesso.' : 'Perfil atualizado com sucesso.');
-        assert.deepEqual(c.res.body.data, c.publico(c.estado.usuario));
+        assert.deepEqual(c.res.body.data, method === 'get'
+          ? { ...c.publico(c.estado.usuario), id_ambiente: ambiente, idioma: 'pt-BR' }
+          : c.publico(c.estado.usuario));
         assert.equal('senha_hash' in c.res.body.data, false);
-        assert.equal('id_ambiente' in c.res.body.data, false);
+        assert.equal('id_ambiente' in c.res.body.data, method === 'get');
       }
       if (method === 'put') {
         assert.deepEqual(comandos(c), ['BEGIN', 'COMMIT']);
@@ -276,7 +278,7 @@ for (const caminho of ['/perfil', '/senha']) {
 test('router preserva rotas públicas e exige autenticação nas operações de conta e ambiente', t => {
   const c = preparar(t);
   const rotas = c.router.stack.filter(l => l.route).map(l => [Object.keys(l.route.methods)[0], l.route.path]);
-  assert.deepEqual(rotas, [['post', '/login'], ['post', '/recuperacao-senha'], ['post', '/redefinir-senha'], ['get', '/me'], ['get', '/perfil'], ['put', '/perfil'], ['put', '/senha'], ['put', '/ambiente']]);
+  assert.deepEqual(rotas, [['post', '/login'], ['post', '/recuperacao-senha'], ['post', '/redefinir-senha'], ['get', '/me'], ['get', '/perfil'], ['patch', '/preferencias/idioma'], ['put', '/perfil'], ['put', '/senha'], ['put', '/ambiente']]);
   assert.equal(c.router.stack[0].route.stack[0].handle.name, 'loginPreservado');
   for (const layer of c.router.stack.slice(1, 3)) assert.equal(layer.route.stack.length, 1);
   for (const layer of c.router.stack.slice(3)) {

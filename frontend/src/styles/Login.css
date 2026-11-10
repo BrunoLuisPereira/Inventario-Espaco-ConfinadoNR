@@ -220,3 +220,21 @@
 .recuperacao-acoes button { min-height: 44px; padding: 8px 16px; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #111827; font-weight: 600; cursor: pointer; }
 .recuperacao-acoes button[type="submit"] { background: #facc15; border-color: #facc15; }
 .recuperacao-acoes button:disabled { opacity: .55; cursor: not-allowed; }
+.idioma-publico {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.idioma-publico select {
+  min-height: 36px;
+  max-width: 100%;
+  padding: 6px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font: inherit;
+}

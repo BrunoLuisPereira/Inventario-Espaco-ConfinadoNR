@@ -1,3 +1,6 @@
+import { useTraducao } from '../hooks/useTraducao.js'
+import { useTranslation } from 'react-i18next'
+import { useIdioma } from '../hooks/useIdioma'
 
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -14,6 +17,10 @@ import {
 import '../styles/Configuracoes.css'
 
 function Configuracoes() {
+  const { aviso, rotulo } = useTraducao()
+
+  const { t } = useTranslation('settings')
+  const { idioma, alterarIdioma, pendente, erro: erroIdioma } = useIdioma()
   const { tema, setTema } = useTheme()
   const { atualizarUsuario, salvarNomeAmbiente, logout } = useAuth()
   const ambiente = useAmbienteAtual()
@@ -219,21 +226,21 @@ function Configuracoes() {
 
         <main className="configuracoes-main">
           <div className="configuracoes-heading">
-            <h1>Configurações</h1>
+            <h1>{t('title')}</h1>
             <p>
-              Gerencie seus dados e personalize sua experiência.
+              {t('description')}
             </p>
           </div>
 
           {/* MEU PERFIL */}
           <section className="configuracoes-card">
             <div className="configuracoes-card-header">
-              <span className="configuracoes-section-label">AMBIENTE ATUAL</span>
-              <h2>Empresa / Ambiente</h2>
+              <span className="configuracoes-section-label">{t('currentEnvironment')}</span>
+              <h2>{t('environmentTitle')}</h2>
             </div>
             <form className="configuracoes-form" onSubmit={salvarAmbiente}>
             <div className="configuracoes-campo">
-              <label htmlFor="empresa-ambiente">Nome da empresa / ambiente</label>
+              <label htmlFor="empresa-ambiente">{t('environmentName')}</label>
               <input id="empresa-ambiente" type="text"
                 value={editandoAmbiente && ambiente.podeEditar ? nomeAmbiente : ambiente.mensagem}
                 onChange={evento => { setNomeAmbiente(evento.target.value); setMensagemAmbiente(null) }}
@@ -242,15 +249,15 @@ function Configuracoes() {
                 readOnly={!editandoAmbiente || !ambiente.podeEditar} />
             </div>
             {mensagemAmbiente && <div className="configuracoes-mensagem"
-              role={mensagemAmbiente.tipo === 'erro' ? 'alert' : 'status'}>{mensagemAmbiente.texto}</div>}
+              role={mensagemAmbiente.tipo === 'erro' ? 'alert' : 'status'}>{aviso(mensagemAmbiente.texto)}</div>}
             {ambiente.podeEditar && <div className="configuracoes-acoes configuracoes-ambiente-acoes">
               {editandoAmbiente ? <>
                 <button type="button" className="configuracoes-botao configuracoes-botao-secundario"
-                  disabled={salvandoAmbiente} onClick={() => { setEditandoAmbiente(false); setMensagemAmbiente(null) }}>Cancelar</button>
+                  disabled={salvandoAmbiente} onClick={() => { setEditandoAmbiente(false); setMensagemAmbiente(null) }}>{t('cancel')}</button>
                 <button type="submit" className="configuracoes-botao" disabled={salvandoAmbiente}>
-                  {salvandoAmbiente ? 'Salvando nome...' : 'Salvar nome'}</button>
+                  {salvandoAmbiente ? t('savingEnvironment') : t('saveEnvironment')}</button>
               </> : <button type="button" className="configuracoes-botao"
-                onClick={() => { setNomeAmbiente(ambiente.nome); setEditandoAmbiente(true); setMensagemAmbiente(null) }}>Editar nome</button>}
+                onClick={() => { setNomeAmbiente(ambiente.nome); setEditandoAmbiente(true); setMensagemAmbiente(null) }}>{t('editEnvironment')}</button>}
             </div>}
             </form>
           </section>
@@ -258,16 +265,16 @@ function Configuracoes() {
           <section className="configuracoes-card">
             <div className="configuracoes-card-header">
               <span className="configuracoes-section-label">
-                CONTA
+                {t('account')}
               </span>
-              <h2>Meu Perfil</h2>
+              <h2>{t('profileTitle')}</h2>
               <p>
-                Consulte e atualize suas informações pessoais.
+                {t('profileDescription')}
               </p>
             </div>
 
             {carregando ? (
-              <p>Carregando perfil...</p>
+              <p>{t('loadingProfile')}</p>
             ) : (
               <form
                 className="configuracoes-form"
@@ -276,7 +283,7 @@ function Configuracoes() {
                 <div className="configuracoes-form-grid">
                   <div className="configuracoes-campo">
                     <label htmlFor="perfil-nome">
-                      Nome completo
+                      {t('fullName')}
                     </label>
                     <input
                       id="perfil-nome"
@@ -291,7 +298,7 @@ function Configuracoes() {
 
                   <div className="configuracoes-campo">
                     <label htmlFor="perfil-email">
-                      E-mail
+                      {t('email')}
                     </label>
                     <input
                       id="perfil-email"
@@ -307,16 +314,16 @@ function Configuracoes() {
 
                 <div className="configuracoes-campo">
                   <label htmlFor="perfil-acesso">
-                    Perfil de acesso
+                    {t('accessProfile')}
                   </label>
                   <input
                     id="perfil-acesso"
                     type="text"
-                    value={perfil.perfil_acesso}
+                    value={rotulo(perfil.perfil_acesso)}
                     readOnly
                   />
                   <small>
-                    Seu nível de acesso é definido pelo administrador.
+                    {t('accessHelp')}
                   </small>
                 </div>
 
@@ -329,7 +336,7 @@ function Configuracoes() {
                         : 'status'
                     }
                   >
-                    {mensagemPerfil.texto}
+                    {aviso(mensagemPerfil.texto)}
                   </div>
                 )}
 
@@ -340,8 +347,8 @@ function Configuracoes() {
                     disabled={salvandoPerfil}
                   >
                     {salvandoPerfil
-                      ? 'Salvando...'
-                      : 'Salvar alterações'}
+                      ? t('saving')
+                      : t('saveChanges')}
                   </button>
                 </div>
               </form>
@@ -352,11 +359,11 @@ function Configuracoes() {
           <section className="configuracoes-card">
             <div className="configuracoes-card-header">
               <span className="configuracoes-section-label">
-                SEGURANÇA
+                {t('security')}
               </span>
-              <h2>Alterar Senha</h2>
+              <h2>{t('passwordTitle')}</h2>
               <p>
-                Informe sua senha atual para cadastrar uma nova.
+                {t('passwordDescription')}
               </p>
             </div>
 
@@ -366,7 +373,7 @@ function Configuracoes() {
             >
               <div className="configuracoes-campo">
                 <label htmlFor="senha-atual">
-                  Senha atual
+                  {t('currentPassword')}
                 </label>
                 <input
                   id="senha-atual"
@@ -382,7 +389,7 @@ function Configuracoes() {
               <div className="configuracoes-form-grid">
                 <div className="configuracoes-campo">
                   <label htmlFor="nova-senha">
-                    Nova senha
+                    {t('newPassword')}
                   </label>
                   <input
                     id="nova-senha"
@@ -398,7 +405,7 @@ function Configuracoes() {
 
                 <div className="configuracoes-campo">
                   <label htmlFor="confirmar-senha">
-                    Confirmar nova senha
+                    {t('confirmPassword')}
                   </label>
                   <input
                     id="confirmar-senha"
@@ -422,7 +429,7 @@ function Configuracoes() {
                       : 'status'
                   }
                 >
-                  {mensagemSenha.texto}
+                  {aviso(mensagemSenha.texto)}
                 </div>
               )}
 
@@ -433,8 +440,8 @@ function Configuracoes() {
                   disabled={salvandoSenha}
                 >
                   {salvandoSenha
-                    ? 'Atualizando...'
-                    : 'Alterar senha'}
+                    ? t('updating')
+                    : t('changePassword')}
                 </button>
               </div>
             </form>
@@ -444,18 +451,18 @@ function Configuracoes() {
           <section className="configuracoes-card">
             <div className="configuracoes-card-header">
               <span className="configuracoes-section-label">
-                APARÊNCIA
+                {t('appearance')}
               </span>
-              <h2>Tema</h2>
+              <h2>{t('themeTitle')}</h2>
               <p>
-                Escolha como o sistema será exibido.
+                {t('themeDescription')}
               </p>
             </div>
 
             <div
               className="tema-opcoes"
               role="radiogroup"
-              aria-label="Tema do sistema"
+              aria-label={t('themeLabel')}
             >
               <button
                 type="button"
@@ -468,8 +475,8 @@ function Configuracoes() {
               >
                 <span className="tema-icone">☀️</span>
                 <span className="tema-texto">
-                  <strong>Claro</strong>
-                  <small>Sempre utilizar o tema claro</small>
+                  <strong>{t('light')}</strong>
+                  <small>{t('lightDescription')}</small>
                 </span>
               </button>
 
@@ -484,8 +491,8 @@ function Configuracoes() {
               >
                 <span className="tema-icone">🌙</span>
                 <span className="tema-texto">
-                  <strong>Escuro</strong>
-                  <small>Sempre utilizar o tema escuro</small>
+                  <strong>{t('dark')}</strong>
+                  <small>{t('darkDescription')}</small>
                 </span>
               </button>
 
@@ -500,14 +507,33 @@ function Configuracoes() {
               >
                 <span className="tema-icone">💻</span>
                 <span className="tema-texto">
-                  <strong>Sistema</strong>
-                  <small>Acompanhar o tema do dispositivo</small>
+                  <strong>{t('system')}</strong>
+                  <small>{t('systemDescription')}</small>
                 </span>
               </button>
             </div>
 
             <p className="tema-observacao">
-              A preferência é salva automaticamente neste dispositivo.
+              {t('themeNote')}
+            </p>
+          </section>
+          <section className="configuracoes-card">
+            <div className="configuracoes-card-header">
+              <span className="configuracoes-section-label">{t('languageSection')}</span>
+              <h2>{t('languageTitle')}</h2>
+              <p>{t('languageDescription')}</p>
+            </div>
+            <div className="configuracoes-campo">
+              <label htmlFor="idioma-interface">{t('languageLabel')}</label>
+              <select id="idioma-interface" value={idioma}
+                onChange={evento => alterarIdioma(evento.target.value)}
+                aria-describedby="idioma-observacao">
+                <option value="pt-BR" lang="pt-BR">{t('portuguese')}</option>
+                <option value="en" lang="en">{t('english')}</option>
+              </select>
+            </div>
+            <p id="idioma-observacao" className="tema-observacao" role="status">
+              {t(erroIdioma ? 'languageError' : pendente ? 'languagePending' : 'languageNote')}
             </p>
           </section>
         </main>

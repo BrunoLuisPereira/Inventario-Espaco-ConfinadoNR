@@ -1,5 +1,6 @@
 const { sqlCapacidade } = require('../utils/permissoes');
 const pool = require("../config/database");
+const { normalizarIdioma, VERSAO_TEMPLATE } = require('../utils/idiomaPdf');
 
 // Fragmentos estáticos; nenhum nome de coluna ou predicado vem do cliente.
 const CAMPOS = ['nome_responsavel_tecnico', 'crea', 'numero_art', 'data_art', 'status'];
@@ -168,11 +169,14 @@ const SQL_COMPLETO = `
       r.nome_responsavel_tecnico,
       r.crea,
       r.numero_art,
-      r.data_art,
+      r.data_art::text AS data_art,
       r.status AS status_relatorio,
       r.data_emissao,
       r.caminho_pdf,
       r.hash_pdf,
+      (SELECT CASE WHEN to_jsonb(solicitante)->>'idioma' = 'en' THEN 'en' ELSE 'pt-BR' END
+       FROM usuario AS solicitante WHERE solicitante.id_usuario = $3
+         AND solicitante.id_ambiente = c.id_ambiente) AS idioma_solicitante,
 
       u.id_usuario AS id_responsavel,
       u.nome AS responsavel,
@@ -192,7 +196,7 @@ const SQL_COMPLETO = `
       c.nome_campanha,
       c.empresa,
       c.responsavel AS responsavel_campanha,
-      c.data_inicio,
+      c.data_inicio::text AS data_inicio,
       c.status AS status_campanha,
 
       ch.id_checklist,
@@ -280,7 +284,7 @@ const SQL_COMPLETO = `
     LEFT JOIN dados_tecnicos dt
       ON dt.id_local = l.id_local
 
-    WHERE r.id_relatorio = $1 AND c.id_ambiente = $2 ${PERMISSAO.replace(sqlCapacidade('u', 'relatorios.consultar'), sqlCapacidade('u', 'relatorios.excluir'))}
+    WHERE r.id_relatorio = $1 AND c.id_ambiente = $2 ${PERMISSAO}
   `;
 
 async function buscarCompletoNoAmbiente(idRelatorio, usuario) {
@@ -299,7 +303,7 @@ async function comRelatorioAutorizado(idRelatorio, usuario, executar) {
       INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha
       WHERE r.id_relatorio = $1 AND c.id_ambiente = $2 ${PERMISSAO}`, [id, u.id_ambiente, u.id_usuario]);
     if (!resultado.rows[0]) throw erro('Falha interna ao carregar relatorio.', 500);
-    return { rows: [await executar(resultado.rows[0])] };
+    return { rows: [await executar(resultado.rows[0], client)] };
   }, null, u, id, false, 'relatorios.consultar');
 }
 async function gerarNoAmbiente(idRelatorio, usuario, gerar) {
@@ -308,16 +312,48 @@ async function gerarNoAmbiente(idRelatorio, usuario, gerar) {
   return escrever(async client => {
     const contexto = await client.query(SQL_COMPLETO, [id, u.id_ambiente, u.id_usuario]);
     if (!contexto.rows[0]) throw erro('Falha interna ao carregar relatorio.', 500);
+    const esquema = await client.query("SELECT to_regclass('public.relatorio_pdf_geracao') AS tabela");
+    if (!esquema.rows[0]?.tabela) throw erro('Gerações PDF indisponíveis. Solicite aplicação manual da migration 028.', 503);
     const arquivo = await gerar(contexto.rows[0]);
-    const atualizado = await client.query(`UPDATE relatorio AS r SET caminho_pdf = $4,
-      hash_pdf = $5, status = 'GERADO', data_emissao = CURRENT_TIMESTAMP, data_atualizacao = CURRENT_TIMESTAMP
+    const geracao = await client.query(`INSERT INTO public.relatorio_pdf_geracao
+      (id_geracao, id_relatorio, id_ambiente, id_solicitante, idioma, caminho_pdf, hash_pdf, versao_template)
+      VALUES ($4, $1, $2, $3, $5, $6, $7, $8) RETURNING *`,
+      [id, u.id_ambiente, u.id_usuario, arquivo.idGeracao, normalizarIdioma(arquivo.idioma),
+        arquivo.caminhoRelativo, arquivo.hash, VERSAO_TEMPLATE]);
+    if (!geracao.rows[0]) throw erro('Falha interna ao registrar geração PDF.', 500);
+    const atualizado = await client.query(`UPDATE relatorio AS r SET
+      status = 'GERADO', data_emissao = CURRENT_TIMESTAMP, data_atualizacao = CURRENT_TIMESTAMP
       FROM local AS l INNER JOIN campanha AS c ON c.id_campanha = l.id_campanha
       WHERE r.id_relatorio = $1 AND l.id_local = r.id_local AND c.id_ambiente = $2 ${PERMISSAO_ESCRITA}
-      RETURNING r.*`, [id, u.id_ambiente, u.id_usuario, arquivo.caminhoRelativo, arquivo.hash]);
+      RETURNING r.*`, [id, u.id_ambiente, u.id_usuario]);
     if (!atualizado.rows[0]) throw erro('Falha interna ao salvar relatorio.', 500);
-    return { rows: [{ relatorio: atualizado.rows[0], arquivo: { caminho: arquivo.caminhoRelativo, hash_sha256: arquivo.hash } }] };
+    return { rows: [{ relatorio: atualizado.rows[0], geracao: geracao.rows[0], arquivo: { caminho: arquivo.caminhoRelativo, hash_sha256: arquivo.hash } }] };
   }, null, u, id, false);
+}
+async function listarGeracoesNoAmbiente(id, usuario, idioma) {
+  const u = identidade(usuario);
+  return comRelatorioAutorizado(id, u, async (r, client) => {
+    const resultado = await client.query(`SELECT g.id_geracao, g.id_relatorio, g.id_ambiente,
+      g.id_solicitante, g.idioma, g.hash_pdf, g.data_geracao, g.versao_template
+      FROM public.relatorio_pdf_geracao AS g
+      WHERE g.id_relatorio = $1 AND g.id_ambiente = $2 AND g.idioma = $3
+      ORDER BY g.data_geracao DESC, g.id_geracao DESC`, [id, u.id_ambiente, normalizarIdioma(idioma)]);
+    return { geracoes: resultado.rows, legado: r.caminho_pdf ? { id_relatorio: r.id_relatorio, idioma: null, legado: true } : null };
+  }).catch(falha => {
+    if (falha.code === '42P01') throw erro('Gerações PDF indisponíveis. Solicite aplicação manual da migration 028.', 503);
+    throw falha;
+  });
+}
+async function comGeracaoAutorizada(id, usuario, idGeracao, executar) {
+  const u = identidade(usuario);
+  return comRelatorioAutorizado(id, u, async (r, client) => {
+    const resultado = await client.query(`SELECT g.* FROM public.relatorio_pdf_geracao AS g
+      WHERE g.id_relatorio = $1 AND g.id_ambiente = $2 AND g.id_geracao = $3`, [id, u.id_ambiente, idGeracao]);
+    if (!resultado.rows[0]) throw erro('Geração PDF não encontrada.', 404);
+    return executar(resultado.rows[0], r);
+  });
 }
 module.exports = { criarNoAmbiente, listarPermitidosNoAmbiente, buscarPorIdNoAmbiente,
   buscarPorLocalNoAmbiente, buscarLocalAutorizadoNoAmbiente, atualizarNoAmbiente,
-  excluirNoAmbiente, buscarCompletoNoAmbiente, comRelatorioAutorizado, gerarNoAmbiente };
+  excluirNoAmbiente, buscarCompletoNoAmbiente, comRelatorioAutorizado, gerarNoAmbiente,
+  listarGeracoesNoAmbiente, comGeracaoAutorizada };

@@ -1,3 +1,5 @@
+import SeletorIdiomaPublico from '../components/SeletorIdiomaPublico.jsx'
+import { useTraducao } from '../hooks/useTraducao.js'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { redefinirSenha } from '../services/api'
@@ -6,6 +8,8 @@ import { useAuth } from '../hooks/useAuth'
 import '../styles/Login.css'
 
 export default function RedefinirSenha() {
+  const { aviso, tr } = useTraducao()
+
   const navigate = useNavigate()
   const { logout } = useAuth()
   const [token] = useState(() => tokenDoFragmento(window.location.hash))
@@ -34,18 +38,19 @@ export default function RedefinirSenha() {
     finally { enviando.current = false; setOcupado(false) }
   }
   return <main className="login-page"><section className="login-card">
-    <h1>Redefinir senha</h1>
-    {!token ? <p role="alert">Link inválido ou incompleto. Solicite uma nova recuperação na tela de login.</p> : <>
-      <p>Informe sua nova senha. O link vale por 30 minutos e pode ser usado uma única vez.</p>
+        <SeletorIdiomaPublico />
+    <h1>{tr("Redefinir senha")}</h1>
+    {!token ? <p role="alert">{tr("Link inválido ou incompleto. Solicite uma nova recuperação na tela de login.")}</p> : <>
+      <p>{tr("Informe sua nova senha. O link vale por 30 minutos e pode ser usado uma única vez.")}</p>
       <form className="login-form" onSubmit={enviar}>
-        <label htmlFor="nova-senha">Nova senha</label>
+        <label htmlFor="nova-senha">{tr("Nova senha")}</label>
         <input id="nova-senha" type="password" autoComplete="new-password" minLength={8} required value={senha} onChange={e => setSenha(e.target.value)} disabled={ocupado} />
-        <label htmlFor="confirmar-senha">Confirmar nova senha</label>
+        <label htmlFor="confirmar-senha">{tr("Confirmar nova senha")}</label>
         <input id="confirmar-senha" type="password" autoComplete="new-password" minLength={8} required value={confirmacao} onChange={e => setConfirmacao(e.target.value)} disabled={ocupado} />
-        {erro && <p className="login-error" role="alert">{erro}</p>}
-        <button type="submit" className="login-button" disabled={ocupado}>{ocupado ? 'Redefinindo...' : 'Redefinir senha'}</button>
+        {erro && <p className="login-error" role="alert">{aviso(erro)}</p>}
+        <button type="submit" className="login-button" disabled={ocupado}>{ocupado ? tr('Redefinindo...') : tr('Redefinir senha')}</button>
       </form>
     </>}
-    <Link to="/login">Voltar ao login</Link>
+    <Link to="/login">{tr("Voltar ao login")}</Link>
   </section></main>
 }

@@ -1,8 +1,14 @@
+import { useTraducao } from '../../hooks/useTraducao.js'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../hooks/useAuth'
 import { useLayout } from '../../contexts/useLayout'
+import SeletorIdioma from '../SeletorIdioma.jsx'
 import '../../styles/Header.css'
 
 function Header({ titulo, subtitulo }) {
+  const { rotulo } = useTraducao()
+
+  const { t } = useTranslation('navigation')
   const { usuario } = useAuth()
   const { abrirMenu, menuAberto } = useLayout()
 
@@ -13,7 +19,7 @@ function Header({ titulo, subtitulo }) {
           type="button"
           className="header-menu-button"
           onClick={abrirMenu}
-          aria-label="Abrir menu principal"
+          aria-label={t('openMenu')}
           aria-expanded={menuAberto}
           aria-controls="sidebar-principal"
         >
@@ -27,13 +33,14 @@ function Header({ titulo, subtitulo }) {
       </div>
 
       <div className="header-user">
+        <SeletorIdioma />
         <div className="header-avatar" aria-hidden="true">
           {usuario?.nome?.charAt(0).toUpperCase()}
         </div>
 
         <div className="header-user-info">
           <strong>{usuario?.nome}</strong>
-          <span>{usuario?.perfil_acesso}</span>
+          <span>{rotulo(usuario?.perfil_acesso)}</span>
         </div>
       </div>
     </header>

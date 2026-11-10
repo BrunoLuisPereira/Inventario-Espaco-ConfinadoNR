@@ -1,3 +1,4 @@
+import { useTraducao } from '../hooks/useTraducao.js'
 import CaracterizacaoChecklist from '../components/CaracterizacaoChecklist'
 import CamposNr33, { AvaliacaoNr33 } from '../components/CamposNr33'
 import { booleanosNr33, preencherCamposNr33, selecionarCamposNr33, prepararEdicaoChecklist, respostasNr33Alteradas,
@@ -32,6 +33,8 @@ const FORMULARIO_INICIAL = {
 }
 
 function ChecklistLocal() {
+  const { aviso, rotulo, tr } = useTraducao()
+
   const podeEditar = useCapacidade('checklists.editar')
   const podeCriar = useCapacidade('checklists.criar')
   const { idLocal } = useParams()
@@ -310,46 +313,37 @@ function ChecklistLocal() {
         onSubmit={onSubmit}
         noValidate={modoEdicao}
       >
-        {!(modoEdicao ? podeEditar : podeCriar) && <p role="status">Seu perfil permite somente consulta nesta tela.</p>}
+        {!(modoEdicao ? podeEditar : podeCriar) && <p role="status">{tr("Seu perfil permite somente consulta nesta tela.")}</p>}
         <fieldset disabled={!(modoEdicao ? podeEditar : podeCriar) || salvando || alterandoStatus} style={{border:0,padding:0,margin:0,minWidth:0}}>
         <div className="checklist-form-header">
           <div>
             <h3>
               {modoEdicao
-                ? 'Editar checklist'
-                : 'Cadastrar checklist'}
+                ? tr('Editar checklist')
+                : tr('Cadastrar checklist')}
             </h3>
 
-            <p>
-              Preencha as informações do checklist deste
-              espaço confinado.
-            </p>
+            <p>{tr("Preencha as informações do checklist deste espaço confinado.")}</p>
           </div>
 
           <span className="checklist-badge">
-            {modoEdicao ? 'Edição' : 'Novo'}
+            {modoEdicao ? tr('Edição') : tr('Novo')}
           </span>
         </div>
 
         <div className="checklist-identificacao">
           <div className="checklist-identificacao-header">
-            <h4>Identificação do espaço</h4>
+            <h4>{tr("Identificação do espaço")}</h4>
 
-            <p>
-              Responda aos critérios de caracterização do
-              espaço confinado.
-            </p>
+            <p>{tr("Responda aos critérios de caracterização do espaço confinado.")}</p>
           </div>
 
           <div className="checklist-criterios">
             <div className="checklist-criterio-card">
               <div className="checklist-criterio-texto">
-                <strong>Critério A</strong>
+                <strong>{tr("Critério A")}</strong>
 
-                <span>
-                  Não projetado para ocupação humana
-                  contínua.
-                </span>
+                <span>{tr("Não projetado para ocupação humana contínua.")}</span>
               </div>
 
               <div className="checklist-criterio-respostas">
@@ -364,9 +358,7 @@ function ChecklistLocal() {
                     onChange={alterarCampo}
                     disabled={salvando}
                     required
-                  />
-                  Sim
-                </label>
+                  />{tr("Sim")}</label>
 
                 <label>
                   <input
@@ -379,19 +371,15 @@ function ChecklistLocal() {
                     onChange={alterarCampo}
                     disabled={salvando}
                     required
-                  />
-                  Não
-                </label>
+                  />{tr("Não")}</label>
               </div>
             </div>
 
             <div className="checklist-criterio-card">
               <div className="checklist-criterio-texto">
-                <strong>Critério B</strong>
+                <strong>{tr("Critério B")}</strong>
 
-                <span>
-                  Meios limitados de entrada/saída.
-                </span>
+                <span>{tr("Meios limitados de entrada/saída.")}</span>
               </div>
 
               <div className="checklist-criterio-respostas">
@@ -406,9 +394,7 @@ function ChecklistLocal() {
                     onChange={alterarCampo}
                     disabled={salvando}
                     required
-                  />
-                  Sim
-                </label>
+                  />{tr("Sim")}</label>
 
                 <label>
                   <input
@@ -421,20 +407,15 @@ function ChecklistLocal() {
                     onChange={alterarCampo}
                     disabled={salvando}
                     required
-                  />
-                  Não
-                </label>
+                  />{tr("Não")}</label>
               </div>
             </div>
 
             <div className="checklist-criterio-card">
               <div className="checklist-criterio-texto">
-                <strong>Critério C</strong>
+                <strong>{tr("Critério C")}</strong>
 
-                <span>
-                  Atmosfera perigosa existente OU
-                  potencial.
-                </span>
+                <span>{tr("Atmosfera perigosa existente OU potencial.")}</span>
               </div>
 
               <div className="checklist-criterio-respostas">
@@ -449,9 +430,7 @@ function ChecklistLocal() {
                     onChange={alterarCampo}
                     disabled={salvando}
                     required
-                  />
-                  Sim
-                </label>
+                  />{tr("Sim")}</label>
 
                 <label>
                   <input
@@ -464,9 +443,7 @@ function ChecklistLocal() {
                     onChange={alterarCampo}
                     disabled={salvando}
                     required
-                  />
-                  Não
-                </label>
+                  />{tr("Não")}</label>
               </div>
             </div>
           </div>
@@ -477,9 +454,7 @@ function ChecklistLocal() {
 
         <div className="checklist-questions">
           <div className="checklist-field">
-            <label htmlFor="acesso_controlado">
-              Acesso controlado
-            </label>
+            <label htmlFor="acesso_controlado">{tr("Acesso controlado")}</label>
 
             <select
               id="acesso_controlado"
@@ -489,16 +464,14 @@ function ChecklistLocal() {
               disabled={salvando}
               required
             >
-              <option value="">Selecione</option>
-              <option value="SIM">Sim</option>
-              <option value="NAO">Não</option>
+              <option value="">{tr("Selecione")}</option>
+              <option value="SIM">{tr("Sim")}</option>
+              <option value="NAO">{tr("Não")}</option>
             </select>
           </div>
 
           <div className="checklist-field">
-            <label htmlFor="ventilacao_adequada">
-              Ventilação adequada
-            </label>
+            <label htmlFor="ventilacao_adequada">{tr("Ventilação adequada")}</label>
 
             <select
               id="ventilacao_adequada"
@@ -508,16 +481,14 @@ function ChecklistLocal() {
               disabled={salvando}
               required
             >
-              <option value="">Selecione</option>
-              <option value="SIM">Sim</option>
-              <option value="NAO">Não</option>
+              <option value="">{tr("Selecione")}</option>
+              <option value="SIM">{tr("Sim")}</option>
+              <option value="NAO">{tr("Não")}</option>
             </select>
           </div>
 
           <div className="checklist-field">
-            <label htmlFor="monitoramento_atmosferico">
-              Monitoramento atmosférico
-            </label>
+            <label htmlFor="monitoramento_atmosferico">{tr("Monitoramento atmosférico")}</label>
 
             <select
               id="monitoramento_atmosferico"
@@ -529,16 +500,14 @@ function ChecklistLocal() {
               disabled={salvando}
               required
             >
-              <option value="">Selecione</option>
-              <option value="SIM">Sim</option>
-              <option value="NAO">Não</option>
+              <option value="">{tr("Selecione")}</option>
+              <option value="SIM">{tr("Sim")}</option>
+              <option value="NAO">{tr("Não")}</option>
             </select>
           </div>
 
           <div className="checklist-field">
-            <label htmlFor="procedimento_emergencia">
-              Procedimento de emergência
-            </label>
+            <label htmlFor="procedimento_emergencia">{tr("Procedimento de emergência")}</label>
 
             <select
               id="procedimento_emergencia"
@@ -550,17 +519,15 @@ function ChecklistLocal() {
               disabled={salvando}
               required
             >
-              <option value="">Selecione</option>
-              <option value="SIM">Sim</option>
-              <option value="NAO">Não</option>
+              <option value="">{tr("Selecione")}</option>
+              <option value="SIM">{tr("Sim")}</option>
+              <option value="NAO">{tr("Não")}</option>
             </select>
           </div>
         </div>
 
         <div className="checklist-field">
-          <label htmlFor="observacoes">
-            Observações
-          </label>
+          <label htmlFor="observacoes">{tr("Observações")}</label>
 
           <textarea
             id="observacoes"
@@ -569,15 +536,13 @@ function ChecklistLocal() {
             value={formulario.observacoes}
             onChange={alterarCampo}
             disabled={salvando}
-            placeholder="Digite observações sobre o local, meios de acesso e informações importantes sobre o local..."
+            placeholder={tr("Digite observações sobre o local, meios de acesso e informações importantes sobre o local...")}
           />
         </div>
 
         {!modoEdicao && (
           <div className="checklist-field checklist-status-field">
-            <label htmlFor="status">
-              Status
-            </label>
+            <label htmlFor="status">{tr("Status")}</label>
 
             <select
               id="status"
@@ -586,15 +551,11 @@ function ChecklistLocal() {
               onChange={alterarCampo}
               disabled={salvando}
             >
-              <option value="PENDENTE">
-                Pendente
-              </option>
+              <option value="PENDENTE">{tr("Pendente")}</option>
 
-              <option value="CONCLUIDO" disabled={!checklist?.avaliacao_nr33}>
-                Concluído
-              </option>
+              <option value="CONCLUIDO" disabled={!checklist?.avaliacao_nr33}>{tr("Concluído")}</option>
             </select>
-            <p>Salve primeiro como pendente para obter a avaliação do servidor. Depois complete as respostas aplicáveis e solicite a conclusão.</p>
+            <p>{tr("Salve primeiro como pendente para obter a avaliação do servidor. Depois complete as respostas aplicáveis e solicite a conclusão.")}</p>
           </div>
         )}
 
@@ -605,9 +566,7 @@ function ChecklistLocal() {
               className="checklist-cancel-button"
               onClick={cancelarEdicao}
               disabled={salvando}
-            >
-              Cancelar
-            </button>
+            >{tr("Cancelar")}</button>
           )}
 
           <button
@@ -616,10 +575,10 @@ function ChecklistLocal() {
             disabled={salvando}
           >
             {salvando
-              ? 'Salvando...'
+              ? tr('Salvando...')
               : modoEdicao
-                ? 'Salvar alterações'
-                : 'Salvar checklist'}
+                ? tr('Salvar alterações')
+                : tr('Salvar checklist')}
           </button>
         </div>
       </fieldset>
@@ -633,22 +592,18 @@ function ChecklistLocal() {
 
       <main className="inventario-content">
         <Header
-          titulo="Checklist NR-33"
-          subtitulo="Checklist do espaço confinado"
+          titulo={tr("Checklist NR-33")}
+          subtitulo={tr("Checklist do espaço confinado")}
         />
 
         <section className="inventario-main">
           <Link
             to={`/locais/${idLocal}/inventario`}
             className="inventario-back"
-          >
-            ← Voltar para o inventário
-          </Link>
+          >{tr("← Voltar para o inventário")}</Link>
 
           {carregando && (
-            <p className="inventario-message">
-              Carregando checklist...
-            </p>
+            <p className="inventario-message">{tr("Carregando checklist...")}</p>
           )}
 
           {erro && (
@@ -656,7 +611,7 @@ function ChecklistLocal() {
               className="checklist-message checklist-error"
               role="alert"
             >
-              {erro}
+              {aviso(erro)}
             </p>
           )}
 
@@ -665,7 +620,7 @@ function ChecklistLocal() {
               className="checklist-message checklist-success"
               role="status"
             >
-              {sucesso}
+              {aviso(sucesso)}
             </p>
           )}
 
@@ -673,15 +628,13 @@ function ChecklistLocal() {
             <>
               <div className="inventario-title">
                 <div>
-                  <span className="inventario-label">
-                    Espaço confinado
-                  </span>
+                  <span className="inventario-label">{tr("Espaço confinado")}</span>
 
                   <h2>{local.nome_local}</h2>
 
                   <p>
                     {local.nome_campanha ||
-                      'Campanha não informada'}
+                      tr('Campanha não informada')}
                   </p>
                 </div>
 
@@ -689,7 +642,7 @@ function ChecklistLocal() {
                   <span
                     className={`checklist-status checklist-status-${checklist.status.toLowerCase()}`}
                   >
-                    {checklist.status}
+                    {rotulo(checklist.status)}
                   </span>
                 )}
               </div>
@@ -712,36 +665,32 @@ function ChecklistLocal() {
               {checklist && !editando && (
                 <div className="checklist-existing">
                   <div className="checklist-existing-main">
-                    <span>Checklist cadastrado</span>
+                    <span>{tr("Checklist cadastrado")}</span>
 
-                    <h3>
-                      Checklist #{checklist.id_checklist}
+                    <h3>{tr("Checklist #")}{checklist.id_checklist}
                     </h3>
 
-                    <p>
-                      Confira os dados cadastrados para
-                      este espaço confinado.
-                    </p>
+                    <p>{tr("Confira os dados cadastrados para este espaço confinado.")}</p>
 
                     <div className="checklist-details">
                       <div>
-                        <span>Critério A</span>
+                        <span>{tr("Critério A")}</span>
                         <strong>
-                          {checklist.criterio_a}
+                          {rotulo(checklist.criterio_a)}
                         </strong>
                       </div>
 
                       <div>
-                        <span>Critério B</span>
+                        <span>{tr("Critério B")}</span>
                         <strong>
-                          {checklist.criterio_b}
+                          {rotulo(checklist.criterio_b)}
                         </strong>
                       </div>
 
                       <div>
-                        <span>Critério C</span>
+                        <span>{tr("Critério C")}</span>
                         <strong>
-                          {checklist.criterio_c}
+                          {rotulo(checklist.criterio_c)}
                         </strong>
                       </div>
                     </div>
@@ -750,45 +699,41 @@ function ChecklistLocal() {
 
                     <div className="checklist-details">
                       <div>
-                        <span>Acesso controlado</span>
+                        <span>{tr("Acesso controlado")}</span>
                         <strong>
-                          {checklist.acesso_controlado}
+                          {rotulo(checklist.acesso_controlado)}
                         </strong>
                       </div>
 
                       <div>
-                        <span>Ventilação adequada</span>
+                        <span>{tr("Ventilação adequada")}</span>
                         <strong>
-                          {checklist.ventilacao_adequada}
+                          {rotulo(checklist.ventilacao_adequada)}
                         </strong>
                       </div>
 
                       <div>
-                        <span>
-                          Monitoramento atmosférico
-                        </span>
+                        <span>{tr("Monitoramento atmosférico")}</span>
                         <strong>
                           {
-                            checklist.monitoramento_atmosferico
+                            rotulo(checklist.monitoramento_atmosferico)
                           }
                         </strong>
                       </div>
 
                       <div>
-                        <span>
-                          Procedimento de emergência
-                        </span>
+                        <span>{tr("Procedimento de emergência")}</span>
                         <strong>
                           {
-                            checklist.procedimento_emergencia
+                            rotulo(checklist.procedimento_emergencia)
                           }
                         </strong>
                       </div>
 
                       <div>
-                        <span>Status</span>
+                        <span>{tr("Status")}</span>
                         <strong>
-                          {checklist.status}
+                          {rotulo(checklist.status)}
                         </strong>
                       </div>
                     </div>
@@ -796,11 +741,11 @@ function ChecklistLocal() {
                     <CaracterizacaoChecklist dados={checklist} consulta />
 
                     <div className="checklist-observacoes">
-                      <span>Observações</span>
+                      <span>{tr("Observações")}</span>
 
                       <p>
                         {checklist.observacoes ||
-                          'Nenhuma observação cadastrada.'}
+                          tr('Nenhuma observação cadastrada.')}
                       </p>
                     </div>
                   </div>
@@ -811,9 +756,7 @@ function ChecklistLocal() {
                       className="checklist-edit-button"
                       onClick={iniciarEdicao}
                       disabled={!podeEditar || (alterandoStatus)}
-                    >
-                      Editar checklist
-                    </button>
+                    >{tr("Editar checklist")}</button>
 
                     {checklist.status ===
                     'PENDENTE' ? (
@@ -826,8 +769,8 @@ function ChecklistLocal() {
                         disabled={!podeEditar || (alterandoStatus)}
                       >
                         {alterandoStatus
-                          ? 'Alterando...'
-                          : 'Concluir checklist'}
+                          ? tr('Alterando...')
+                          : tr('Concluir checklist')}
                       </button>
                     ) : (
                       <button
@@ -839,8 +782,8 @@ function ChecklistLocal() {
                         disabled={!podeEditar || (alterandoStatus)}
                       >
                         {alterandoStatus
-                          ? 'Alterando...'
-                          : 'Reabrir checklist'}
+                          ? tr('Alterando...')
+                          : tr('Reabrir checklist')}
                       </button>
                     )}
                   </div>

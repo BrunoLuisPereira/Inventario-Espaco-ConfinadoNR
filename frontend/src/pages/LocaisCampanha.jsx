@@ -1,3 +1,4 @@
+import { useTraducao } from '../hooks/useTraducao.js'
 import { useCapacidade } from '../hooks/useCapacidade'
 import { useEffect, useState } from 'react'
 import {
@@ -16,6 +17,8 @@ import {
 import '../styles/Locais.css'
 
 function LocaisCampanha() {
+  const { aviso, tr } = useTraducao()
+
   const podeEditar = useCapacidade('locais.editar')
   const { idCampanha } = useParams()
   const navigate = useNavigate()
@@ -146,22 +149,18 @@ function LocaisCampanha() {
 
       <main className="locais-content">
         <Header
-          titulo="Locais"
-          subtitulo="Espaços confinados da campanha"
+          titulo={tr("Locais")}
+          subtitulo={tr("Espaços confinados da campanha")}
         />
 
         <section className="locais-main">
           <Link
             to="/campanhas"
             className="locais-back"
-          >
-            ← Voltar para campanhas
-          </Link>
+          >{tr("← Voltar para campanhas")}</Link>
 
           {carregando && (
-            <p className="locais-message">
-              Carregando locais...
-            </p>
+            <p className="locais-message">{tr("Carregando locais...")}</p>
           )}
 
           {erro && (
@@ -169,7 +168,7 @@ function LocaisCampanha() {
               className="locais-error"
               role="alert"
             >
-              {erro}
+              {aviso(erro)}
             </p>
           )}
 
@@ -191,17 +190,15 @@ function LocaisCampanha() {
                   className="local-button-primary"
                   onClick={abrirFormularioNovo}
                   disabled={!podeEditar || (mostrarFormulario)}
-                >
-                  + Novo local
-                </button>
+                >{tr("+ Novo local")}</button>
               </div>
 
               {mostrarFormulario && (
                 <div className="local-form-container">
                   <h3>
                     {localEdicao
-                      ? 'Editar local'
-                      : 'Novo local'}
+                      ? tr('Editar local')
+                      : tr('Novo local')}
                   </h3>
 
                   <LocalForm
@@ -220,23 +217,20 @@ function LocaisCampanha() {
 
               {locais.length === 0 ? (
                 <div className="locais-empty">
-                  <h3>Nenhum local cadastrado</h3>
+                  <h3>{tr("Nenhum local cadastrado")}</h3>
 
-                  <p>
-                    Esta campanha ainda não possui espaços
-                    confinados cadastrados.
-                  </p>
+                  <p>{tr("Esta campanha ainda não possui espaços confinados cadastrados.")}</p>
                 </div>
               ) : (
                 <div className="locais-table-container">
                   <table className="locais-table">
                     <thead>
                       <tr>
-                        <th>Local</th>
-                        <th>Setor</th>
-                        <th>Endereço</th>
-                        <th>Status</th>
-                        <th>Ações</th>
+                        <th>{tr("Local")}</th>
+                        <th>{tr("Setor")}</th>
+                        <th>{tr("Endereço")}</th>
+                        <th>{tr("Status")}</th>
+                        <th>{tr("Ações")}</th>
                       </tr>
                     </thead>
 
@@ -272,14 +266,10 @@ function LocaisCampanha() {
                                 statusAlterando ===
                                   local.id_local)
                               }
-                              aria-label={`Status de ${local.nome_local}`}
+                              aria-label={tr("Status de {{p0}}", { p0: local.nome_local })}
                             >
-                              <option value="ATIVO">
-                                ATIVO
-                              </option>                                                         
-                              <option value="INATIVO">
-                                INATIVO
-                              </option>
+                              <option value="ATIVO">{tr("ATIVO")}</option>
+                              <option value="INATIVO">{tr("INATIVO")}</option>
                             </select>
                           </td>
 
@@ -298,9 +288,7 @@ function LocaisCampanha() {
                                   statusAlterando ===
                                     local.id_local)
                                 }
-                              >
-                                Editar
-                              </button>
+                              >{tr("Editar")}</button>
 
                               <button
                                 type="button"
@@ -313,9 +301,7 @@ function LocaisCampanha() {
                                   statusAlterando ===
                                     local.id_local
                                 }
-                              >
-                                Abrir inventário
-                              </button>
+                              >{tr("Abrir inventário")}</button>
                             </div>
                           </td>
                         </tr>

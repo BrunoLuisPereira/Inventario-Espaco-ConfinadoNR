@@ -143,10 +143,12 @@ async function gerarPdf(req, res, next) {
     const resultado =
       await relatorioService.gerarPdfRelatorio(
         req.params.id,
-        req.usuario
+        req.usuario,
+        req.body?.idioma
       );
 
     if (res.headersSent) return res;
+    res.setHeader('Cache-Control', 'private, no-store');
     return res.status(200).json({
       status: "success",
       message: "PDF do relatório gerado com sucesso.",
@@ -160,11 +162,17 @@ async function gerarPdf(req, res, next) {
 async function baixarPdf(req, res, next) {
   if (res.headersSent) return res;
   try {
-    const resultado = await relatorioService.obterPdfParaDownload(req.params.id, req.usuario);
+    const resultado = await relatorioService.obterPdfParaDownload(req.params.id, req.usuario, req.params.idGeracao, req.query?.idioma);
     if (res.headersSent) return res;
-    const { buffer, relatorio, modificado } = resultado;
+    const { buffer, relatorio, modificado, geracao } = resultado;
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="relatorio-${relatorio.id_relatorio}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="relatorio-${relatorio.id_relatorio}${geracao ? `-${geracao.idioma}-${geracao.id_geracao}` : ''}.pdf"`);
+    if (geracao) {
+      res.setHeader('Content-Language', geracao.idioma);
+      res.setHeader('X-Pdf-Geracao', geracao.id_geracao);
+      res.setHeader('ETag', `"${geracao.hash_pdf}"`);
+    }
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('Accept-Ranges', 'bytes');
     if (modificado) res.setHeader('Last-Modified', modificado.toUTCString());
@@ -181,7 +189,18 @@ async function baixarPdf(req, res, next) {
       }
     }
     res.setHeader('Content-Length', parte.length);
+    if (req.method === 'HEAD') return res.status(status).end();
     return res.status(status).send(parte);
+  } catch (erro) { return next(erro); }
+}
+
+async function listarGeracoesPdf(req, res, next) {
+  if (res.headersSent) return res;
+  try {
+    const data = await relatorioService.listarGeracoesPdf(req.params.id, req.usuario, req.query?.idioma);
+    if (res.headersSent) return res;
+    res.setHeader('Cache-Control', 'private, no-store');
+    return res.status(200).json({ status: 'success', data });
   } catch (erro) { return next(erro); }
 }
 
@@ -195,4 +214,5 @@ module.exports = {
   buscarCompleto,
   gerarPdf,
   baixarPdf,
+  listarGeracoesPdf,
 };

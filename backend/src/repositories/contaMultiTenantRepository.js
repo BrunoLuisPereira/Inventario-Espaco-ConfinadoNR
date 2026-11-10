@@ -22,7 +22,9 @@ function indisponivel() {
 async function buscarPerfil(usuario) {
   const parametros = validarIdentidade(usuario);
   const resultado = await pool.query(`
-    SELECT ${colunas}, a.nome AS nome_ambiente FROM usuario AS u
+    SELECT ${colunas}, u.id_ambiente,
+      CASE WHEN to_jsonb(u)->>'idioma' = 'en' THEN 'en' ELSE 'pt-BR' END AS idioma,
+      a.nome AS nome_ambiente FROM usuario AS u
     INNER JOIN ambiente AS a ON a.id_ambiente = u.id_ambiente
     WHERE u.id_usuario = $1 AND u.id_ambiente = $2
       AND u.ativo = TRUE AND a.ativo = TRUE
@@ -62,6 +64,9 @@ async function escrever(usuario, dados, prepararSenha) {
       const hash = await prepararSenha(atual.senha_hash);
       sql = 'senha_hash = $3, sessao_versao = sessao_versao + 1';
       valores = [...parametros, hash];
+    } else if (dados.idioma !== undefined) {
+      sql = 'idioma = $3';
+      valores = [...parametros, dados.idioma];
     } else {
       if (dados.temEmail) {
         const duplicado = await client.query(`
@@ -83,7 +88,7 @@ async function escrever(usuario, dados, prepararSenha) {
       WHERE u.id_usuario = $1 AND u.id_ambiente = $2 AND u.ativo = TRUE
         AND ${sqlCapacidade('u', 'conta.propria')}
         AND EXISTS (SELECT 1 FROM ambiente AS a WHERE a.id_ambiente = u.id_ambiente AND a.ativo = TRUE)
-      RETURNING ${colunas}
+      RETURNING ${dados.idioma !== undefined ? 'u.id_usuario, u.id_ambiente, u.idioma' : colunas}
     `, valores);
     if (!atualizado.rows[0]) throw new Error('Escrita autorizada de conta sem resultado.');
     if (prepararSenha) {
@@ -99,6 +104,9 @@ async function escrever(usuario, dados, prepararSenha) {
     if (iniciada) {
       try { await client.query('ROLLBACK'); } catch { descartar = true; }
     } else descartar = true;
+    if (dados.idioma !== undefined && erro?.code === '42703') {
+      throw erroConta('Preferência de idioma indisponível. Solicite a aplicação manual da migration 027.', 503);
+    }
     // Somente o índice normalizado confirmado na migração 020 representa
     // este conflito. Outras violações não viram respostas de negócio falsas.
     if (!prepararSenha && erro?.code === '23505' && erro.constraint === 'uq_usuario_email_normalizado') {
@@ -153,6 +161,7 @@ async function atualizarNomeAmbiente(usuario, nome) {
 }
 
 module.exports = {
+  atualizarIdioma: (usuario, idioma) => escrever(usuario, { idioma }),
   atualizarNomeAmbiente,
   erroConta, validarIdentidade, buscarPerfil,
   atualizarPerfil: (usuario, dados) => escrever(usuario, dados),

@@ -1,3 +1,4 @@
+import { useTraducao } from '../hooks/useTraducao.js'
 import { useEffect, useRef, useState } from 'react'
 import { listarAuditoriaPerfis, exportarAuditoriaCompleta } from '../services/api'
 import { nomesPerfis } from '../services/permissoes'
@@ -13,6 +14,8 @@ function IconeAuditoria({ relogio = false }) {
 }
 
 export default function AuditoriaPermissoes({ usuarios }) {
+  const { aviso, data, rotulo, tr } = useTraducao()
+
   const [estado, setEstado] = useState({ dados: null, ocupado: false, erro: '' })
   const [exportacao, setExportacao] = useState({ ocupado: false, mensagem: '', erro: '' })
   const podeExportar = useCapacidade('usuarios.auditoria.consultar')
@@ -61,37 +64,37 @@ export default function AuditoriaPermissoes({ usuarios }) {
       if (montado.current) setExportacao(s => ({ ...s, ocupado: false }))
     }
   }
-  const nome = id => usuarios.find(u => String(u.id_usuario) === String(id))?.nome || `Usuário #${id}`
+  const nome = id => usuarios.find(u => String(u.id_usuario) === String(id))?.nome || tr('Usuário #{{p0}}', { p0: id })
   return <section className="usuarios-card usuarios-auditoria" aria-labelledby="auditoria-titulo" aria-busy={estado.ocupado || exportacao.ocupado}>
-    <h2 id="auditoria-titulo">Auditoria de permissões</h2>
-    <p>Consulte as 10 alterações de perfil mais recentes do seu ambiente.</p>
+    <h2 id="auditoria-titulo">{tr("Auditoria de permissões")}</h2>
+    <p>{tr("Consulte as 10 alterações de perfil mais recentes do seu ambiente.")}</p>
     <div className="auditoria-acoes">
-      <button type="button" disabled={estado.ocupado || exportacao.ocupado} onClick={consultar}>{estado.ocupado ? 'Consultando...' : 'Consultar auditoria'}</button>
+      <button type="button" disabled={estado.ocupado || exportacao.ocupado} onClick={consultar}>{estado.ocupado ? tr('Consultando...') : tr('Consultar auditoria')}</button>
       {podeExportar && <button className="auditoria-exportar" type="button" disabled={estado.ocupado || exportacao.ocupado} onClick={exportar}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5" /></svg>
-        {exportacao.ocupado ? 'Exportando...' : 'Exportar histórico'}
+        {exportacao.ocupado ? tr('Exportando...') : tr('Exportar histórico')}
       </button>}
     </div>
-    <p className="auditoria-exportacao-nota">Exporta todas as alterações armazenadas no início da consulta. Novas alterações ficam para a próxima exportação.</p>
-    {exportacao.mensagem && <p role="status">{exportacao.mensagem}</p>}
-    {exportacao.erro && <p role="alert">{exportacao.erro}</p>}
-    {estado.erro && <p role="alert">{estado.erro}</p>}
-    {estado.dados && (estado.dados.length ? <ul className="auditoria-historico" aria-label="Histórico de alterações de perfil">{estado.dados.map(h => <li className="auditoria-registro" key={h.id_auditoria}>
+    <p className="auditoria-exportacao-nota">{tr("Exporta todas as alterações armazenadas no início da consulta. Novas alterações ficam para a próxima exportação.")}</p>
+    {exportacao.mensagem && <p role="status">{aviso(exportacao.mensagem)}</p>}
+    {exportacao.erro && <p role="alert">{aviso(exportacao.erro)}</p>}
+    {estado.erro && <p role="alert">{aviso(estado.erro)}</p>}
+    {estado.dados && (estado.dados.length ? <ul className="auditoria-historico" aria-label={tr("Histórico de alterações de perfil")}>{estado.dados.map(h => <li className="auditoria-registro" key={h.id_auditoria}>
       <article>
         <div className="auditoria-registro-cabecalho">
           <span className="auditoria-icone"><IconeAuditoria /></span>
-          <div><strong className="auditoria-usuario">{nome(h.id_usuario_afetado)}</strong><p className="auditoria-descricao">Alteração de perfil de acesso</p></div>
+          <div><strong className="auditoria-usuario">{nome(h.id_usuario_afetado)}</strong><p className="auditoria-descricao">{tr("Alteração de perfil de acesso")}</p></div>
         </div>
-        <div className="auditoria-transicao" aria-label="Perfil anterior e novo perfil">
-          <span className="auditoria-perfil">{nomesPerfis[h.perfil_anterior] || h.perfil_anterior}</span>
-          <span className="auditoria-seta" aria-label="para">→</span>
-          <span className="auditoria-perfil auditoria-perfil-novo">{nomesPerfis[h.perfil_novo] || h.perfil_novo}</span>
+        <div className="auditoria-transicao" aria-label={tr("Perfil anterior e novo perfil")}>
+          <span className="auditoria-perfil">{rotulo(nomesPerfis[h.perfil_anterior] || h.perfil_anterior)}</span>
+          <span className="auditoria-seta" aria-label={tr('para')}>→</span>
+          <span className="auditoria-perfil auditoria-perfil-novo">{rotulo(nomesPerfis[h.perfil_novo] || h.perfil_novo)}</span>
         </div>
         <div className="auditoria-metadados">
-          <span className="auditoria-responsavel"><IconeAuditoria /><span>Responsável: <strong>{nome(h.id_usuario_responsavel)}</strong></span></span>
-          <span className="auditoria-data"><IconeAuditoria relogio /><time dateTime={h.data_hora}>{new Date(h.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time></span>
+          <span className="auditoria-responsavel"><IconeAuditoria /><span>{tr("Responsável:") + ' '}<strong>{nome(h.id_usuario_responsavel)}</strong></span></span>
+          <span className="auditoria-data"><IconeAuditoria relogio /><time dateTime={h.data_hora}>{data(h.data_hora, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time></span>
         </div>
       </article>
-    </li>)}</ul> : <p role="status">Nenhuma alteração de perfil registrada.</p>)}
+    </li>)}</ul> : <p role="status">{tr("Nenhuma alteração de perfil registrada.")}</p>)}
   </section>
 }

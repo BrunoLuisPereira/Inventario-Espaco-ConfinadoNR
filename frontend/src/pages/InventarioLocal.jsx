@@ -1,3 +1,4 @@
+import { useTraducao } from '../hooks/useTraducao.js'
 import { useEffect, useState } from 'react'
 
 import {
@@ -20,6 +21,8 @@ import {
 import '../styles/InventarioLocal.css'
 
 function InventarioLocal() {
+  const { aviso, rotulo, tr } = useTraducao()
+
   const { idLocal } = useParams()
   const navigate = useNavigate()
 
@@ -180,8 +183,8 @@ function InventarioLocal() {
 
       <main className="inventario-content">
         <Header
-          titulo="Inventário do Local"
-          subtitulo="Gestão do inventário de espaço confinado"
+          titulo={tr("Inventário do Local")}
+          subtitulo={tr("Gestão do inventário de espaço confinado")}
         />
 
         <section className="inventario-main">
@@ -189,15 +192,11 @@ function InventarioLocal() {
             <Link
               to={`/campanhas/${local.id_campanha}/locais`}
               className="inventario-back"
-            >
-              ← Voltar para locais
-            </Link>
+            >{tr("← Voltar para locais")}</Link>
           )}
 
           {carregando && (
-            <p className="inventario-message">
-              Carregando dados do local...
-            </p>
+            <p className="inventario-message">{tr("Carregando dados do local...")}</p>
           )}
 
           {erro && (
@@ -205,7 +204,7 @@ function InventarioLocal() {
               className="inventario-error"
               role="alert"
             >
-              {erro}
+              {aviso(erro)}
             </p>
           )}
 
@@ -221,25 +220,21 @@ function InventarioLocal() {
 
                     <p>
                       {local.nome_campanha ||
-                        'Campanha não informada'}
+                        tr('Campanha não informada')}
                     </p>
                   </div>
 
                   <span
                     className={`inventario-status inventario-status-${local.status.toLowerCase()}`}
                   >
-                    {local.status}
+                    {rotulo(local.status)}
                   </span>
                 </div>
 
                 <div className="inventario-section-title">
-                  <h3>Inventário</h3>
+                  <h3>{tr("Inventário")}</h3>
 
-                  <p>
-                    Selecione uma etapa para
-                    continuar o levantamento
-                    deste espaço confinado.
-                  </p>
+                  <p>{tr("Selecione uma etapa para continuar o levantamento deste espaço confinado.")}</p>
                 </div>
 
                 <div className="inventario-modules">
@@ -254,23 +249,18 @@ function InventarioLocal() {
                     }
                   >
                     <div className="inventario-module-header">
-                      <strong>
-                        Checklist NR-33
-                      </strong>
+                      <strong>{tr("Checklist NR-33")}</strong>
 
                       <span
                         className={`inventario-module-status inventario-module-status-${statusChecklist.toLowerCase()}`}
                       >
-                        {formatarStatus(
+                        {tr(formatarStatus(
                           statusChecklist
-                        )}
+                        ))}
                       </span>
                     </div>
 
-                    <span>
-                      Avaliação dos requisitos
-                      do local
-                    </span>
+                    <span>{tr("Avaliação dos requisitos do local")}</span>
                   </button>
 
                   {/* Dados Técnicos */}
@@ -284,23 +274,18 @@ function InventarioLocal() {
                     }
                   >
                     <div className="inventario-module-header">
-                      <strong>
-                        Dados Técnicos
-                      </strong>
+                      <strong>{tr("Dados Técnicos")}</strong>
 
                       <span
                         className={`inventario-module-status inventario-module-status-${statusDadosTecnicos.toLowerCase()}`}
                       >
-                        {formatarStatus(
+                        {tr(formatarStatus(
                           statusDadosTecnicos
-                        )}
+                        ))}
                       </span>
                     </div>
 
-                    <span>
-                      Informações técnicas do
-                      espaço
-                    </span>
+                    <span>{tr("Informações técnicas do espaço")}</span>
                   </button>
 
                   {/* Evidências / Fotos */}
@@ -314,23 +299,18 @@ function InventarioLocal() {
                     }
                   >
                     <div className="inventario-module-header">
-                      <strong>
-                        Evidências / Fotos
-                      </strong>
+                      <strong>{tr("Evidências / Fotos")}</strong>
 
                       <span
                         className={`inventario-module-status inventario-module-status-${statusEvidencias.toLowerCase()}`}
                       >
-                        {formatarStatus(
+                        {tr(formatarStatus(
                           statusEvidencias
-                        )}
+                        ))}
                       </span>
                     </div>
 
-                    <span>
-                      Registros e evidências do
-                      local
-                    </span>
+                    <span>{tr("Registros e evidências do local")}</span>
                   </button>
 
                   {/* Responsáveis pelo Relatório */}
@@ -344,24 +324,18 @@ function InventarioLocal() {
                     }
                   >
                     <div className="inventario-module-header">
-                      <strong>
-                        Responsáveis pelo Relatório
-                      </strong>
+                      <strong>{tr("Responsáveis pelo Relatório")}</strong>
 
                       <span
                         className={`inventario-module-status inventario-module-status-${statusResponsaveis.toLowerCase()}`}
                       >
-                        {formatarStatus(
+                        {tr(formatarStatus(
                           statusResponsaveis
-                        )}
+                        ))}
                       </span>
                     </div>
 
-                    <span>
-                      Usuário responsável e
-                      informações do responsável
-                      técnico
-                    </span>
+                    <span>{tr("Usuário responsável e informações do responsável técnico")}</span>
                   </button>
 
                   {/* Relatório */}
@@ -374,14 +348,9 @@ function InventarioLocal() {
                       )
                     }
                   >
-                    <strong>
-                      Relatório
-                    </strong>
+                    <strong>{tr("Relatório")}</strong>
 
-                    <span>
-                      Visualização e geração do
-                      PDF
-                    </span>
+                    <span>{tr("Visualização e geração do PDF")}</span>
                   </button>
                 </div>
               </>

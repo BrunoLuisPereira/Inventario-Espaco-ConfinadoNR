@@ -16,6 +16,7 @@ function carregar(arquivo, dependencias) {
     { filename },
   );
   executar(nome => {
+    if (nome === '../utils/idiomaPdf') return require('../src/utils/idiomaPdf');
     assert.ok(Object.hasOwn(dependencias, nome), 'Dependência inesperada: ' + nome);
     return dependencias[nome];
   }, modulo, modulo.exports);

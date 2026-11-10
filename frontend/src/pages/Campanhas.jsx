@@ -1,3 +1,4 @@
+import { useTraducao } from '../hooks/useTraducao.js'
 import { useCapacidade } from '../hooks/useCapacidade'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -10,6 +11,8 @@ import {
 import '../styles/Campanhas.css'
 
 function Campanhas() {
+  const { aviso, data, numero, tr, rotulo } = useTraducao()
+
   const podeEditar = useCapacidade('campanhas.editar')
   const navigate = useNavigate()
 
@@ -165,19 +168,16 @@ function Campanhas() {
 
       <main className="campanhas-content">
         <Header
-          titulo="Campanhas"
-          subtitulo="Gestão das campanhas de inventário"
+          titulo={tr("Campanhas")}
+          subtitulo={tr("Gestão das campanhas de inventário")}
         />
 
         <section className="campanhas-main">
           <div className="campanhas-title">
             <div>
-              <h2>Campanhas</h2>
+              <h2>{tr("Campanhas")}</h2>
 
-              <p>
-                Gerencie as campanhas de inventário de espaços
-                confinados.
-              </p>
+              <p>{tr("Gerencie as campanhas de inventário de espaços confinados.")}</p>
             </div>
 
             <button
@@ -185,19 +185,17 @@ function Campanhas() {
               className="campanha-button-primary"
               onClick={abrirNovaCampanha}
               disabled={!podeEditar || (mostrarFormulario)}
-            >
-              + Nova campanha
-            </button>
+            >{tr("+ Nova campanha")}</button>
           </div>
 
-          {mensagem && <p className="campanhas-feedback" role="status">{mensagem}</p>}
+          {mensagem && <p className="campanhas-feedback" role="status">{aviso(mensagem)}</p>}
 
           {mostrarFormulario && (
             <div className="campanha-form-container">
               <h3>
                 {campanhaEmEdicao
-                  ? 'Editar campanha'
-                  : 'Nova campanha'}
+                  ? tr('Editar campanha')
+                  : tr('Nova campanha')}
               </h3>
 
               <CampanhaForm
@@ -213,30 +211,24 @@ function Campanhas() {
           )}
 
           {carregando && (
-            <p className="campanhas-message">
-              Carregando campanhas...
-            </p>
+            <p className="campanhas-message">{tr("Carregando campanhas...")}</p>
           )}
 
           {erro && (
             <p className="campanhas-error" role="alert">
-              {erro}
+              {aviso(erro)}
             </p>
           )}
 
           {!carregando && !erro && campanhas.length === 0 && (
-            <p className="campanhas-message">
-              Nenhuma campanha cadastrada.
-            </p>
+            <p className="campanhas-message">{tr("Nenhuma campanha cadastrada.")}</p>
           )}
 
           {!carregando && campanhas.length > 0 && (
             <>
               <div className="campanhas-filtros">
                 <div className="campanhas-filtro-busca">
-                  <label htmlFor="busca-campanha">
-                    Buscar
-                  </label>
+                  <label htmlFor="busca-campanha">{tr("Buscar")}</label>
 
                   <input
                     id="busca-campanha"
@@ -245,14 +237,12 @@ function Campanhas() {
                     onChange={(event) =>
                       setBusca(event.target.value)
                     }
-                    placeholder="Campanha, empresa ou responsável..."
+                    placeholder={tr("Campanha, empresa ou responsável...")}
                   />
                 </div>
 
                 <div className="campanhas-filtro">
-                  <label htmlFor="filtro-status">
-                    Status
-                  </label>
+                  <label htmlFor="filtro-status">{tr("Status")}</label>
 
                   <select
                     id="filtro-status"
@@ -263,28 +253,18 @@ function Campanhas() {
                       )
                     }
                   >
-                    <option value="">
-                      Todos os status
-                    </option>
+                    <option value="">{tr("Todos os status")}</option>
 
-                    <option value="EM ANDAMENTO">
-                      Em andamento
-                    </option>
+                    <option value="EM ANDAMENTO">{tr("Em andamento")}</option>
 
-                    <option value="CONCLUIDO">
-                      Concluído
-                    </option>
+                    <option value="CONCLUIDO">{tr("Concluído")}</option>
 
-                    <option value="CANCELADA">
-                      Cancelada
-                    </option>
+                    <option value="CANCELADA">{tr("Cancelada")}</option>
                   </select>
                 </div>
 
                 <div className="campanhas-filtro">
-                  <label htmlFor="data-inicial">
-                    Data inicial
-                  </label>
+                  <label htmlFor="data-inicial">{tr("Data inicial")}</label>
 
                   <input
                     id="data-inicial"
@@ -299,9 +279,7 @@ function Campanhas() {
                 </div>
 
                 <div className="campanhas-filtro">
-                  <label htmlFor="data-final">
-                    Data final
-                  </label>
+                  <label htmlFor="data-final">{tr("Data final")}</label>
 
                   <input
                     id="data-final"
@@ -321,47 +299,40 @@ function Campanhas() {
                     className="campanha-button-clear"
                     onClick={limparFiltros}
                     disabled={!possuiFiltros}
-                  >
-                    Limpar filtros
-                  </button>
+                  >{tr("Limpar filtros")}</button>
                 </div>
               </div>
 
               <div className="campanhas-resultado-filtro">
                 <span>
-                  {campanhasFiltradas.length}{' '}
+                  {numero(campanhasFiltradas.length)}{' '}
                   {campanhasFiltradas.length === 1
-                    ? 'campanha encontrada'
-                    : 'campanhas encontradas'}
+                    ? tr('campanha encontrada')
+                    : tr('campanhas encontradas')}
                 </span>
               </div>
 
               {campanhasFiltradas.length === 0 ? (
                 <div className="campanhas-sem-resultados">
-                  <p>
-                    Nenhuma campanha encontrada com os
-                    filtros selecionados.
-                  </p>
+                  <p>{tr("Nenhuma campanha encontrada com os filtros selecionados.")}</p>
 
                   <button
                     type="button"
                     className="campanha-button-clear"
                     onClick={limparFiltros}
-                  >
-                    Limpar filtros
-                  </button>
+                  >{tr("Limpar filtros")}</button>
                 </div>
               ) : (
                 <div className="campanhas-table-container">
                   <table className="campanhas-table">
                     <thead>
                       <tr>
-                        <th>Campanha</th>
-                        <th>Empresa</th>
-                        <th>Responsável</th>
-                        <th>Data de início</th>
-                        <th>Status</th>
-                        <th>Ações</th>
+                        <th>{tr("Campanha")}</th>
+                        <th>{tr("Empresa")}</th>
+                        <th>{tr("Responsável")}</th>
+                        <th>{tr("Data de início")}</th>
+                        <th>{tr("Status")}</th>
+                        <th>{tr("Ações")}</th>
                       </tr>
                     </thead>
 
@@ -379,7 +350,7 @@ function Campanhas() {
                                   <strong>{campanha.nome_campanha}</strong>
                                   {podeEditar && <button type="button" className="campanha-editar-icone"
                                     onClick={() => abrirEdicao(campanha)} disabled={mostrarFormulario}
-                                    title="Editar campanha" aria-label={`Editar campanha ${campanha.nome_campanha}`}>
+                                    title={tr("Editar campanha")} aria-label={tr("Editar campanha {{p0}}", { p0: campanha.nome_campanha })}>
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
                                       <path d="m16 3 5 5-12 12-6 1 1-6L16 3Z" /><path d="m13 6 5 5" />
                                     </svg>
@@ -398,11 +369,7 @@ function Campanhas() {
                               </td>
 
                               <td>
-                                {new Date(
-                                  campanha.data_inicio
-                                ).toLocaleDateString(
-                                  'pt-BR'
-                                )}
+                                {data(campanha.data_inicio)}
                               </td>
 
                               <td>
@@ -411,7 +378,7 @@ function Campanhas() {
                                     campanha.status
                                   )}`}
                                 >
-                                  {campanha.status === 'CONCLUIDO' ? 'CONCLU\u00cdDO' : campanha.status}
+                                  {rotulo(campanha.status === 'CONCLUIDO' ? 'CONCLUIDO' : campanha.status)}
                                 </span>
                               </td>
 
@@ -428,9 +395,7 @@ function Campanhas() {
                                     disabled={
                                       mostrarFormulario
                                     }
-                                  >
-                                    Ver locais
-                                  </button>
+                                  >{tr("Ver locais")}</button>
                                 </div>
                               </td>
                             </tr>

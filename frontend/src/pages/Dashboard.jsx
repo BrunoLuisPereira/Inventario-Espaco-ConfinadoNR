@@ -1,3 +1,4 @@
+import { useTraducao } from '../hooks/useTraducao.js'
 import { useEffect, useMemo, useState } from 'react'
 import Sidebar from '../components/layout/Sidebar'
 import Header from '../components/layout/Header'
@@ -116,6 +117,8 @@ function gerarDiasCalendario(dataReferencia) {
 }
 
 function Dashboard() {
+  const { aviso, numero, tr } = useTraducao()
+
   const hoje = useMemo(() => new Date(), [])
 
   const [indicadores, setIndicadores] = useState({
@@ -212,30 +215,24 @@ function Dashboard() {
 
       <main className="dashboard-content">
         <Header
-          titulo="Dashboard"
-          subtitulo="Visão geral do inventário de espaços confinados"
+          titulo={tr("Dashboard")}
+          subtitulo={tr("Visão geral do inventário de espaços confinados")}
         />
 
         <section className="dashboard-main">
-          <h2>Visão geral</h2>
+          <h2>{tr("Visão geral")}</h2>
 
-          <p>
-            Acompanhe as informações do inventário de espaços
-            confinados.
-          </p>
+          <p>{tr("Acompanhe as informações do inventário de espaços confinados.")}</p>
 
           {carregando && (
-            <p className="dashboard-message">
-              Carregando informações...
-            </p>
+            <p className="dashboard-message">{tr("Carregando informações...")}</p>
           )}
 
           {erro && (
             <p
               className="dashboard-error"
               role="alert"
-            >
-              Não foi possível carregar o Dashboard: {erro}
+            >{tr("Não foi possível carregar o Dashboard:") + ' '}{aviso(erro)}
             </p>
           )}
 
@@ -243,66 +240,48 @@ function Dashboard() {
             <>
               <div className="dashboard-cards">
                 <article className="dashboard-card">
-                  <span className="dashboard-card-label">
-                    Campanhas
-                  </span>
+                  <span className="dashboard-card-label">{tr("Campanhas")}</span>
 
                   <strong className="dashboard-card-value">
-                    {indicadores.totalCampanhas}
+                    {numero(indicadores.totalCampanhas)}
                   </strong>
 
-                  <span className="dashboard-card-description">
-                    Campanhas cadastradas
-                  </span>
+                  <span className="dashboard-card-description">{tr("Campanhas cadastradas")}</span>
 
                   <div className="dashboard-card-status dashboard-card-status-campanhas">
-                    <span>
-                      Em andamento
-                      <strong>
-                        {indicadores.campanhasEmAndamento}
+                    <span>{tr("Em andamento")}<strong>
+                        {numero(indicadores.campanhasEmAndamento)}
                       </strong>
                     </span>
 
-                    <span>
-                      Concluídas
-                      <strong>
-                        {indicadores.campanhasConcluidas}
+                    <span>{tr("Concluídas")}<strong>
+                        {numero(indicadores.campanhasConcluidas)}
                       </strong>
                     </span>
-                    <span>
-                      Canceladas
-                      <strong>
-                        {indicadores.campanhasCanceladas}
+                    <span>{tr("Canceladas")}<strong>
+                        {numero(indicadores.campanhasCanceladas)}
                       </strong>
                     </span>
                   </div>
                 </article>
 
                 <article className="dashboard-card">
-                  <span className="dashboard-card-label">
-                    Espaços confinados
-                  </span>
+                  <span className="dashboard-card-label">{tr("Espaços confinados")}</span>
 
                   <strong className="dashboard-card-value">
-                    {indicadores.totalLocais}
+                    {numero(indicadores.totalLocais)}
                   </strong>
 
-                  <span className="dashboard-card-description">
-                    Locais cadastrados
-                  </span>
+                  <span className="dashboard-card-description">{tr("Locais cadastrados")}</span>
 
                   <div className="dashboard-card-status">
-                    <span>
-                      Ativos
-                      <strong>
-                        {indicadores.locaisAtivos}
+                    <span>{tr("Ativos")}<strong>
+                        {numero(indicadores.locaisAtivos)}
                       </strong>
                     </span>
 
-                    <span>
-                      Inativos
-                      <strong>
-                        {indicadores.locaisInativos}
+                    <span>{tr("Inativos")}<strong>
+                        {numero(indicadores.locaisInativos)}
                       </strong>
                     </span>
                   </div>
@@ -312,12 +291,10 @@ function Dashboard() {
               <section className="dashboard-calendar">
                 <div className="dashboard-calendar-header">
                   <div>
-                    <span className="dashboard-calendar-label">
-                      Calendário
-                    </span>
+                    <span className="dashboard-calendar-label">{tr("Calendário")}</span>
 
                     <h3>
-                      {MESES[mesCalendario.getMonth()]}{' '}
+                      {tr(MESES[mesCalendario.getMonth()])}{' '}
                       {mesCalendario.getFullYear()}
                     </h3>
                   </div>
@@ -327,15 +304,13 @@ function Dashboard() {
                       type="button"
                       className="dashboard-calendar-today"
                       onClick={irParaHoje}
-                    >
-                      Hoje
-                    </button>
+                    >{tr("Hoje")}</button>
 
                     <button
                       type="button"
                       className="dashboard-calendar-navigation"
                       onClick={irParaMesAnterior}
-                      aria-label="Mês anterior"
+                      aria-label={tr("Mês anterior")}
                     >
                       ‹
                     </button>
@@ -344,7 +319,7 @@ function Dashboard() {
                       type="button"
                       className="dashboard-calendar-navigation"
                       onClick={irParaProximoMes}
-                      aria-label="Próximo mês"
+                      aria-label={tr("Próximo mês")}
                     >
                       ›
                     </button>
@@ -353,7 +328,7 @@ function Dashboard() {
 
                 <div className="dashboard-calendar-weekdays">
                   {DIAS_SEMANA.map((dia) => (
-                    <span key={dia}>
+                    <span key={tr(dia)}>
                       {dia}
                     </span>
                   ))}
@@ -393,7 +368,7 @@ function Dashboard() {
                           </span>
 
                           {diaAtual && (
-                            <small>Hoje</small>
+                            <small>{tr("Hoje")}</small>
                           )}
                         </div>
                       )

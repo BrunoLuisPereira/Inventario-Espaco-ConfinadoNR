@@ -76,6 +76,10 @@ function preparar(t, opcoes = {}) {
       assert.match(texto, /u.id_usuario = \$1 AND u.id_ambiente = \$2/);
       if (opcoes.updateVazio) return resultado();
       if (set.includes('senha_hash = $3')) { pendente.senha_hash = params[2]; pendente.sessao_versao++; }
+      else if (set.includes('idioma = $3')) {
+        pendente.idioma = params[2];
+        return resultado({ id_usuario: pendente.id_usuario, id_ambiente: pendente.id_ambiente, idioma: pendente.idioma });
+      }
       else {
         assert.match(set, /CASE WHEN \$3 THEN \$4 ELSE u.nome END/);
         assert.match(set, /CASE WHEN \$5 THEN \$6 ELSE u.email END/);
@@ -108,7 +112,7 @@ function preparar(t, opcoes = {}) {
       assert.deepEqual(params, [estado.usuario.id_usuario, estado.usuario.id_ambiente]);
       assert.match(texto, /u.id_ambiente = \$2/);
       if (!estado.usuario.ativo || !estado.ambienteAtivo) return resultado();
-      return resultado(publico(estado.usuario));
+      return resultado({ ...publico(estado.usuario), id_ambiente: estado.usuario.id_ambiente, idioma: estado.usuario.idioma });
     }
     desconhecidos.push(texto);
     throw new Error('SQL desconhecido: ' + texto);
