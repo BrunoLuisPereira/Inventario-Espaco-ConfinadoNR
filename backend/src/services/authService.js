@@ -25,11 +25,8 @@ function verificarConfiguracaoJwt() {
  * @returns {Promise<object>}
  */
 async function login(dados, ip) {
-  // O endpoint existente conserva seu envelope e seus campos públicos.
-  // A autenticação efetiva passa pela mesma cadeia multi-tenant.
-  const resultado = await loginMultiTenant(dados, ip);
-  const { id_ambiente, ...usuario } = resultado.usuario;
-  return { ...resultado, usuario };
+  // Conserva a identidade completa validada, exigida pela sessao do frontend.
+  return loginMultiTenant(dados, ip);
 }
 
 /**
