@@ -13,6 +13,11 @@ function carregar(t, opcoes = {}) {
   const anterior = require.cache[alvo];
   const original = Module._load;
   const eventos = [];
+  const erros = {
+    escrita: new Error('falha de escrita'),
+    sincronizacao: new Error('falha ao sincronizar'),
+    fechamento: new Error('falha ao fechar'),
+  };
   const raiz = path.resolve(__dirname, '../uploads/evidencias');
   let abriu = false;
   let escreveu = false;
@@ -36,9 +41,9 @@ function carregar(t, opcoes = {}) {
       abriu = true;
       return {
         async stat() { return { dev: 1n, ino: 4n, nlink: 1n, isFile: () => true }; },
-        async writeFile(b) { eventos.push(['write', b]); escreveu = true; if (opcoes.falha) throw new Error('falha de escrita'); },
-        async sync() { eventos.push(['sync']); if (opcoes.falhaSync) throw new Error('falha ao sincronizar'); },
-        async close() { eventos.push(['close']); if (opcoes.falhaClose) throw new Error('falha ao fechar'); },
+        async writeFile(b) { eventos.push(['write', b]); escreveu = true; if (opcoes.falha) throw erros.escrita; },
+        async sync() { eventos.push(['sync']); if (opcoes.falhaSync) throw erros.sincronizacao; },
+        async close() { eventos.push(['close']); if (opcoes.falhaClose) throw erros.fechamento; },
       };
     },
     async unlink() { eventos.push(['unlink']); throw new Error('Nenhum unlink permitido'); },
@@ -63,7 +68,7 @@ function carregar(t, opcoes = {}) {
     if (anterior) require.cache[alvo] = anterior; else delete require.cache[alvo];
   }
   t.after(() => assert.equal(eventos.some((e) => e[0] === 'unlink'), false));
-  return { utils, eventos, raiz };
+  return { utils, eventos, raiz, erros };
 }
 for (const [nome, mimetype, buffer, tipo] of [['foto.jpeg', 'image/jpeg', JPEG, 'FOTO'], ['foto.PNG', 'image/png', PNG, 'FOTO'], ['arquivo.pdf', 'application/pdf', PDF, 'DOCUMENTO']]) {
   test('Valida assinatura, extensão e MIME de ' + nome, (t) => {
@@ -115,10 +120,22 @@ for (const opcoes of [{ trocaDepois: true }, { falhaSync: true }, { falhaClose: 
     assert.equal(eventos.filter((e) => e[0] === 'close').length, 1);
   });
 }
-test('Falha de close não substitui a falha original de gravação', async (t) => {
-  const { utils } = carregar(t, { falha: true, falhaClose: true });
-  await assert.rejects(utils.persistirUploadAutorizado({ originalname: 'foto.jpg', mimetype: 'image/jpeg', buffer: JPEG }, usuario, 10), { message: 'falha de escrita' });
-});
+for (const [descricao, opcoes, erroEsperado] of [
+  ['escrita e fechamento bem-sucedidos', {}, null],
+  ['falha somente na escrita', { falha: true }, 'escrita'],
+  ['falha somente no fechamento', { falhaClose: true }, 'fechamento'],
+  ['falhas na escrita e no fechamento preservam a escrita', { falha: true, falhaClose: true }, 'escrita'],
+  ['falhas no sync e no fechamento preservam o sync', { falhaSync: true, falhaClose: true }, 'sincronizacao'],
+]) {
+  test('Fecha uma única vez: ' + descricao, async (t) => {
+    const { utils, eventos, erros } = carregar(t, opcoes);
+    const operacao = utils.persistirUploadAutorizado({ originalname: 'foto.jpg', mimetype: 'image/jpeg', buffer: JPEG }, usuario, 10);
+    if (erroEsperado) await assert.rejects(operacao, erro => erro === erros[erroEsperado]);
+    else assert.ok((await operacao).caminho_arquivo);
+    assert.deepEqual(eventos.filter(e => ['open', 'write', 'sync', 'close'].includes(e[0])).map(e => e[0]),
+      opcoes.falha ? ['open', 'write', 'close'] : ['open', 'write', 'sync', 'close']);
+  });
+}
 for (const caminho of ['../../fora.jpg', 'uploads/evidencias/../../fora.jpg', 'uploads/evidencias', 'uploads/evidencias/foto\0.jpg', 123, {}]) {
   test('Resolvedor rejeita caminho inseguro sem filesystem: ' + JSON.stringify(caminho), (t) => {
     const { utils, eventos } = carregar(t);

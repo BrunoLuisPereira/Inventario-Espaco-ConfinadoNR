@@ -168,6 +168,7 @@ async function persistirUploadAutorizado(file, usuario, idLocal) {
   const destino = path.join(pastaEvidencias, nome);
   const handle = await fs.promises.open(destino, "wx", 0o600);
   let falha;
+  let houveFalha = false;
   async function verificarArquivo() {
     await verificarPastas(pastas);
     const aberto = await handle.stat({ bigint: true });
@@ -186,11 +187,17 @@ async function persistirUploadAutorizado(file, usuario, idLocal) {
     await verificarArquivo();
   } catch (erro) {
     falha = erro;
-    throw erro;
+    houveFalha = true;
   } finally {
     try { await handle.close(); }
-    catch (erro) { if (!falha) throw erro; }
+    catch (erro) {
+      if (!houveFalha) {
+        falha = erro;
+        houveFalha = true;
+      }
+    }
   }
+  if (houveFalha) throw falha;
   // Ainda não é openat()/dirfd: permissões do SO e homologação são necessárias
   // contra um agente capaz de trocar diretórios entre estas verificações.
   // Nunca tenta unlink depois de falha: o caminho pode ter sido substituído.
