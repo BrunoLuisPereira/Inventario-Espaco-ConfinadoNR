@@ -268,8 +268,10 @@ for (const ambiente of [A, B]) for (const perfil of politica.perfis) {
     const dados = await c.login('senha-correta-sintetica');
     const payload = jwt.verify(dados.token, process.env.JWT_SECRET, { algorithms: ['HS256'], issuer: 'inventario-espacos-confinados-api', audience: 'inventario-espacos-confinados-pwa' });
     assert.equal(payload.sub, '10'); assert.equal(payload.perfil, perfil);
-    assert.equal(payload.id_ambiente, undefined); assert.equal(dados.usuario.id_ambiente, undefined);
+    assert.equal(payload.id_ambiente, undefined); assert.equal(dados.usuario.id_ambiente, ambiente);
     assert.equal(dados.usuario.eh_fundador, perfil === 'ADMINISTRADOR');
+    const { validarSessao } = await import('../../frontend/src/services/sessao.js');
+    assert.deepEqual(validarSessao(dados), { token: dados.token, usuario: dados.usuario });
   });
 }
 

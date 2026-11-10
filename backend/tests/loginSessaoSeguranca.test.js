@@ -143,7 +143,7 @@ for (const ambiente of [A, B]) for (const perfil of ['ADMINISTRADOR', 'ENGENHEIR
     const data = c.res.body.data;
     assert.deepEqual(Object.keys(data).sort(), ['expiraEm', 'tipo', 'token', 'usuario']);
     assert.equal(data.tipo, 'Bearer'); assert.equal(data.expiraEm, '8h');
-    assert.deepEqual(data.usuario, { id_usuario: 10, nome: 'Conta simulada', email: 'conta@example.invalid', eh_fundador: perfil === "ADMINISTRADOR", perfil_acesso: perfil });
+    assert.deepEqual(data.usuario, { id_usuario: 10, id_ambiente: ambiente, nome: 'Conta simulada', email: 'conta@example.invalid', eh_fundador: perfil === "ADMINISTRADOR", perfil_acesso: perfil });
     const claims = jwt.verify(data.token, SECRET, { algorithms: ['HS256'], issuer, audience });
     assert.equal(claims.sub, '10'); assert.equal(claims.perfil, perfil); assert.equal(claims.id_ambiente, undefined);
     assert.equal(claims.exp - claims.iat, 8 * 3600);

@@ -102,6 +102,19 @@ for (const [metodo, chamada] of [['getItem', 1], ['getItem', 2], ['removeItem', 
     assert.deepEqual(sessao.ler(), anterior)
   })
 }
+test('login sem id_ambiente é rejeitado e preserva integralmente a sessão anterior', () => {
+  const storage = memoria(), sessao = criarSessao(storage)
+  const anterior = sessao.salvar(entrada())
+  const foto = new Map(storage.itens)
+  const resposta = entrada({ id_usuario: '20' }, 'novo-token-sintetico')
+  delete resposta.usuario.id_ambiente
+
+  assert.throws(() => validarSessao(resposta), /Resposta de sessão inválida\./)
+  assert.throws(() => sessao.salvar(resposta), /Resposta de sessão inválida\./)
+  assert.deepEqual(storage.itens, foto)
+  assert.deepEqual(sessao.ler(), anterior)
+})
+
 test('falha permanente de gravação deixa token ausente se rollback não é possível', t => {
   const storage = memoria(), sessao = criarSessao(storage)
   sessao.salvar(entrada())
