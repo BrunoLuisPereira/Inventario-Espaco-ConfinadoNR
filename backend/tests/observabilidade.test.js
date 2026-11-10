@@ -7,6 +7,7 @@ const vm = require('node:vm');
 const http = require('node:http');
 const { randomUUID } = require('node:crypto');
 const express = require('express');
+const { Registry, register } = require('prom-client');
 const { instalarMetricas } = require('../src/observabilidade/metricas');
 const token = 'ab'.repeat(32); // Somente fixture, nunca credencial de uso local.
 
@@ -49,6 +50,43 @@ async function preparar(t, tipo, enabled = true, extra = {}) {
 }
 
 for (const tipo of ['padrao', 'laboratorio']) {
+  test(`${tipo}: metricas de processo registradas uma vez e coletadas em formato Prometheus`, async t => {
+    const globais = register.getMetricsAsArray();
+    const registrar = t.mock.method(Registry.prototype, 'registerMetric');
+    const { registry, scrape } = await preparar(t, tipo);
+    const metricas = [
+      ['nr33_process_resident_memory_bytes', 'gauge'],
+      ['nr33_process_heap_used_bytes', 'gauge'],
+      ['nr33_process_cpu_seconds_total', 'counter'],
+    ];
+    assert.equal(registry.getMetricsAsArray().length, 7);
+    for (const [nome, type] of metricas) {
+      const chamadas = registrar.mock.calls.filter(c => c.this === registry && c.arguments[0].name === nome);
+      assert.equal(chamadas.length, 1, nome);
+      assert.strictEqual(registry.getSingleMetric(nome), chamadas[0].arguments[0]);
+      const json = await registry.getSingleMetric(nome).get();
+      assert.equal(json.type, type);
+      assert.deepEqual(json.values[0].labels, {});
+      assert.ok(Number.isFinite(json.values[0].value));
+      assert.ok(json.values[0].value >= 0);
+    }
+    const response = await scrape();
+    assert.equal(response.status, 200);
+    for (const [nome, type] of metricas) {
+      assert.equal(response.body.split('\n').filter(l => l === `# TYPE ${nome} ${type}`).length, 1);
+      assert.equal(response.body.split('\n').filter(l => l.startsWith(nome + ' ')).length, 1);
+    }
+    assert.deepEqual(register.getMetricsAsArray(), globais);
+  });
+  test(`${tipo}: registries independentes nao compartilham instancias nem contadores`, async t => {
+    const a = await preparar(t, tipo), b = await preparar(t, tipo);
+    for (const metrica of a.registry.getMetricsAsArray()) {
+      assert.notStrictEqual(metrica, b.registry.getSingleMetric(metrica.name));
+    }
+    await a.request('/api/health');
+    assert.equal((await a.registry.getSingleMetric('nr33_http_requests_total').get()).values[0].value, 1);
+    assert.deepEqual((await b.registry.getSingleMetric('nr33_http_requests_total').get()).values, []);
+  });
   test(`${tipo}: endpoint desabilitado por padrao`, async t => {
     const { request } = await preparar(t, tipo, false, { NR33_METRICS_ENABLED: undefined });
     assert.equal((await request('/internal/metrics')).status, 404);
