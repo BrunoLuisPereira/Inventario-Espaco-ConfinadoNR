@@ -24,7 +24,7 @@ try {
   const resultados=[]
   for(const perfil of perfis) {
     const {identifier}=await enviar('Page.addScriptToEvaluateOnNewDocument',{source:`
-      const u={id_usuario:10,nome:'Pessoa sintética',email:'pessoa@example.invalid',perfil_acesso:${JSON.stringify(perfil)},eh_fundador:${perfil==='ADMINISTRADOR'},ativo:true};
+      const u={id_usuario:10,id_ambiente:'11111111-1111-4111-8111-111111111111',nome:'Pessoa sintética',email:'pessoa@example.invalid',perfil_acesso:${JSON.stringify(perfil)},eh_fundador:${perfil==='ADMINISTRADOR'},ativo:true};
       localStorage.setItem('token','token-exclusivamente-simulado');localStorage.setItem('usuario',JSON.stringify(u));
       window.patches=[];window.inesperadas=[];window.auditoria=[];window.falharPatch=false;
       window.usuarios=[u,{id_usuario:20,nome:'Convidado A',email:'convidado@example.invalid',perfil_acesso:'ENGENHEIRO_SEGURANCA',eh_fundador:false,id_convite_origem:'33333333-3333-4333-8333-333333333333',ativo:true}];
