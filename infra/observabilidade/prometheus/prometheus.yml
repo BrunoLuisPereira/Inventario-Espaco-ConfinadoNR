@@ -1,0 +1,14 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+scrape_configs:
+  - job_name: nr33-api
+    metrics_path: /internal/metrics
+    scrape_timeout: 10s
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/metrics-token
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets.json
+        refresh_interval: 15s

@@ -116,6 +116,7 @@ async function preparar(t) {
     '../src/routes/evidenciaRoutes': routerEvidencia, '../src/routes/sincronizacaoRoutes': routerSync,
     '../src/routes/cadastroRoutes': routerCadastro, '../src/routes/conviteRoutes': routerConvite,
   });
+  deps['../src/observabilidade/metricas'] = require('../src/observabilidade/metricas');
   const app = carregar('../laboratorio/app.cjs', deps).criarApp('inventario_nr33_multitenant_dev');
   const server = app.listen(0, '127.0.0.1');
   t.after(() => new Promise((resolve, reject) => server.close(e => e ? reject(e) : resolve())));

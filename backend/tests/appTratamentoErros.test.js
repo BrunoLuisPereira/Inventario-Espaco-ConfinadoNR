@@ -34,7 +34,8 @@ function carregarAppIsolado(t) {
   const routers = Object.fromEntries(ROUTERS.map((nome) => [
     nome, t.mock.fn((_req, _res, next) => next()),
   ]));
-  const dependencias = { cors, ...routers };
+  const dependencias = { cors, ...routers,
+    './observabilidade/metricas': require('../src/observabilidade/metricas') };
   function expressCapturado() {
     const app = express();
     const use = app.use;
@@ -174,7 +175,8 @@ function executarHandler(t, contexto, erro, req = {}) {
 test("[contrato atual] carrega o app real com onze routers simulados e sem servidor", (t) => {
   const contexto = carregarAppIsolado(t);
   assert.equal(typeof contexto.app, "function");
-  assert.deepEqual(contexto.imports, ["express", "cors", ...ROUTERS]);
+  assert.deepEqual(contexto.imports, ["express", "cors", ...ROUTERS.slice(0, 9),
+    './observabilidade/metricas', ...ROUTERS.slice(9)]);
   assert.equal(contexto.usos[contexto.usos.length - 1][0], contexto.tratarErro);
 });
 
