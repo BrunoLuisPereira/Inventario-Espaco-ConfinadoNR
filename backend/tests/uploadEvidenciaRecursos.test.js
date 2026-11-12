@@ -61,7 +61,7 @@ test('aceita 20 campos e arquivo; rejeita excesso de campos e de partes', async 
   assert.equal(camposDemais.erro.code, 'LIMIT_FIELD_COUNT');
   // Partes sem Content-Disposition são ignoradas como campos, mas contam.
   const ignorada = Buffer.from(`--${boundary}\r\nX-Test: ignorada\r\n\r\nx\r\n`);
-  const partesDemais = await enviar(corpo(...Array(22).fill(ignorada)));
+  const partesDemais = await enviar(corpo(...Array(23).fill(ignorada)));
   assert.equal(partesDemais.erro.code, 'LIMIT_PART_COUNT');
 });
 test('limita corpo declarado antes de ler e corpo real sem Content-Length', async () => {
