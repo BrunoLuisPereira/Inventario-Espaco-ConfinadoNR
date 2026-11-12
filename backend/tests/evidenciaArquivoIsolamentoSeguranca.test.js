@@ -252,6 +252,7 @@ function preparar(t) {
     modulos.router = require(CAMINHOS.router);
     dependencias.set(CAMINHOS.app, new Map([
       ["express", expressRegistro], ["cors", () => neutro],
+      ["./observabilidade/metricas", { instalarMetricas() {} }],
       ...["cadastro", "convite", "auth", "usuario", "campanha", "local", "checklist", "evidencia", "dadosTecnicos", "relatorio", "sincronizacao"]
         .map((nome) => ["./routes/" + nome + "Routes", neutro]),
     ]));
