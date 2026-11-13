@@ -68,7 +68,7 @@ function preparar(t) {
     async atualizar(id, d) { falhar(); estado.escritas.push('UPDATE GLOBAL'); return Object.assign(estado.registros.get(id), d); },
     async excluir(id) { falhar(); estado.escritas.push('DELETE GLOBAL'); const r = estado.registros.get(id); estado.registros.delete(id); return r; },
   };
-  const pdf = { async gerarPdfRelatorio(d, opcoes) { estado.fisico.push(['renderizar', d.id_local]); estado.idiomaRenderizado = opcoes.idioma; if (estado.falhaRender) throw estado.falhaRender; if (opcoes?.somenteBuffer) return Buffer.from('%PDF-1.7 ' + opcoes.idioma + ' ' + d.nome_local + ' %%EOF'); return { caminhoRelativo: 'uploads/relatorios/gerado.pdf', hash: 'a'.repeat(64) }; } };
+  const pdf = { async gerarPdfRelatorio(d, opcoes) { estado.fisico.push(['renderizar', d.id_local]); estado.idiomaRenderizado = opcoes.idioma; estado.statusRenderizado = d.status; if (estado.falhaRender) throw estado.falhaRender; if (opcoes?.somenteBuffer) return Buffer.from('%PDF-1.7 ' + opcoes.idioma + ' ' + d.nome_local + ' %%EOF'); return { caminhoRelativo: 'uploads/relatorios/gerado.pdf', hash: 'a'.repeat(64) }; } };
   const arquivos = {
     async lerFoto(e) { estado.fisico.push(['foto', e.id_evidencia]); return Buffer.from('IMAGEM'); },
     async persistirPdf(buffer, u, id) {
@@ -164,6 +164,23 @@ function preparar(t) {
   }
   return { estado, solicitar };
 }
+
+test('primeiro PDF recebe status GERADO', async t => {
+  const ctx = preparar(t);
+  const registro = ctx.estado.registros.get(10);
+
+  assert.equal(registro.status, 'RASCUNHO');
+
+  const { res } = await ctx.solicitar(
+    'POST', '/10/gerar-pdf', '11'
+  );
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(ctx.estado.statusRenderizado, 'GERADO');
+  assert.equal(registro.status, 'GERADO');
+  assert.equal(res.body.data.relatorio.status, 'GERADO');
+});
+
 for (const [method, url, nome] of operacoes) {
   for (const [token, id] of [['11', 10], ['21', 20], ['12', 10], ['22', 20]]) test(nome + ': legítimo ' + token, async t => {
     const ctx = preparar(t); const { res, req } = await ctx.solicitar(method, url.replace('10', id), token, { ...dados, id_local: id });
