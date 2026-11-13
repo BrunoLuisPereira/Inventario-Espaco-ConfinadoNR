@@ -53,7 +53,7 @@ async function gerarPdfRelatorio(id, usuario, idiomaRecebido) {
       const imagem = await arquivos.lerFoto(e, u, normalizarIdDominio(dados.id_local));
       if (imagem) imagens.set(e.id_evidencia, imagem);
     }
-    const buffer = await pdfService.gerarPdfRelatorio(dados, { somenteBuffer: true, imagens, idioma });
+    const buffer = await pdfService.gerarPdfRelatorio({ ...dados, status: 'GERADO' }, { somenteBuffer: true, imagens, idioma });
     return { ...await arquivos.persistirPdf(buffer, u, id), idioma };
   }));
 }
