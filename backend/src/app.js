@@ -20,6 +20,8 @@ require('./observabilidade/metricas').instalarMetricas(app);
 // ======================================================
 
 const origensPermitidas = [
+  "https://inventarionr33.com.br",
+  "https://www.inventarionr33.com.br",
   "http://localhost:5173",
   "https://localhost:5173",
   "http://192.168.1.13:5173",
