@@ -77,19 +77,52 @@ html[data-theme='dark'] .locais-classificacao-nao-avaliado { background-color: #
   .locais-admin .locais-nota { padding: 0 16px 16px; }
   .locais-admin .locais-table-container { overflow: visible; }
   .locais-admin .locais-table, .locais-admin .locais-table tbody, .locais-admin .locais-table tr { display: block; width: 100%; }
-  .locais-admin .locais-table thead { display: none; }
+  .locais-admin .locais-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .locais-admin .locais-table tr { padding: 16px; border-top: 1px solid var(--color-border); box-sizing: border-box; }
-  .locais-admin .locais-table td { display: grid; grid-template-columns: 90px minmax(0, 1fr); align-items: center; gap: 12px; padding: 8px 0; border: 0; overflow-wrap: anywhere; }
+  .locais-admin .locais-table td { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); align-items: start; gap: 12px; padding: 10px 0; border: 0; overflow-wrap: break-word; }
   .locais-admin .locais-table td::before { content: attr(data-label); color: var(--color-text-secondary); font-size: .78rem; }
   .locais-admin .locais-table td:first-child { display: block; padding-top: 0; font-size: .875rem; }
   .locais-admin .locais-table td:first-child::before { content: none; }
   .locais-admin .local-actions { justify-content: flex-start; }
   .locais-admin :is(.locais-classificacao, .locais-status) { justify-self: start; max-width: 100%; }
-  .locais-admin .locais-col-espaco .locais-classificacao { justify-self: center; }
+  .locais-admin .locais-table .locais-col-espaco { text-align: left; }
   .locais-admin .locais-empty { margin: 0 16px 16px; }
   .locais-paginacao { padding: 16px; gap: 14px; }
   .locais-paginacao nav { justify-content: space-between; width: 100%; gap: 6px; }
   .locais-ordem-mobile { display: flex; }
+}
+
+/* Contenção e quebra de texto limitadas à listagem administrativa. */
+.locais-admin .locais-valor { display: block; min-width: 0; overflow-wrap: break-word; }
+.locais-admin .locais-filtro :is(input, select),
+.locais-admin .locais-campanha-cadastro select { min-width: 0; max-width: 100%; }
+
+@media (max-width: 780px) {
+  .locais-admin .locais-heading > div { min-width: 0; overflow-wrap: break-word; }
+  .locais-admin .locais-card-heading { flex-wrap: wrap; }
+  .locais-admin .locais-card-heading > span { white-space: normal; }
+  .locais-admin .locais-table td > * { min-width: 0; max-width: 100%; }
+  .locais-admin .local-nome-editavel { align-items: start; }
+  .locais-admin .local-nome > div { overflow-wrap: break-word; }
+  .locais-admin :is(.locais-classificacao, .locais-status) { white-space: normal; text-align: left; }
+  .locais-admin .local-actions { min-width: 0; }
+  .locais-admin .local-button-open { display: inline-flex; align-items: center; min-height: 44px; white-space: normal; }
+  .locais-admin :is(.local-button-pdf, .local-status-select, .locais-exportar),
+  .locais-admin .locais-filtro :is(input, select),
+  .locais-admin .locais-paginacao :is(button, select) { min-height: 44px; }
+  .locais-admin .local-pdf-erro { max-width: 100%; overflow-wrap: break-word; }
+  .locais-admin .locais-paginacao > * { min-width: 0; max-width: 100%; }
+  .locais-admin .locais-paginacao label { flex-wrap: wrap; white-space: normal; }
+  .locais-admin .locais-paginacao nav { gap: 8px; flex-wrap: wrap; white-space: normal; }
+}
+
+@media (max-width: 480px) {
+  .locais-admin .locais-table td { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+  .locais-admin .locais-filtro { flex-basis: 100%; }
+  .locais-admin .locais-exportar { width: 100%; white-space: normal; }
+  .locais-admin .locais-paginacao nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .locais-admin .locais-paginacao nav > span { grid-column: 1 / -1; grid-row: 1; text-align: center; }
+  .locais-admin .locais-paginacao nav button { white-space: normal; }
 }
 
 .locais-layout {
