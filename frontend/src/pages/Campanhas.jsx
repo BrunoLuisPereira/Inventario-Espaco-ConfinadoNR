@@ -327,12 +327,12 @@ function Campanhas() {
                   <table className="campanhas-table">
                     <thead>
                       <tr>
-                        <th>{tr("Campanha")}</th>
-                        <th>{tr("Empresa")}</th>
-                        <th>{tr("Responsável")}</th>
-                        <th>{tr("Data de início")}</th>
-                        <th>{tr("Status")}</th>
-                        <th>{tr("Ações")}</th>
+                        <th scope="col">{tr("Campanha")}</th>
+                        <th scope="col">{tr("Empresa")}</th>
+                        <th scope="col">{tr("Responsável")}</th>
+                        <th scope="col">{tr("Data de início")}</th>
+                        <th scope="col">{tr("Status")}</th>
+                        <th scope="col">{tr("Ações")}</th>
                       </tr>
                     </thead>
 
@@ -345,7 +345,7 @@ function Campanhas() {
                                 campanha.id_campanha
                               }
                             >
-                              <td>
+                              <td data-label={tr("Campanha")}>
                                 <div className="campanha-nome">
                                   <strong>{campanha.nome_campanha}</strong>
                                   {podeEditar && <button type="button" className="campanha-editar-icone"
@@ -358,21 +358,21 @@ function Campanhas() {
                                 </div>
                               </td>
 
-                              <td>
+                              <td data-label={tr("Empresa")}>
                                 {campanha.empresa}
                               </td>
 
-                              <td>
+                              <td data-label={tr("Responsável")}>
                                 {
                                   campanha.responsavel
                                 }
                               </td>
 
-                              <td>
+                              <td data-label={tr("Data de início")}>
                                 {data(campanha.data_inicio)}
                               </td>
 
-                              <td>
+                              <td data-label={tr("Status")}>
                                 <span
                                   className={`campanhas-status campanhas-status-${obterClasseStatus(
                                     campanha.status
@@ -382,7 +382,7 @@ function Campanhas() {
                                 </span>
                               </td>
 
-                              <td>
+                              <td data-label={tr("Ações")}>
                                 <div className="campanha-actions">
                                   <button
                                     type="button"
