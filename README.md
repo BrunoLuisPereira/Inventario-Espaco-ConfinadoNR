@@ -67,3 +67,13 @@ Possibilidade de adicionar imagens do espaço confinado para documentação visu
 📲 Instalação (PWA)
 A definir
 
+
+### Qualidade e cobertura de testes
+
+Resultados auditados em 17/11/2026 para as seleções de testes executadas:
+
+- Backend: **75,97%** — meta de **75%**.
+- Frontend: **30,31%** — meta mínima de **25%**, ampliada para **30%**.
+- Auditorias independentes de cobertura de linhas **aprovadas**.
+
+Consulte o [relatório de cobertura de testes](docs/testes/COBERTURA-DE-TESTES.md) para escopo, metodologia, evidências e limitações.
