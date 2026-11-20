@@ -1,0 +1,189 @@
+name: CD homologacao - somente preparacao
+
+# This file contains no deployment capability. Passing validation cannot unlock it.
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: SHA completo que deve corresponder ao HEAD atual da main
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: cd-homologacao-somente-preparacao
+  cancel-in-progress: false
+
+jobs:
+  validar_preparacao:
+    name: Validar origem e CI sem implantacao
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Registrar barreira permanente desta versao
+        run: |
+          printf '%s\n' 'IMPLANTACAO BLOQUEADA: este workflow apenas consulta metadados GitHub.'
+          printf '%s\n' '## Preparacao sem implantacao' \
+            'Barreira: BLOQUEADA. deployEligible permanece false.' \
+            'Validacao de SHA/CI nao autoriza operacao remota nem promove o pacote.' \
+            >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comprovar SHA da main e CI exato
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          GH_READ_TOKEN: ${{ github.token }}
+          DISPATCH_EVENT: ${{ github.event_name }}
+          DISPATCH_REF: ${{ github.ref }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          REPOSITORY = 'BrunoLuisPereira/Inventario-Espaco-ConfinadoNR'
+          CI_PATH = '.github/workflows/ci.yml'
+          REQUIRED_STEPS = {
+              'Backend': ['Instalar dependencias', 'Verificar sintaxe',
+                          'Testes unitarios selecionados'],
+              'Frontend': ['Instalar dependencias', 'Executar ESLint',
+                           'Testes unitarios selecionados', 'Gerar build'],
+              'Seguranca (backend)': ['Auditar dependencias de producao e desenvolvimento'],
+              'Seguranca (frontend)': ['Auditar dependencias de producao e desenvolvimento'],
+          }
+
+          def require(condition, message):
+              if not condition:
+                  raise ValueError(message)
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          def main():
+              sha = os.environ.get('RELEASE_SHA', '')
+              require(re.fullmatch(r'[0-9a-fA-F]{40}', sha) is not None,
+                      'SHA obrigatorio: exatamente 40 caracteres hexadecimais.')
+              sha = sha.lower()
+              require(os.environ.get('GITHUB_REPOSITORY') == REPOSITORY,
+                      'Repositorio nao autorizado por este contrato.')
+              require(os.environ.get('DISPATCH_EVENT') == 'workflow_dispatch'
+                      and os.environ.get('DISPATCH_REF') == 'refs/heads/main',
+                      'Preparacao deve ser acionada manualmente a partir da main.')
+              token = os.environ.get('GH_READ_TOKEN', '')
+              require(bool(token), 'Token de leitura indisponivel.')
+              opener = urllib.request.build_opener(NoRedirect())
+
+              def get(endpoint, query=None):
+                  url = 'https://api.github.com/repos/' + REPOSITORY + '/' + endpoint
+                  if query:
+                      url += '?' + urllib.parse.urlencode(query)
+                  request = urllib.request.Request(url, method='GET', headers={
+                      'Accept': 'application/vnd.github+json',
+                      'Authorization': 'Bearer ' + token,
+                      'X-GitHub-Api-Version': '2022-11-28',
+                      'User-Agent': 'nr33-cd-preparacao-somente-leitura',
+                  })
+                  with opener.open(request, timeout=15) as response:
+                      require(response.status == 200, 'Consulta GitHub nao comprovada.')
+                      payload = response.read(4 * 1024 * 1024 + 1)
+                  require(len(payload) <= 4 * 1024 * 1024, 'Resposta excedeu limite de leitura.')
+                  return json.loads(payload)
+
+              def confirm_main():
+                  branch = get('branches/main')
+                  require(branch['commit']['sha'] == sha,
+                          'SHA informado diverge do HEAD atual da main.')
+
+              confirm_main()
+              workflow = get('actions/workflows/ci.yml')
+              require(workflow['path'] == CI_PATH and workflow['name'] == 'CI'
+                      and workflow['state'] == 'active', 'Workflow CI inesperado ou inativo.')
+              workflow_id = workflow['id']
+              require(type(workflow_id) is int and workflow_id > 0, 'Identidade CI invalida.')
+              listing = get(f'actions/workflows/{workflow_id}/runs', {
+                  'head_sha': sha, 'branch': 'main', 'event': 'push', 'per_page': 100,
+              })
+              runs = listing['workflow_runs']
+              require(type(listing['total_count']) is int
+                      and 0 < listing['total_count'] <= 100
+                      and len(runs) == listing['total_count'],
+                      'CI ausente ou listagem incompleta; nenhuma aprovacao presumida.')
+              run_ids = set()
+              for run in runs:
+                  require(run['head_sha'] == sha and run['head_branch'] == 'main'
+                          and run['event'] == 'push' and run['workflow_id'] == workflow_id,
+                          'Execucao nao corresponde ao push do SHA exato na main.')
+                  require(type(run['id']) is int and type(run['run_number']) is int,
+                          'Metadados da execucao invalidos.')
+                  require(run['id'] not in run_ids, 'IDs de execucao CI duplicados.')
+                  run_ids.add(run['id'])
+              # Select the newest execution, never fall back to an older green run.
+              latest = max(runs, key=lambda run: (run['run_number'], run['id']))
+              run_id = latest['id']
+
+              def confirm_run():
+                  run = get(f'actions/runs/{run_id}')
+                  require(run['id'] == run_id and run['workflow_id'] == workflow_id
+                          and run['path'] == CI_PATH and run['head_sha'] == sha
+                          and run['head_branch'] == 'main' and run['event'] == 'push'
+                          and run['head_repository']['full_name'] == REPOSITORY,
+                          'Origem da execucao CI nao comprovada.')
+                  require(run['status'] == 'completed' and run['conclusion'] == 'success',
+                          'CI mais recente nao terminou com sucesso.')
+                  require(type(run['run_attempt']) is int and run['run_attempt'] > 0,
+                          'Tentativa CI invalida.')
+                  return run['run_attempt']
+
+              attempt = confirm_run()
+              page = get(f'actions/runs/{run_id}/attempts/{attempt}/jobs', {'per_page': 100})
+              jobs = page['jobs']
+              require(page['total_count'] == len(jobs) == len(REQUIRED_STEPS),
+                      'Quantidade de jobs CI inesperada ou resposta incompleta.')
+              names = [job['name'] for job in jobs]
+              require(len(set(names)) == len(names) and set(names) == set(REQUIRED_STEPS),
+                      'Jobs obrigatorios ausentes, duplicados ou alterados.')
+              for job in jobs:
+                  require(job['head_sha'] == sha and job['run_id'] == run_id
+                          and job['run_attempt'] == attempt
+                          and job['status'] == 'completed' and job['conclusion'] == 'success',
+                          'Job CI nao aprovado para o SHA e tentativa exatos.')
+                  for name in REQUIRED_STEPS[job['name']]:
+                      matches = [step for step in job['steps'] if step['name'] == name]
+                      require(len(matches) == 1 and matches[0]['status'] == 'completed'
+                              and matches[0]['conclusion'] == 'success',
+                              'Etapa obrigatoria CI ausente, ignorada ou nao aprovada.')
+              require(confirm_run() == attempt, 'Tentativa CI mudou durante a verificacao.')
+              confirm_main()
+              # Evidence only: no outputs, approval token, artifact mutation or promotion.
+              with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a', encoding='utf-8') as summary:
+                  summary.write(f'\nSHA consultado: `{sha}`\n\n')
+                  summary.write(f'CI: https://github.com/{REPOSITORY}/actions/runs/{run_id}\n\n')
+                  summary.write(f'Evento: push; branch: main; tentativa: {attempt}.\n\n')
+                  summary.write('Quatro jobs e suas etapas obrigatorias aprovados.\n\n')
+                  summary.write('Resultado limitado a origem/CI. Implantacao BLOQUEADA; '
+                                'approval=NOT_VERIFIED; deployEligible=false.\n')
+              print('Origem e CI comprovados. Barreira de implantacao permanece BLOQUEADA.')
+
+          try:
+              main()
+          except Exception as error:
+              # Never echo token, raw API payload or HTTP error body.
+              message = str(error) if isinstance(error, ValueError) else type(error).__name__
+              print('Preparacao recusada: ' + message)
+              raise SystemExit(1)
+          PY
+
+      - name: Encerrar sem implantacao
+        run: |
+          printf '%s\n' 'FIM: somente verificacao de metadados; nenhuma implantacao autorizada.'
+          printf '%s\n' 'Barreira mantida: approval=NOT_VERIFIED; deployEligible=false.'
