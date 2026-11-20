@@ -12,7 +12,8 @@ def exigir(condition, reason):
         raise Bloqueado(reason)
 
 def sha(value, length=40):
-    exigir(isinstance(value, str) and re.fullmatch("[0-9a-f]{" + str(length) + "}", value), "hash invalido")
+    if not isinstance(value, str) or re.fullmatch("[0-9a-f]{" + str(length) + "}", value) is None:
+        raise Bloqueado("hash invalido")
     return value
 
 def canonical(value):
@@ -57,3 +58,19 @@ def ambiente_github(environment, branches):
     exigir(branches.get("total_count") == 1 and len(branches.get("branch_policies", [])) == 1, "politica de branches incompleta")
     branch = branches["branch_policies"][0]
     exigir(branch.get("name") == "main" and branch.get("type") == "branch", "somente main pode implantar")
+
+
+def pacote_runner(candidate=False):
+    """CLI aceita somente o arquivo previsto no espaco temporario do runner."""
+    import os
+    from pathlib import Path
+    base = Path(os.environ.get("RUNNER_TEMP", ""))
+    if not base.is_absolute() or not base.is_dir() or base.resolve() != base:
+        raise Bloqueado("RUNNER_TEMP canonico obrigatorio")
+    package = base / "candidate" / "release.tar.gz" if candidate else base / "release.tar.gz"
+    for path in (package, *package.parents):
+        if path.is_symlink():
+            raise Bloqueado("symlink no caminho do pacote")
+    if package.exists() and (not package.is_file() or package.stat().st_nlink != 1):
+        raise Bloqueado("pacote nao e arquivo regular exclusivo")
+    return package

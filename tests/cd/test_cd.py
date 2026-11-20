@@ -389,5 +389,47 @@ class PersistenceIdentity(unittest.TestCase):
             with patch("servidor.executar", side_effect=Bloqueado("inspection failed")), self.assertRaises(Bloqueado):
                 montar_identidade(source, source, os.getuid())
 
+
+class CLISecurity(unittest.TestCase):
+    def test_sha_rejected_before_any_git_command(self):
+        from contrato import sha
+        for value in ("--help", "a" * 39, "a" * 40 + "^{tree}", None, 123):
+            with self.subTest(value=value), patch("artefato.subprocess.check_output") as command, self.assertRaises(Bloqueado):
+                criar(".", value, "frontend/dist", "unused.tar.gz")
+            command.assert_not_called()
+        self.assertEqual(sha(SHA), SHA)
+    def test_runner_package_and_links(self):
+        from contrato import pacote_runner
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {"RUNNER_TEMP": temp}):
+            root = Path(temp)
+            self.assertEqual(pacote_runner(), root / "release.tar.gz")
+            self.assertEqual(pacote_runner(candidate=True), root / "candidate/release.tar.gz")
+            source = root / "source"; source.write_text("SYNTHETIC")
+            package = root / "release.tar.gz"; package.symlink_to(source)
+            with self.assertRaises(Bloqueado): pacote_runner()
+            package.unlink(); os.link(source, package)
+            with self.assertRaises(Bloqueado): pacote_runner()
+        with patch.dict(os.environ, {"RUNNER_TEMP": "."}):
+            with self.assertRaises(Bloqueado): pacote_runner()
+    def test_cli_refuses_arbitrary_paths_without_aws_or_git(self):
+        with tempfile.TemporaryDirectory() as temp:
+            env = dict(os.environ, RUNNER_TEMP=temp, CD_ENABLED="false")
+            cases = [
+                ["artefato.py", "criar", "--sha", SHA, "--package", "/etc/passwd"],
+                ["artefato.py", "verificar", "--sha", SHA, "--package", str(Path(temp) / "../outside.tar.gz")],
+                ["artefato.py", "criar", "--sha", SHA, "--package", str(Path(temp) / "release.tar.gz"), "--root", "/etc"],
+                ["github_aws.py", "implantar", "--sha", SHA, "--digest", "c" * 64, "--package", "/etc/passwd"],
+                ["github_aws.py", "implantar", "--document", "/etc/passwd"],
+            ]
+            for args in cases:
+                with self.subTest(args=args):
+                    result = subprocess.run([sys.executable, str(ROOT / "scripts/cd" / args[0]), *args[1:]],
+                                            env=env, capture_output=True, text=True, timeout=5)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertNotIn("Traceback", result.stderr)
+            text = (ROOT / ".github/workflows/cd-homologacao.yml").read_text()
+            self.assertIn("permissions: {}", text)
+            self.assertEqual(text.count("      actions: read"), 2)
+
 if __name__ == "__main__":
     unittest.main()

@@ -14,9 +14,7 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
-  actions: read
+permissions: {}
 
 concurrency:
   group: cd-homologacao
@@ -25,6 +23,9 @@ concurrency:
 jobs:
   validar_preparacao:
     name: Validar origem e CI sem implantacao
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     defaults:
@@ -215,6 +216,8 @@ jobs:
 
   construir:
     name: Construir candidato sem credenciais AWS
+    permissions:
+      contents: read
     needs: validar_preparacao
     if: ${{ inputs.implantar && vars.CD_ENABLED == 'true' }}
     runs-on: ubuntu-24.04

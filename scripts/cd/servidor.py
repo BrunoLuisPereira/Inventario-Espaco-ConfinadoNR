@@ -214,7 +214,8 @@ class Runtime:
                         os.chown(q, 0, 0, follow_symlinks=False)
                         if not q.is_symlink():
                             os.chmod(q, os.stat(q).st_mode & ~0o022)
-                os.chmod(backend, 0o755)
+                os.chown(backend, 0, self.user.pw_gid)
+                os.chmod(backend, 0o750)
         upload = target / "backend/uploads"
         upload.mkdir(mode=0o555)
         for name in ("evidencias", "relatorios"):

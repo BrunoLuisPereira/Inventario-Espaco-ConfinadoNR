@@ -9,7 +9,7 @@ import re
 import subprocess
 import time
 import urllib.request
-from contrato import exigir, sha, ambiente_github, canonical, REPOSITORY, Bloqueado
+from contrato import exigir, sha, ambiente_github, canonical, REPOSITORY, Bloqueado, pacote_runner
 from artefato import verificar
 
 class Ausente(Bloqueado):
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     p.add_argument("--package")
     p.add_argument("--sha")
     p.add_argument("--digest")
-    p.add_argument("--document", default="infra/cd/ssm-document.json")
+    p.add_argument("--document", default="infra/cd/ssm-document.json", choices=["infra/cd/ssm-document.json"])
     a = p.parse_args()
     try:
         if a.command == "ambiente":
@@ -115,7 +115,11 @@ if __name__ == "__main__":
             configurar(os.environ, exigir_prontidao=False)
             print("Environment, aprovacao manual e configuracao declarada comprovados; nenhum deploy")
         else:
-            result = implantar(AWS(), configurar(os.environ), a.package, sha(a.sha.lower()), sha(a.digest, 64), json.loads(Path(a.document).read_text()))
+            package = pacote_runner(candidate=True)
+            if a.package != str(package):
+                raise Bloqueado("CLI aceita somente o pacote candidato do runner")
+            document = Path(__file__).resolve().parents[2] / "infra/cd/ssm-document.json"
+            result = implantar(AWS(), configurar(os.environ), package, sha(a.sha.lower()), sha(a.digest, 64), json.loads(document.read_text()))
             print(json.dumps(result))
     except Exception as error:
         print("CD bloqueado: " + (str(error) if isinstance(error, Bloqueado) else type(error).__name__))

@@ -9,7 +9,7 @@ from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import tarfile
-from contrato import exigir, sha, canonical
+from contrato import exigir, sha, canonical, pacote_runner
 
 MAX_BYTES = 256 * 1024 * 1024
 def digest(data):
@@ -61,6 +61,7 @@ def verificar(path, expected_sha, expected_digest=None):
     return manifest, files
 
 def criar(root, release, dist, output):
+    release = sha(release)
     root, dist, output = Path(root).resolve(), Path(dist).resolve(), Path(output)
     exigir(not output.exists(), "saida ja existe")
     exigir(subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip() == sha(release), "checkout de outro SHA")
@@ -105,7 +106,8 @@ def criar(root, release, dist, output):
                     archive.addfile(header, io.BytesIO(data))
     verificar(output, release)
     result = {"sha": release, "sha256": digest(output.read_bytes()), "size": output.stat().st_size}
-    output.with_suffix(".json").write_bytes(canonical(result))
+    with output.with_suffix(".json").open("xb") as receipt:
+        receipt.write(canonical(result))
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
             f.write("sha=" + release + "\nsha256=" + result["sha256"] + "\n")
@@ -114,13 +116,14 @@ def criar(root, release, dist, output):
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("command", choices=["criar", "verificar"])
-    p.add_argument("--sha", required=True)
-    p.add_argument("--package", required=True)
-    p.add_argument("--root", default=".")
-    p.add_argument("--dist", default="frontend/dist")
+    package = pacote_runner()
+    p.add_argument("--sha", required=True, type=sha)
+    p.add_argument("--package", required=True, choices=[str(package)])
+    p.add_argument("--root", default=".", choices=["."])
+    p.add_argument("--dist", default="frontend/dist", choices=["frontend/dist"])
     args = p.parse_args()
     if args.command == "criar":
-        print(json.dumps(criar(args.root, args.sha, args.dist, args.package)))
+        print(json.dumps(criar(Path.cwd(), args.sha, Path.cwd() / "frontend/dist", package)))
     else:
-        verificar(args.package, args.sha)
+        verificar(package, args.sha)
         print("integridade aprovada; implantacao nao autorizada pelo artefato")
