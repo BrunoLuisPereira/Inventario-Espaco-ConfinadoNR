@@ -1,0 +1,180 @@
+{
+  "template_only": true,
+  "instructions": "Substituir todos os __PARAMETROS__ e revisar antes de qualquer autorizacao AWS. Nenhum principal e considerado existente.",
+  "github_oidc_trust": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Principal": {
+          "Federated": "arn:aws:iam::__ACCOUNT_ID__:oidc-provider/token.actions.githubusercontent.com"
+        },
+        "Action": "sts:AssumeRoleWithWebIdentity",
+        "Condition": {
+          "StringEquals": {
+            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+            "token.actions.githubusercontent.com:sub": "repo:BrunoLuisPereira/Inventario-Espaco-ConfinadoNR:environment:homologacao"
+          }
+        }
+      }
+    ]
+  },
+  "github_identity": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "s3:GetBucketPublicAccessBlock",
+          "s3:GetBucketVersioning",
+          "s3:GetBucketOwnershipControls",
+          "s3:GetEncryptionConfiguration"
+        ],
+        "Resource": "arn:aws:s3:::__ARTIFACT_BUCKET__"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "s3:PutObject",
+          "s3:GetObject"
+        ],
+        "Resource": "arn:aws:s3:::__ARTIFACT_BUCKET__/releases/*"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "ssm:GetDocument"
+        ],
+        "Resource": "arn:aws:ssm:us-east-2:__ACCOUNT_ID__:document/__DOCUMENT_NAME__"
+      },
+      {
+        "Effect": "Allow",
+        "Action": "ssm:SendCommand",
+        "Resource": [
+          "arn:aws:ssm:us-east-2:__ACCOUNT_ID__:document/__DOCUMENT_NAME__",
+          "arn:aws:ec2:us-east-2:__ACCOUNT_ID__:instance/__INSTANCE_ID__"
+        ]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "ssm:DescribeInstanceInformation",
+          "ssm:GetCommandInvocation"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "NeverAccessBackups",
+        "Effect": "Deny",
+        "Action": "s3:*",
+        "Resource": [
+          "arn:aws:s3:::__BACKUP_BUCKET__",
+          "arn:aws:s3:::__BACKUP_BUCKET__/*"
+        ]
+      },
+      {
+        "Effect": "Deny",
+        "Action": [
+          "s3:DeleteObject",
+          "s3:DeleteObjectVersion",
+          "s3:DeleteBucket"
+        ],
+        "Resource": [
+          "arn:aws:s3:::__ARTIFACT_BUCKET__",
+          "arn:aws:s3:::__ARTIFACT_BUCKET__/*"
+        ]
+      }
+    ]
+  },
+  "ec2_trust": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Principal": {
+          "Service": "ec2.amazonaws.com"
+        },
+        "Action": "sts:AssumeRole"
+      }
+    ]
+  },
+  "ec2_identity": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": "s3:GetObjectVersion",
+        "Resource": "arn:aws:s3:::__ARTIFACT_BUCKET__/releases/*"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "ssm:UpdateInstanceInformation",
+          "ssm:ListInstanceAssociations",
+          "ssm:DescribeAssociation",
+          "ssm:ListAssociations"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "ssm:GetDocument",
+          "ssm:DescribeDocument"
+        ],
+        "Resource": "arn:aws:ssm:us-east-2:__ACCOUNT_ID__:document/__DOCUMENT_NAME__"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "ec2messages:AcknowledgeMessage",
+          "ec2messages:DeleteMessage",
+          "ec2messages:FailMessage",
+          "ec2messages:GetEndpoint",
+          "ec2messages:GetMessages",
+          "ec2messages:SendReply"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "NeverAccessBackups",
+        "Effect": "Deny",
+        "Action": "s3:*",
+        "Resource": [
+          "arn:aws:s3:::__BACKUP_BUCKET__",
+          "arn:aws:s3:::__BACKUP_BUCKET__/*"
+        ]
+      }
+    ]
+  },
+  "artifact_bucket_policy": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "OnlyTLS",
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "s3:*",
+        "Resource": [
+          "arn:aws:s3:::__ARTIFACT_BUCKET__",
+          "arn:aws:s3:::__ARTIFACT_BUCKET__/*"
+        ],
+        "Condition": {
+          "Bool": {
+            "aws:SecureTransport": "false"
+          }
+        }
+      }
+    ]
+  }
+}

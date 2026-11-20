@@ -1,0 +1,11 @@
+{
+  "enabled": false,
+  "region": "us-east-2",
+  "application_user": "ubuntu",
+  "database": "inventario_nr33_homolog",
+  "database_role": "nr33_hml_app",
+  "artifact_bucket": "SUBSTITUIR_BUCKET_PRIVADO_DE_ARTEFATOS",
+  "public_host": "www.inventarionr33.com.br",
+  "account_id": "792440910201",
+  "instance_role_name": "nr33-hml-ec2-cd"
+}
