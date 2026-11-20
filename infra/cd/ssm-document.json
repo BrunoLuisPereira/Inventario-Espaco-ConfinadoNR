@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "2.2",
+  "description": "NR33: executor fixo root; somente releases e evidencias vinculadas por SHA.",
+  "parameters": {
+    "ReleaseSha": {
+      "type": "String",
+      "allowedPattern": "^[0-9a-f]{40}$",
+      "interpolationType": "ENV_VAR"
+    },
+    "ArtifactSha256": {
+      "type": "String",
+      "allowedPattern": "^[0-9a-f]{64}$",
+      "interpolationType": "ENV_VAR"
+    },
+    "ArtifactVersion": {
+      "type": "String",
+      "allowedPattern": "^[A-Za-z0-9._~+/-]{1,1024}$",
+      "interpolationType": "ENV_VAR"
+    },
+    "ReadinessSha256": {
+      "type": "String",
+      "allowedPattern": "^[0-9a-f]{64}$",
+      "interpolationType": "ENV_VAR"
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "DeployRelease",
+      "inputs": {
+        "timeoutSeconds": "1200",
+        "runCommand": [
+          "exec /usr/bin/python3 /usr/local/lib/nr33-cd/servidor.py"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "protocol": 1,
+  "approved": false,
+  "release_sha": "SUBSTITUIR_SHA_COMPLETO",
+  "artifact_sha256": "SUBSTITUIR_HASH_DO_ARTEFATO",
+  "valid_until": "DEFINIR_UTC_JANELA_MAXIMA_4H",
+  "maintenance_authorized": false,
+  "writers_inventory_complete": false,
+  "rollback_tested": false,
+  "previous_sha": "DEFINIR_RELEASE_ANTERIOR_TESTADA",
+  "schema_compatible_shas": [],
+  "schema_sha256": "DEFINIR_FINGERPRINT_CATALOGO_REVISADO",
+  "backup": {
+    "set_id": "DEFINIR_BACKUP_CONSISTENTE_EXTERNO",
+    "restore_tested": false,
+    "verified_at": "DEFINIR_UTC_DO_BACKUP_VERIFICADO",
+    "manifest_sha256": "DEFINIR_HASH_MANIFESTO_BACKUP",
+    "captured_at": "DEFINIR_UTC_DA_CAPTURA_CONSISTENTE"
+  }
+}
