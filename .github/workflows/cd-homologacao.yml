@@ -4,6 +4,11 @@ name: CD homologacao
 on:
   workflow_dispatch:
     inputs:
+      construir_candidato:
+        description: Construir candidato sem implantacao ou credenciais AWS
+        type: boolean
+        required: true
+        default: false
       implantar:
         description: Solicitar implantacao supervisionada (exige configuracao e evidencias)
         type: boolean
@@ -219,7 +224,7 @@ jobs:
     permissions:
       contents: read
     needs: validar_preparacao
-    if: ${{ inputs.implantar && vars.CD_ENABLED == 'true' }}
+    if: ${{ inputs.construir_candidato || (inputs.implantar && vars.CD_ENABLED == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
