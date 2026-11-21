@@ -229,6 +229,91 @@ class EC2Identity(unittest.TestCase):
         host.schema.assert_called_once_with()
 
 
+@unittest.skipUnless(sys.platform == "linux" and hasattr(os, "geteuid") and os.geteuid() == 0,
+                     "permissoes administrativas reais exigem Linux root isolado")
+class AdministrativeLogs(unittest.TestCase):
+    def setUp(self):
+        # /tmp e gravavel por outros e deve continuar rejeitado por seguro().
+        self.temp = tempfile.TemporaryDirectory(prefix="nr33-cd-test-", dir="/var/lib")
+        self.addCleanup(self.temp.cleanup)
+        self.parent = Path(self.temp.name) / "nr33"
+        self.parent.mkdir(mode=0o755)
+        self.logs = self.parent / "cd-logs"
+        self.logs.mkdir(mode=0o700)
+
+    def test_protected_logs_and_atomic_record(self):
+        from servidor import Runtime, LOGS, seguro
+        self.assertEqual(LOGS, Path("/var/lib/nr33/cd-logs"))
+        self.assertEqual(seguro(self.logs, True), self.logs)
+        host = Runtime.__new__(Runtime)
+        host.release, host.previous, host.artifact = SHA, OLD, "c" * 64
+        with patch("servidor.LOGS", self.logs), patch("sys.stdout", new_callable=io.StringIO):
+            host.record("SUCCESS")
+        files = list(self.logs.iterdir())
+        self.assertEqual(len(files), 1)
+        self.assertEqual(files[0].stat().st_mode & 0o777, 0o600)
+        self.assertEqual(json.loads(files[0].read_text())["status"], "SUCCESS")
+        seguro(files[0])
+
+    def test_group_or_other_writable_directory_and_ancestor_rejected(self):
+        from servidor import seguro
+        for path in (self.logs, self.parent):
+            original = path.stat().st_mode & 0o777
+            for mode in (0o775, 0o757):
+                with self.subTest(path=path, mode=oct(mode)):
+                    path.chmod(mode)
+                    try:
+                        with self.assertRaises(Bloqueado):
+                            seguro(self.logs, True)
+                    finally:
+                        path.chmod(original)
+
+    def test_symlink_directory_and_ancestor_rejected(self):
+        from servidor import seguro
+        link = Path(self.temp.name) / "link"
+        link.symlink_to(self.parent, target_is_directory=True)
+        for path in (link, link / "cd-logs"):
+            with self.subTest(path=path), self.assertRaises(Bloqueado):
+                seguro(path, True)
+
+    def test_non_root_owner_rejected(self):
+        from servidor import seguro
+        os.chown(self.logs, 65534, 65534)
+        with self.assertRaises(Bloqueado):
+            seguro(self.logs, True)
+
+    def test_preflight_accepts_protected_logs(self):
+        self.run_preflight_logs(False)
+
+    def test_preflight_rejects_writable_logs_before_services(self):
+        self.logs.chmod(0o775)
+        self.run_preflight_logs(True)
+
+    def run_preflight_logs(self, blocked):
+        import servidor
+        # Reutiliza somente a fixture simulada; seguro() real valida os logs.
+        real_seguro = servidor.seguro
+        fixture = EC2Identity()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        host = fixture.preflight_host(fixture.identity)
+        def check(path, directory=False):
+            if Path(path) == self.logs:
+                return real_seguro(path, directory)
+        servidor.seguro.side_effect = check
+        command = servidor.executar
+        with patch("servidor.LOGS", self.logs):
+            if blocked:
+                with self.assertRaises(Bloqueado):
+                    host.preflight()
+                host.schema.assert_not_called()
+                command.assert_not_called()
+            else:
+                host.preflight()
+                host.schema.assert_called_once_with()
+            servidor.seguro.assert_any_call(self.logs, True)
+
+
 class SharedIAM(unittest.TestCase):
     def setUp(self):
         self.policy = json.loads((ROOT / "infra/cd/iam-policies.template.json").read_text())

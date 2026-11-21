@@ -84,9 +84,21 @@ Layout obrigatorio:
 - /etc/nr33/pg_service.conf: servico libpq nr33_hml_readonly, exclusivamente leitura do banco homolog.
 - /etc/nr33/cd.json: configuracao root, inicialmente enabled=false.
 - /etc/nr33/cd-readiness/<sha>.json: comprovante operacional root.
-- /run/nr33, /run/nr33-cd, /var/log/nr33-cd: diretorios root protegidos.
+- /run/nr33, /run/nr33-cd: diretorios root protegidos.
+- /var/lib/nr33/cd-logs: registros administrativos persistentes, root:root, modo 0700.
 - /var/www/nr33/current: UNICO link permitido aqui, apenas frontend; destino fisico da release anterior.
 - /etc/systemd/system/nr33-backend.service.d/50-release.conf: release fisica anterior, EnvironmentFile externo.
+
+Na instalacao administrativa autorizada, criar /var/lib/nr33/cd-logs com root:root e modo 0700.
+Verificar /, /var, /var/lib e /var/lib/nr33: proprietario root, sem escrita por grupo ou outros
+(por exemplo, root:root 0755), sem links simbolicos. O executor nao cria o diretorio automaticamente:
+a ausencia ou protecao inadequada bloqueia o preflight. Os arquivos JSON sao gravados com modo 0600.
+O destino fica separado de uploads e nao deve ser gravavel pelo usuario da aplicacao.
+A funcao seguro() continua verificando o destino e todos os ancestrais, sem excecoes.
+O novo caminho evita depender das permissoes de /var/log do Ubuntu; nao alterar esse diretorio.
+Na atualizacao do executor, revisar tambem coletores de logs e rotinas de retencao externas que
+usem o destino antigo. Registros anteriores nao sao movidos ou apagados automaticamente.
+Esta alteracao de contrato nao instala diretorios ou scripts na EC2 nem habilita CD ou backup.
 
 Instalar somente servidor.py, contrato.py e artefato.py em /usr/local/lib/nr33-cd, root:root,
 codigo 0644, diretorio 0755, sem escrita por aplicacao/CD. O SSM NAO executa arquivos do artefato como root.
