@@ -5,6 +5,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends systemd systemd
 COPY scripts/cd /usr/local/lib/nr33-cd
 COPY tests/cd /opt/nr33-source/tests/cd
 COPY scripts/cd /opt/nr33-source/scripts/cd
+COPY backend/src/utils/permissoes.js /opt/nr33-source/backend/src/utils/permissoes.js
+COPY shared /opt/nr33-source/shared
 COPY infra/cd /opt/nr33-source/infra/cd
 COPY .github/workflows/cd-homologacao.yml /opt/nr33-source/.github/workflows/cd-homologacao.yml
 COPY laboratorio/cd-rollback/setup.sh laboratorio/cd-rollback/run.sh laboratorio/cd-rollback/ensaio.py laboratorio/cd-rollback/backend.cjs /opt/nr33-lab/

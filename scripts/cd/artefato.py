@@ -12,6 +12,16 @@ import tarfile
 from contrato import exigir, sha, canonical, pacote_runner
 
 MAX_BYTES = 256 * 1024 * 1024
+REQUIRED_FILES = (
+    "backend/package.json", "backend/package-lock.json", "backend/src/server.js",
+    "shared/permissoes.json", "shared/espacoConfinado.mjs",
+    "frontend/index.html", "frontend/release.json",
+)
+
+def exigir_arquivos_obrigatorios(files):
+    for required in REQUIRED_FILES:
+        exigir(required in files, "recurso obrigatorio ausente: " + required)
+
 def digest(data):
     return hashlib.sha256(data).hexdigest()
 
@@ -55,8 +65,7 @@ def verificar(path, expected_sha, expected_digest=None):
     exigir(set(inventory) == set(files), "inventario divergente")
     for name, data in files.items():
         exigir(inventory[name] == {"sha256": digest(data), "size": len(data)}, "integridade de arquivo divergente")
-    for required in ("backend/package.json", "backend/package-lock.json", "backend/src/server.js", "shared/permissoes.json", "shared/espacoConfinado.mjs", "frontend/index.html", "frontend/release.json"):
-        exigir(required in files, "recurso obrigatorio ausente")
+    exigir_arquivos_obrigatorios(files)
     exigir(json.loads(files["frontend/release.json"]) == {"sha": expected_sha}, "frontend de outro SHA")
     return manifest, files
 
@@ -90,6 +99,8 @@ def criar(root, release, dist, output):
             conteudo(data)
             entries[name] = data
     entries["frontend/release.json"] = canonical({"sha": release})
+    # Recusar fontes incompletas antes de gravar qualquer pacote ou comprovante.
+    exigir_arquivos_obrigatorios(entries)
     manifest = {"protocol": 1, "sha": release, "tree": subprocess.check_output(["git", "-C", str(root), "rev-parse", release + "^{tree}"], text=True).strip(),
                 "approval": "NOT_VERIFIED", "deployEligible": False,
                 "node": subprocess.check_output(["node", "--version"], text=True).strip(),
