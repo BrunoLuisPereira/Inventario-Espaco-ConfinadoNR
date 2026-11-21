@@ -1,0 +1,9 @@
+results/
+__pycache__/
+*.pyc
+*.log
+*.key
+*.crt
+*.pem
+*.tar.gz
+*.zip
