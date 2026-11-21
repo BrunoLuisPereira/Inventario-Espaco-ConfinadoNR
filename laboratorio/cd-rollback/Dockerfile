@@ -10,4 +10,6 @@ COPY .github/workflows/cd-homologacao.yml /opt/nr33-source/.github/workflows/cd-
 COPY laboratorio/cd-rollback/setup.sh laboratorio/cd-rollback/run.sh laboratorio/cd-rollback/ensaio.py laboratorio/cd-rollback/backend.cjs /opt/nr33-lab/
 RUN sed -i 's/\r$//' /opt/nr33-lab/*.sh && chmod 0755 /opt/nr33-lab/*.sh && ln -s /usr/local/bin/node /usr/bin/node && ln -s /usr/sbin/runuser /usr/local/bin/runuser
 STOPSIGNAL SIGRTMIN+3
-CMD ["/sbin/init"]
+# Default seguro; o launcher opta explicitamente por root/systemd no ensaio isolado.
+USER node
+CMD ["/bin/bash"]

@@ -1,9 +1,9 @@
 #!/bin/bash
 set -euo pipefail
-test "$(id -u)" = 0
-test "$(cat /proc/1/comm)" = systemd
-test -f /.dockerenv
-test ! -e /etc/nr33/cd.json
+[[ "$(id -u)" == 0 ]]
+[[ "$(cat /proc/1/comm)" == systemd ]]
+[[ -f /.dockerenv ]]
+[[ ! -e /etc/nr33/cd.json ]]
 install -d -m 0755 /run/nr33-lab /run/nr33 /run/nr33-cd /opt/nr33/releases /var/www/nr33 /etc/nr33 /etc/systemd/system/nr33-backend.service.d /var/lib/nr33/uploads /lab-results
 install -d -m 0700 /var/lib/nr33/cd-logs
 printf 'DISPOSABLE-NR33-LAB\n' > /run/nr33-lab/marker

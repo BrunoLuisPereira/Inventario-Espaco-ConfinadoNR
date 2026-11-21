@@ -137,3 +137,52 @@ ao container e necessarios ao contrato. Logs e pacotes continuam excluidos do co
 A tentativa anterior `9d847b56cb62` parou antes dos testes por CRLF no shebang;
 a normalizacao na imagem corrigiu a reproducao em checkout Windows.
 Os limites de producao acima permanecem, incluindo production_readiness=false.
+
+## Diagnostico SonarCloud do PR #69 e revalidacao local
+
+No commit 587f2e545cf982b18e1972f3f8c4b98943e28877, os quatro checks CI passaram.
+O check SonarCloud 136838856996 falhou por `new_security_rating=2` (B),
+com limite `1` (A). A API project_status retornou somente essa condicao ERROR;
+confiabilidade e manutenibilidade A, duplicacao 0.0% e hotspots revisados 100% passaram.
+
+A API issues/search identificou `docker:S6471`, vulnerabilidade MINOR/SECURITY LOW,
+na linha 1 do Dockerfile: imagem node com root como usuario padrao (issue AaH9-mgDnCK_sDRUh_Wr).
+Tambem identificou quatro ocorrencias `shell:S7688`, CODE_SMELL/MAJOR,
+nas linhas 3-6 de setup.sh, recomendando `[[ ]]` em vez de `test`.
+Nao ha configuracao Sonar versionada no projeto. As configuracoes publicas consultadas
+ativam Docker e Shell por heranca; nenhuma exclusao de escopo consultada foi declarada.
+Nenhuma configuracao Sonar ou Quality Gate foi alterada.
+
+Fontes de leitura:
+- https://sonarcloud.io/dashboard?id=BrunoLuisPereira_Inventario-Espaco-ConfinadoNR&pullRequest=69
+- https://sonarcloud.io/api/qualitygates/project_status?projectKey=BrunoLuisPereira_Inventario-Espaco-ConfinadoNR&pullRequest=69
+- https://sonarcloud.io/api/issues/search?componentKeys=BrunoLuisPereira_Inventario-Espaco-ConfinadoNR&pullRequest=69&ps=100
+
+Correcao proposta: imagem com USER node e shell como padrao, sem iniciar systemd
+implicitamente como root; o launcher solicita root/systemd explicitamente somente
+no laboratorio isolado. Os privilegios administrativos do ensaio continuam necessarios,
+e nao foram removidos nem considerados seguros para producao. Os quatro testes Bash
+usam [[ ]] mantendo as mesmas pre-condicoes. Sem supressoes ou exclusoes de analise.
+
+A imagem revisada iniciou com UID 1000 e sem permissao de escrita no executor.
+Bash, Python, JavaScript e parser PowerShell passaram. A suite Linux root passou
+**47 testes, 0 falhos, 0 ignorados**. A tentativa inicial de sintaxe Python em comando
+composto sofreu erro de aspas no host; a chamada direta no container passou.
+
+Ensaio revisado: `nr33-rollback-lab-e234890b53e6`; resultado `COMPLETED_SYNTHETIC_LAB_ONLY`.
+
+- `2026-11-21T12:05:47Z`: `SUCCESS`.
+- `2026-11-21T12:05:49Z`: `SUCCESS`.
+- `2026-11-21T12:06:52Z`: `ROLLED_BACK`.
+- `2026-11-21T12:08:54Z`: `MANUAL_RECOVERY_REQUIRED`.
+- `2026-11-21T12:08:56Z`: recuperacao manual concluida.
+
+Baseline sintetica SHA-256: `7d8fde2ea03d3582eb8caa85cb850d0101e1450da530c931dec0cec0931245be`.
+
+Candidata sintetica SHA-256: `9c495977c6aa8d365a2fce0b659cf982fe25a11499126c60702ef50bbc8334f9`.
+
+Logs locais continuam em results/, ignorados. Evidencias anteriores foram preservadas.
+O Quality Gate remoto ainda corresponde ao commit analisado: uma nova analise SonarCloud
+sera necessaria apos revisao e eventual publicacao. Este teste local nao confirma Gate aprovado.
+Na etapa de diagnostico e validacao acima, nao houve commit ou push.
+Nenhuma alteracao AWS/producao ou emissao de prontidao foi realizada.

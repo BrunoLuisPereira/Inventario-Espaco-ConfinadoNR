@@ -23,13 +23,17 @@ O launcher cria um nome exclusivo, compila a imagem, inicia systemd como PID 1 e
 
 ```text
 docker build -f laboratorio/cd-rollback/Dockerfile -t nr33-cd-rollback-lab:cd237 .
-docker run -d --name <nome-exclusivo> --privileged --cgroupns private --network none --tmpfs /run --tmpfs /run/lock nr33-cd-rollback-lab:cd237
+docker run -d --name <nome-exclusivo> --user 0:0 --privileged --cgroupns private --network none --tmpfs /run --tmpfs /run/lock nr33-cd-rollback-lab:cd237 /sbin/init
 docker exec <nome-exclusivo> /opt/nr33-lab/run.sh
 docker cp <nome-exclusivo>:/lab-results/. <diretorio-local>
 docker rm -f <nome-exclusivo>
 ```
 
 Nao monta diretorios do host, nao publica portas, nao injeta credenciais e nao monta socket Docker.
+O padrao da imagem e `USER node` e um shell sem elevacao, sem iniciar systemd.
+Somente o launcher seleciona explicitamente `--user 0:0` e `/sbin/init` para os testes
+administrativos, systemd e bind mounts. Isso nao remove os privilegios necessarios ao ensaio:
+o daemon continua exigindo a VM Docker descartavel local, sem dados ou credenciais reais.
 O ensaio exige apenas loopback em `/sys/class/net`. A imagem nao instala AWS CLI ou PostgreSQL.
 Os resultados sao copiados mesmo em falha e o container e removido. A imagem fica disponivel
 para reproducao; sua exclusao posterior e opcional. Nao existe limpeza de recursos AWS.

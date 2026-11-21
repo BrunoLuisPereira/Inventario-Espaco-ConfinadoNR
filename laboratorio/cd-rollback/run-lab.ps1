@@ -13,7 +13,8 @@ try {
     & docker build -f laboratorio/cd-rollback/Dockerfile -t nr33-cd-rollback-lab:cd237 .
     if ($LASTEXITCODE -ne 0) { throw 'Falha no build; ensaio PENDENTE' }
     # Privilegios apenas na VM Docker descartavel, sem bind mount, portas ou rede.
-    & docker run -d --name $taskName --privileged --cgroupns private --network none --tmpfs /run --tmpfs /run/lock nr33-cd-rollback-lab:cd237
+    # Root e init sao opt-in neste ensaio: testes administrativos, systemd e bind mounts.
+    & docker run -d --name $taskName --user 0:0 --privileged --cgroupns private --network none --tmpfs /run --tmpfs /run/lock nr33-cd-rollback-lab:cd237 /sbin/init
     if ($LASTEXITCODE -ne 0) { throw 'Falha ao iniciar Linux; ensaio PENDENTE' }
     & docker exec $taskName bash -c 'for attempt in {1..30}; do systemctl show-environment >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1'
     if ($LASTEXITCODE -ne 0) { throw 'systemd indisponivel; ensaio PENDENTE' }
