@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 import uuid
 from contrato import exigir, sha, canonical, prontidao, Bloqueado
-from artefato import verificar, nome
+from artefato import verificar, nome, exigir_arquivos_obrigatorios
 
 BASE = Path("/opt/nr33/releases")
 FRONT = Path("/var/www/nr33/current")
@@ -283,6 +283,7 @@ class Runtime:
     def release_integrity(self, release):
         manifest = json.loads(seguro(BASE / release / "release-manifest.json").read_text())
         exigir(manifest.get("sha") == release and manifest.get("protocol") == 1, "manifesto instalado divergente")
+        exigir_arquivos_obrigatorios(manifest.get("files", {}))
         for name, expected in manifest.get("files", {}).items():
             path = seguro(BASE / release / nome(name))
             exigir(path.stat().st_nlink == 1 and path.stat().st_size == expected["size"] and hashlib.sha256(path.read_bytes()).hexdigest() == expected["sha256"], "release instalada alterada")

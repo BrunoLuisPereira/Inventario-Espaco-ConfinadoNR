@@ -90,6 +90,81 @@ class Artifacts(unittest.TestCase):
         archive(self.path, mutate=lambda m, f: m.update(deployEligible=True))
         with self.assertRaises(Bloqueado):
             verificar(self.path, SHA)
+    def test_missing_shared_rejected_even_with_matching_inventory(self):
+        for missing in ("shared/permissoes.json", "shared/espacoConfinado.mjs"):
+            def omit(manifest, files):
+                del files[missing]
+                del manifest["files"][missing]
+            archive(self.path, mutate=omit)
+            with self.subTest(missing=missing), self.assertRaisesRegex(Bloqueado, missing):
+                verificar(self.path, SHA)
+
+    def pack_fixture(self, source):
+        root = Path(self.temp.name)
+        dist = root / "dist"
+        dist.mkdir()
+        (dist / "index.html").write_text("SYNTHETIC")
+        listing = b"\0".join(b"100644 blob " + hashlib.sha1(b).hexdigest().encode() + b"\t" + n.encode()
+                             for n, b in source.items()) + b"\0"
+        blobs = {hashlib.sha1(b).hexdigest(): b for b in source.values()}
+        def git(args, **kwargs):
+            if args[0] == "node": return "v24.22.3\n"
+            if args[0] == "npm": return "11.19.1\n"
+            if "ls-tree" in args: return listing
+            if "cat-file" in args: return blobs[args[-1]]
+            return ("f" * 40 if args[-1].endswith("^{tree}") else SHA) + "\n"
+        with patch("artefato.subprocess.check_output", side_effect=git):
+            return criar(root, SHA, dist, self.path)
+
+    def test_pack_shared_and_real_relative_require(self):
+        source = {n: b for n, b in fixture_files().items() if not n.startswith("frontend/")}
+        for name in ("backend/src/utils/permissoes.js", "shared/permissoes.json", "shared/espacoConfinado.mjs"):
+            source[name] = (ROOT / name).read_bytes()
+        result = self.pack_fixture(source)
+        manifest, files = verificar(self.path, SHA, result["sha256"])
+        installed = Path(self.temp.name) / "isolated-release"
+        # Materializar somente os arquivos ja aprovados pelo verificador, sem extractall.
+        for name, data in files.items():
+            dest = installed / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(data)
+        for name in ("shared/permissoes.json", "shared/espacoConfinado.mjs"):
+            self.assertEqual(files[name], (ROOT / name).read_bytes())
+            self.assertEqual(manifest["files"][name]["sha256"], digest(files[name]))
+        module = installed / "backend/src/utils/permissoes.js"
+        code = ("const assert = require('node:assert/strict');"
+                "const m = require(process.argv[1]);"
+                "const data = require(process.argv[2]);"
+                "assert.deepEqual(m.perfis, data.perfis);"
+                "assert.equal(typeof m.pode, 'function');")
+        args = ["node", "-e", code, str(module), str(installed / "shared/permissoes.json")]
+        success = subprocess.run(args, cwd=installed / "backend", capture_output=True, text=True, timeout=10)
+        self.assertEqual(success.returncode, 0, success.stderr)
+        # Novo processo: nao reutilizar o cache require da verificacao positiva.
+        (installed / "shared/permissoes.json").unlink()
+        failure = subprocess.run(args, cwd=installed / "backend", capture_output=True, text=True, timeout=10)
+        self.assertNotEqual(failure.returncode, 0)
+        self.assertIn("MODULE_NOT_FOUND", failure.stderr)
+        self.assertIn("../../../shared/permissoes.json", failure.stderr)
+
+    def test_missing_shared_source_never_writes_package(self):
+        source = {n: b for n, b in fixture_files().items()
+                  if not n.startswith("frontend/") and n != "shared/permissoes.json"}
+        with self.assertRaisesRegex(Bloqueado, "shared/permissoes.json"):
+            self.pack_fixture(source)
+        self.assertFalse(self.path.exists())
+        self.assertFalse(self.path.with_suffix(".json").exists())
+
+    def test_installed_manifest_must_include_shared(self):
+        from servidor import Runtime
+        manifest = {"protocol": 1, "sha": SHA,
+                    "files": {n: {"size": len(b), "sha256": digest(b)} for n, b in fixture_files().items()
+                              if n != "shared/permissoes.json"}}
+        path = Path(self.temp.name) / "release-manifest.json"
+        path.write_bytes(canonical(manifest))
+        with patch("servidor.seguro", return_value=path), self.assertRaisesRegex(Bloqueado, "shared/permissoes.json"):
+            Runtime.release_integrity(None, SHA)
+
     def test_pack_uses_git_objects_and_dist_only(self):
         root = Path(self.temp.name)
         dist = root / "dist"; dist.mkdir(); (dist / "index.html").write_text("SYNTHETIC")
