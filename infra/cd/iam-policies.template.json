@@ -1,6 +1,6 @@
 {
   "template_only": true,
-  "instructions": "Substituir todos os __PARAMETROS__ e revisar antes de qualquer autorizacao AWS. Nenhum principal e considerado existente.",
+  "instructions": "Modelo da arquitetura compartilhada aprovada; usar os valores de approved_architecture para os parametros correspondentes e preencher __INSTANCE_ID__/__DOCUMENT_NAME__. Revisar antes de qualquer autorizacao AWS. ec2_identity preserva o suporte SSM e acrescenta somente leitura versionada de releases; nao substitui a politica independente de backup da role compartilhada.",
   "github_oidc_trust": {
     "Version": "2012-10-17",
     "Statement": [
@@ -145,15 +145,6 @@
           "ec2messages:SendReply"
         ],
         "Resource": "*"
-      },
-      {
-        "Sid": "NeverAccessBackups",
-        "Effect": "Deny",
-        "Action": "s3:*",
-        "Resource": [
-          "arn:aws:s3:::__BACKUP_BUCKET__",
-          "arn:aws:s3:::__BACKUP_BUCKET__/*"
-        ]
       }
     ]
   },
@@ -176,5 +167,13 @@
         }
       }
     ]
+  },
+  "approved_architecture": {
+    "account_id": "792440910201",
+    "region": "us-east-2",
+    "ec2_role_name": "NR33-EC2-SSM-Role",
+    "github_role_name": "NR33-GitHub-CD-Homologacao",
+    "artifact_bucket": "nr33-cd-artifacts-792440910201",
+    "backup_bucket": "nr33-db-backups-792440910201"
   }
 }

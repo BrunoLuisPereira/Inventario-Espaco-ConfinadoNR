@@ -121,6 +121,17 @@ def montar_identidade(source, target, user_uid):
     exigir(a.st_mode & 0o077 == 0 and a.st_mode & 0o700 == 0o700, "permissoes persistentes incorretas")
     return {"device": a.st_dev, "inode": a.st_ino}
 
+def validar_identidade_ec2(config, identity):
+    account, role = "792440910201", "NR33-EC2-SSM-Role"
+    exigir(config.get("account_id") == account and config.get("instance_role_name") == role,
+           "identidade EC2 aprovada nao declarada")
+    exigir(isinstance(identity, dict), "resposta STS invalida")
+    arn = identity.get("Arn")
+    exigir(identity.get("Account") == account and isinstance(arn, str) and
+           re.fullmatch(r"arn:aws:sts::792440910201:assumed-role/NR33-EC2-SSM-Role/i-(?:[0-9a-f]{8}|[0-9a-f]{17})", arn),
+           "identidade EC2 aprovada nao comprovada")
+
+
 class Runtime:
     def __init__(self, config, release, artifact, version, receipt_digest):
         self.config, self.release, self.artifact = config, sha(release), sha(artifact, 64)
@@ -174,9 +185,8 @@ class Runtime:
         exigir(executar(["node", "--version"]).startswith("v24."), "Node 24 obrigatorio")
         self.mount_release(self.previous)
         self.release_integrity(self.previous)
-        exigir(re.fullmatch(r"[0-9]{12}", self.config.get("account_id", "")) and self.config.get("instance_role_name") == "nr33-hml-ec2-cd", "perfil dedicado nao declarado")
         identity = json.loads(executar(["aws", "sts", "get-caller-identity", "--output", "json", "--no-cli-pager"]))
-        exigir(identity.get("Account") == self.config["account_id"] and identity.get("Arn", "").startswith("arn:aws:sts::" + self.config["account_id"] + ":assumed-role/nr33-hml-ec2-cd/"), "perfil EC2 dedicado nao comprovado")
+        validar_identidade_ec2(self.config, identity)
         self.schema()
     def prepare(self):
         target = BASE / self.release
