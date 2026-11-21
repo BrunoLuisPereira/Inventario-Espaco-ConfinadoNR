@@ -20,6 +20,7 @@ DROPIN = Path("/etc/systemd/system/nr33-backend.service.d/50-release.conf")
 ENV_FILE = Path("/etc/nr33/backend.env")
 PERSIST = Path("/var/lib/nr33/uploads")
 MAINTENANCE = Path("/run/nr33/maintenance")
+LOGS = Path("/var/lib/nr33/cd-logs")
 
 # Somente catalogos, sem registros de usuarios ou dados operacionais.
 SCHEMA_SQL = """
@@ -172,7 +173,7 @@ class Runtime:
             montar_identidade(PERSIST / name, BASE / release / "backend/uploads" / name, self.user.pw_uid)
     def preflight(self):
         self.authorize()
-        for p in (BASE, "/var/www/nr33", DROPIN.parent, "/run/nr33", "/var/log/nr33-cd"):
+        for p in (BASE, "/var/www/nr33", DROPIN.parent, "/run/nr33", LOGS):
             seguro(p, True)
         seguro(ENV_FILE)
         seguro(DROPIN)
@@ -312,7 +313,7 @@ class Runtime:
         self.health(release)
     def record(self, status):
         data = {"status": status, "sha": self.release, "previous_sha": self.previous, "artifact_sha256": self.artifact, "utc": dt.datetime.now(dt.timezone.utc).isoformat()}
-        atomico(Path("/var/log/nr33-cd") / (uuid.uuid4().hex + ".json"), canonical(data))
+        atomico(LOGS / (uuid.uuid4().hex + ".json"), canonical(data))
         print(json.dumps(data), flush=True)
 
 def transacao(ops):
