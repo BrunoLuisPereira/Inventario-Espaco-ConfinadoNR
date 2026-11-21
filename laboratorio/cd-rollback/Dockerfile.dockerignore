@@ -1,0 +1,10 @@
+.git
+**/results
+**/node_modules
+**/__pycache__
+
+**/.env*
+**/*.key
+**/*.pem
+**/*.crt
+**/*.log
