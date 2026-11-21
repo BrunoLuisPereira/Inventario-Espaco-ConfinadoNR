@@ -33,21 +33,45 @@ operacoes interrompidas podem exigir reconciliacao. Nao e deploy sem indisponibi
 
 1. Confirmar permissao administrativa e recuperacao do acesso Building Momentum/organizacao.
 2. Criar ou identificar o provider OIDC token.actions.githubusercontent.com com audience sts.amazonaws.com.
-3. Criar role dedicada nr33-hml-cd; trust exata do template, somente environment homologacao.
+3. Usar a role GitHub NR33-GitHub-CD-Homologacao; trust exata do template, somente environment homologacao.
 4. Criar bucket de ARTEFATOS separado dos backups, us-east-2, Block Public Access integral,
    BucketOwnerEnforced, SSE-S3 e versionamento. Sem permissao de exclusao para CD.
-5. Criar role/perfil EC2 dedicado nr33-hml-ec2-cd e associar somente a EC2 aprovada.
-   Nao reutilizar AWSEC2RoleforDefaultAWSServiceAccess. Revisar core SSM e restricoes organizacionais.
+5. Usar a role existente NR33-EC2-SSM-Role da EC2 compartilhada com o backup PostgreSQL.
+   Preservar suas politicas independentes de backup e o suporte SSM; revisar restricoes organizacionais.
 6. Publicar infra/cd/ssm-document.json como documento Command com nome nr33-hml-cd-<sufixo>.
    Fixar numero de versao. Agent >=3.3.2746.0 necessario para ENV_VAR.
 7. Validar managed node Online e documentar as permissoes efetivas.
 
 iam-policies.template.json sao MODELOS, nao policies finais: preencher __ACCOUNT_ID__,
 __ARTIFACT_BUCKET__, __BACKUP_BUCKET__, __INSTANCE_ID__, __DOCUMENT_NAME__.
-Nao conceder iam:PassRole, criacao de recursos, SSM generico ou acesso ao bucket de backup ao CD.
+Nao conceder iam:PassRole, criacao de recursos ou SSM generico. A role GitHub nunca recebe acesso ao backup.
 As acoes de metadados que usam Resource=* nao sao autorizacao de comandos genericos.
 IAM nao restringe automaticamente a versao do documento: limitar sua administracao e manter todas as versoes
 desse documento dedicado apontando exclusivamente ao executor fixo. O workflow verifica conteudo/versao antes de enviar.
+
+## EC2 compartilhada (CD-156, Opcao A)
+
+Conta 792440910201, regiao us-east-2. Artefatos: nr33-cd-artifacts-792440910201;
+backups: nr33-db-backups-792440910201. Os valores de approved_architecture no template
+identificam os parametros aprovados; instancia e documento SSM ainda exigem identificacao.
+A politica github_identity mantem integralmente NeverAccessBackups (Deny s3:* no bucket e objetos).
+A politica ec2_identity nao nega acesso ao backup: essa role tambem executa o servico de backup.
+O acrescimo S3 do CD e somente s3:GetObjectVersion em releases/* do bucket de artefatos,
+sem ListBucket, escrita ou exclusao. O suporte SSM existente e preservado.
+Nao substituir as permissoes independentes de backup por este modelo.
+
+cd.example.json permanece enabled=false. O executor exige account_id e instance_role_name
+aprovados e STS Account=792440910201, com ARN completo no formato
+arn:aws:sts::792440910201:assumed-role/NR33-EC2-SSM-Role/i-<8 ou 17 digitos hexadecimais minusculos>.
+Outras contas, roles, particoes, caminhos e sessoes sao rejeitados.
+A identidade comprova a role e a conta, nao uma instancia unica; a instancia aprovada continua
+restrita pelo destino SSM na politica GitHub e na configuracao do workflow.
+
+Compartilhar a role significa que processos com acesso as credenciais da instancia podem ter
+as permissoes efetivas de backup; a ausencia de Deny na EC2 nao isola esses processos por IAM.
+As protecoes do executor e as evidencias externas de restauracao continuam obrigatorias.
+Esta adaptacao altera apenas arquivos do repositorio: nao aplica IAM, nao ativa timer,
+nao altera PostgreSQL/bucket de backup e nao autoriza deploy.
 
 ## Preparacao EC2 (fora do workflow, autorizacao propria)
 
@@ -98,7 +122,7 @@ A autorizacao expira em no maximo 4h. Ambos RPO/janela exigem aceite operacional
 schema_sha256 e SHA256 do JSON canonico retornado por SCHEMA_SQL (servidor.py), obtido com o mesmo
 servico de leitura. A revisao humana compara esse catalogo com o contrato da release; o hash apenas
 detecta alteracoes posteriores. Nao inferir migrations por contagem de objetos.
-O executor verifica PostgreSQL 17, fingerprint, mounts por dispositivo/inode, perfil dedicado e parada real.
+O executor verifica PostgreSQL 17, fingerprint, mounts por dispositivo/inode, identidade EC2 aprovada e parada real.
 Nao ha SQL de escrita nem migrations.
 
 Calcular SHA256 dos bytes finais do comprovante root e publicar esse digest em CD_READINESS_SHA256.

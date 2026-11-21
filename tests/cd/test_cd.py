@@ -1,5 +1,4 @@
 """Ensaios direcionados: nenhuma chamada GitHub/AWS ou servico real."""
-import ast
 import base64
 import copy
 import datetime as dt
@@ -14,7 +13,7 @@ import tarfile
 import tempfile
 import textwrap
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import urllib.error
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -147,6 +146,120 @@ class Contracts(unittest.TestCase):
     def test_sql_is_catalog_read_only(self):
         import re
         self.assertIsNone(re.search(r"\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE)\b", SCHEMA_SQL, re.I))
+
+class EC2Identity(unittest.TestCase):
+    def setUp(self):
+        self.config = {"account_id": "792440910201", "instance_role_name": "NR33-EC2-SSM-Role"}
+        self.identity = {"Account": "792440910201", "Arn": "arn:aws:sts::792440910201:assumed-role/NR33-EC2-SSM-Role/i-0123456789abcdef0"}
+
+    def validate(self, identity=None, config=None):
+        from servidor import validar_identidade_ec2
+        validar_identidade_ec2(self.config if config is None else config,
+                              self.identity if identity is None else identity)
+
+    def test_approved_identity(self):
+        self.validate()
+        identity = dict(self.identity, Arn=self.identity["Arn"].replace("i-0123456789abcdef0", "i-01234567"))
+        self.validate(identity)
+
+    def test_wrong_account(self):
+        for identity in (dict(self.identity, Account="111111111111"),
+                         dict(self.identity, Arn=self.identity["Arn"].replace("792440910201", "111111111111"))):
+            with self.subTest(identity=identity), self.assertRaises(Bloqueado):
+                self.validate(identity)
+        with self.assertRaises(Bloqueado):
+            self.validate(config=dict(self.config, account_id="111111111111"))
+
+    def test_wrong_role(self):
+        for role in ("nr33-hml-ec2-cd", "NR33-EC2-SSM-Role-extra", "NR33-GitHub-CD-Homologacao"):
+            with self.subTest(role=role), self.assertRaises(Bloqueado):
+                self.validate(dict(self.identity, Arn=self.identity["Arn"].replace("NR33-EC2-SSM-Role", role)))
+            with self.assertRaises(Bloqueado):
+                self.validate(config=dict(self.config, instance_role_name=role))
+
+    def test_invalid_arn(self):
+        prefix = "arn:aws:sts::792440910201:assumed-role/NR33-EC2-SSM-Role/"
+        for arn in (None, 123, "", prefix, prefix + "session", prefix + "i-0123456789abcdef0/extra",
+                    prefix + "i-0123456789abcdef0\n", prefix + "i-0123456789ABCDEF0",
+                    prefix + "i-012345678", prefix.replace("arn:aws:", "arn:aws-cn:") + "i-01234567",
+                    "arn:aws:iam::792440910201:role/NR33-EC2-SSM-Role"):
+            with self.subTest(arn=arn), self.assertRaises(Bloqueado):
+                self.validate(dict(self.identity, Arn=arn))
+        for identity in ({}, [], "invalid"):
+            with self.subTest(identity=identity), self.assertRaises(Bloqueado):
+                self.validate(identity)
+
+    def preflight_host(self, identity):
+        from servidor import Runtime, BASE, ENV_FILE
+        # Testar preflight sem executar o construtor nem acessar o host real.
+        host = Runtime.__new__(Runtime)
+        host.config, host.previous = dict(self.config), OLD
+        host.user = Mock(pw_name="nr33_test")
+        for method in ("authorize", "mount_release", "release_integrity", "schema"):
+            self.enterContext(patch.object(host, method))
+        self.enterContext(patch.object(host, "units", return_value={
+            "LoadState": "loaded", "ActiveState": "active", "User": "nr33_test",
+            "KillMode": "control-group", "EnvironmentFiles": str(ENV_FILE)}))
+        self.enterContext(patch("servidor.seguro"))
+        front = self.enterContext(patch("servidor.FRONT"))
+        front.is_symlink.return_value = True
+        front.resolve.return_value = BASE / OLD / "frontend"
+        dropin = self.enterContext(patch("servidor.DROPIN"))
+        dropin.read_bytes.return_value = str(BASE / OLD / "backend").encode()
+
+        def command(args, **kwargs):
+            if args == ["node", "--version"]:
+                return "v24.22.3"
+            if args == ["aws", "sts", "get-caller-identity", "--output", "json", "--no-cli-pager"]:
+                return json.dumps(identity)
+            raise AssertionError("comando inesperado no preflight simulado: " + repr(args))
+
+        self.enterContext(patch("servidor.executar", side_effect=command))
+        return host
+
+    def test_preflight_blocks_invalid_identity_before_schema(self):
+        host = self.preflight_host(dict(self.identity, Account="111111111111"))
+        with self.assertRaises(Bloqueado):
+            host.preflight()
+        host.schema.assert_not_called()
+
+    def test_preflight_valid_identity_reaches_schema(self):
+        host = self.preflight_host(self.identity)
+        host.preflight()
+        host.schema.assert_called_once_with()
+
+
+class SharedIAM(unittest.TestCase):
+    def setUp(self):
+        self.policy = json.loads((ROOT / "infra/cd/iam-policies.template.json").read_text())
+
+    def test_github_backup_deny_is_preserved(self):
+        denies = [s for s in self.policy["github_identity"]["Statement"] if s.get("Sid") == "NeverAccessBackups"]
+        self.assertEqual(denies, [{"Sid": "NeverAccessBackups", "Effect": "Deny", "Action": "s3:*",
+                                 "Resource": ["arn:aws:s3:::__BACKUP_BUCKET__", "arn:aws:s3:::__BACKUP_BUCKET__/*"]}])
+        architecture = self.policy["approved_architecture"]
+        self.assertEqual(architecture["backup_bucket"], "nr33-db-backups-792440910201")
+        self.assertEqual(architecture["github_role_name"], "NR33-GitHub-CD-Homologacao")
+
+    def test_ec2_s3_is_only_versioned_release_read(self):
+        statements = self.policy["ec2_identity"]["Statement"]
+        self.assertNotIn("__BACKUP_BUCKET__", json.dumps(statements))
+        s3 = [s for s in statements if any(a.startswith("s3:") for a in
+              ([s["Action"]] if isinstance(s["Action"], str) else s["Action"]))]
+        self.assertEqual(s3, [{"Effect": "Allow", "Action": "s3:GetObjectVersion",
+                              "Resource": "arn:aws:s3:::__ARTIFACT_BUCKET__/releases/*"}])
+        for statement in statements:
+            actions = statement["Action"]
+            self.assertNotIn("NotAction", statement)
+            self.assertNotIn("*", [actions] if isinstance(actions, str) else actions)
+
+    def test_executor_example_matches_approved_architecture_and_stays_disabled(self):
+        config = json.loads((ROOT / "infra/cd/cd.example.json").read_text())
+        self.assertIs(config["enabled"], False)
+        for key in ("account_id", "region", "artifact_bucket"):
+            self.assertEqual(config[key], self.policy["approved_architecture"][key])
+        self.assertEqual(config["instance_role_name"], "NR33-EC2-SSM-Role")
+
 
 class FakeAWS:
     def __init__(self, h, status="Success", defect=None):
