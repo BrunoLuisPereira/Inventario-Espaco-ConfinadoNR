@@ -317,8 +317,22 @@ class Runtime:
         atomico(LOGS / (uuid.uuid4().hex + ".json"), canonical(data))
         print(json.dumps(data), flush=True)
 
-def transacao(ops):
+def proteger_ensaio_isolado():
+    """Ensaio opt-in exclusivo do container descartavel, nunca do entrypoint SSM."""
+    exigir(Path('/.dockerenv').is_file(), 'ensaio exige container descartavel')
+    exigir(Path('/run/nr33-lab/marker').read_text() == 'DISPOSABLE-NR33-LAB\n', 'laboratorio nao identificado')
+    exigir(not Path('/etc/nr33/cd.json').exists(), 'configuracao de producao presente')
+    exigir({p.name for p in Path('/sys/class/net').iterdir()} == {'lo'}, 'ensaio exige isolamento de rede')
+
+
+class RetornoDoEnsaio(Exception):
+    pass
+
+
+def transacao(ops, *, ensaio_isolado=False):
     """Maquina de estados testada com mocks. Sem migrations, limpeza de releases ou restore de dados."""
+    if ensaio_isolado:
+        proteger_ensaio_isolado()
     ops.preflight()
     ops.prepare()
     ops.authorize()
@@ -332,10 +346,14 @@ def transacao(ops):
         ops.activate(ops.release)
         ops.start()
         ops.health(ops.release)
+        if ensaio_isolado:
+            # Candidata saudavel: exercitar restore() real mantendo manutencao.
+            proteger_ensaio_isolado()
+            raise RetornoDoEnsaio()
         ops.maintenance(False)
         ops.public_health(ops.release)
         ops.record("SUCCESS")
-    except Exception:
+    except Exception as cause:
         if maintenance:
             try:
                 ops.maintenance(True)
@@ -346,7 +364,8 @@ def transacao(ops):
                 ops.health(ops.previous)
                 ops.maintenance(False)
                 ops.public_health(ops.previous)
-                ops.record("ROLLED_BACK")
+                rehearsed = ensaio_isolado and isinstance(cause, RetornoDoEnsaio)
+                ops.record("ROLLBACK_REHEARSED_ISOLATED" if rehearsed else "ROLLED_BACK")
             except Exception:
                 # Manter manutencao sempre que possivel; nunca anunciar sucesso.
                 try:
@@ -355,6 +374,8 @@ def transacao(ops):
                     pass
                 ops.record("MANUAL_RECOVERY_REQUIRED")
                 raise Bloqueado("rollback incompleto; recuperacao manual obrigatoria") from None
+            if rehearsed:
+                return
         raise Bloqueado("implantacao recusada; aplicacao anterior preservada/revertida") from None
 
 def main():

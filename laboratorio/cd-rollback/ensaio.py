@@ -147,11 +147,11 @@ def check(runtime, expected, maintenance=False):
           unit=runtime.units(), mounts=json.loads(s.executar(['findmnt', '--json', '--output', 'TARGET,SOURCE,OPTIONS'])))
 
 
-def transaction(runtime, expected_status):
+def transaction(runtime, expected_status, *, rehearsal=False):
     before = len(EVENTS)
     try:
         with s.Lock('/run/nr33-cd/deploy.lock'):
-            s.transacao(runtime)
+            s.transacao(runtime, ensaio_isolado=rehearsal)
     except Bloqueado as error:
         event('expected_transaction_exception', message=str(error))
         if expected_status == 'SUCCESS':
@@ -183,6 +183,9 @@ def main():
     initial.start()
     initial.health(OLD)
     check(initial, OLD)
+    transaction(initial, 'ROLLBACK_REHEARSED_ISOLATED', rehearsal=True)
+    check(initial, OLD)
+    event('explicit_rollback_rehearsal_COMPLETED_synthetic_only')
     transaction(initial, 'SUCCESS')
     check(initial, NEW)
     # Escrita pelo usuario da aplicacao atraves da candidata deve sobreviver a volta.

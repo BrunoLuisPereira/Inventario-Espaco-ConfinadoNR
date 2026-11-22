@@ -511,6 +511,31 @@ class FakeHost:
     def record(self, status): self.events.append(status)
 
 class HostControl(unittest.TestCase):
+    def test_rehearsal_returns_via_restore_after_healthy_candidate(self):
+        host = FakeHost()
+        with patch('servidor.proteger_ensaio_isolado') as guard:
+            transacao(host, ensaio_isolado=True)
+        self.assertEqual(guard.call_count, 2)
+        self.assertLess(host.events.index('health:' + SHA), host.events.index('restore'))
+        self.assertLess(host.events.index('restore'), host.events.index('public:' + OLD))
+        self.assertEqual(host.events[-1], 'ROLLBACK_REHEARSED_ISOLATED')
+        self.assertFalse(host.on)
+
+    def test_rehearsal_guard_blocks_before_host_operations(self):
+        host = FakeHost()
+        with patch('servidor.proteger_ensaio_isolado', side_effect=Bloqueado('isolation')):
+            with self.assertRaises(Bloqueado):
+                transacao(host, ensaio_isolado=True)
+        self.assertEqual(host.events, [])
+
+    def test_rehearsal_failure_never_records_evidence(self):
+        host = FakeHost('rollback')
+        with patch('servidor.proteger_ensaio_isolado'):
+            with self.assertRaises(Bloqueado):
+                transacao(host, ensaio_isolado=True)
+        self.assertEqual(host.events[-1], 'MANUAL_RECOVERY_REQUIRED')
+        self.assertTrue(host.on)
+
     def test_success_order(self):
         host = FakeHost(); transacao(host)
         self.assertLess(host.events.index("authorize"), host.events.index("stop"))
