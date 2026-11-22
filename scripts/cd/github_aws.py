@@ -15,13 +15,18 @@ from artefato import verificar
 class Ausente(Bloqueado):
     pass
 
+class ObjetoExistente(Bloqueado):
+    pass
+
 class AWS:
     def call(self, *args):
         r = subprocess.run(["aws", *args, "--region", "us-east-2", "--output", "json", "--no-cli-pager"], capture_output=True, text=True, timeout=90)
         if r.returncode:
+            if args[:2] == ("s3api", "put-object") and any(x in r.stderr for x in ("(412)", "(PreconditionFailed)")):
+                raise ObjetoExistente("objeto protegido ja existe")
             if any(x in r.stderr for x in ("(404)", "(NoSuchKey)", "(NotFound)", "(InvocationDoesNotExist)")):
                 raise Ausente("recurso ainda ausente")
-            raise Bloqueado("consulta AWS recusada")
+            raise Bloqueado("consulta AWS recusada: " + " ".join(args[:2]))
         return json.loads(r.stdout)
 
 def ambiente():
@@ -74,11 +79,15 @@ def implantar(aws, config, package, release, artifact_hash, document, sleep=time
     key = "releases/" + release + "/" + artifact_hash + ".tar.gz"
     checksum = base64.b64encode(bytes.fromhex(artifact_hash)).decode()
     try:
-        stored = aws.call("s3api", "head-object", "--bucket", bucket, "--key", key, "--checksum-mode", "ENABLED")
-        exigir(stored.get("ChecksumSHA256") == checksum and stored.get("ContentLength") == Path(package).stat().st_size, "objeto existente divergente")
-    except Ausente:
+        # If-None-Match performs the existence check atomically with PutObject.
+        # Missing objects can return HEAD 403 when ListBucket is intentionally denied.
         stored = aws.call("s3api", "put-object", "--bucket", bucket, "--key", key, "--body", str(package), "--server-side-encryption", "AES256",
                          "--if-none-match", "*", "--checksum-algorithm", "SHA256", "--checksum-sha256", checksum)
+        exigir(stored.get("ChecksumSHA256") == checksum and stored.get("ServerSideEncryption") == "AES256", "publicacao sem integridade/criptografia comprovada")
+    except ObjetoExistente:
+        stored = aws.call("s3api", "head-object", "--bucket", bucket, "--key", key, "--checksum-mode", "ENABLED")
+        exigir(stored.get("ChecksumSHA256") == checksum and stored.get("ContentLength") == Path(package).stat().st_size
+               and stored.get("ServerSideEncryption") == "AES256", "objeto existente divergente")
     version = stored.get("VersionId")
     exigir(isinstance(version, str) and version != "null" and re.fullmatch(r"[A-Za-z0-9._~+/-]{1,1024}", version), "versao de objeto ausente")
     parameters = {"ReleaseSha": [release], "ArtifactSha256": [artifact_hash], "ArtifactVersion": [version], "ReadinessSha256": [config["CD_READINESS_SHA256"]]}

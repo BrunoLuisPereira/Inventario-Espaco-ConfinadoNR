@@ -440,7 +440,7 @@ class FakeAWS:
         if action == "head-object": raise Ausente("SYNTHETIC")
         if action == "put-object":
             self.assert_write(args)
-            return {"VersionId": "SYNTHETIC-version"}
+            return {"VersionId": "SYNTHETIC-version", "ChecksumSHA256": base64.b64encode(bytes.fromhex(self.h)).decode(), "ServerSideEncryption": "AES256"}
         if action == "send-command": return {"Command": {"CommandId": "00000000-0000-0000-0000-000000000000"}}
         if action == "get-command-invocation": return {"Status": self.status, "ResponseCode": 0}
         raise AssertionError(args)
