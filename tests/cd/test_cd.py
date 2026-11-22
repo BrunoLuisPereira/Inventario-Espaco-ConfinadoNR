@@ -612,7 +612,16 @@ class GitHubCI(unittest.TestCase):
                     raise urllib.error.HTTPError(req.full_url, int(case[-3:]), "SYNTHETIC", {}, None)
                 if case == "timeout": raise TimeoutError("SYNTHETIC")
                 url = req.full_url.split("?")[0]
-                if url.endswith("branches/main"): return Response({"commit": {"sha": OLD if case == "head-mismatch" else SHA}})
+                if url.endswith("branches/main"): return Response({"commit": {"sha": OLD if case == "head-mismatch" or case.startswith("promote-") else SHA}})
+                if '/compare/' in url: return Response({'status':'ahead','merge_base_commit':{'sha':SHA}})
+                if '/git/commits/' in url:
+                    commit=url.rsplit('/',1)[1]
+                    return Response({'sha':commit,'tree':{'sha':commit}})
+                if '/git/trees/' in url:
+                    commit=url.rsplit('/',1)[1]
+                    entries=[{'path':name,'mode':'040000','type':'tree','sha':'d'*40} for name in ('backend','frontend','shared')]
+                    if case=='promote-changed' and commit==OLD: entries[0]['sha']='e'*40
+                    return Response({'truncated':False,'tree':entries})
                 if url.endswith("actions/workflows/ci.yml"): return Response({"path": ".github/workflows/ci.yml", "name": "CI", "state": "active", "id": 9})
                 if url.endswith("workflows/9/runs"): return Response({"workflow_runs": runs, "total_count": len(runs)})
                 if url.endswith("attempts/1/jobs"): return Response({"jobs": jobs, "total_count": len(jobs)})
@@ -622,6 +631,8 @@ class GitHubCI(unittest.TestCase):
             env = {"RELEASE_SHA": "" if case == "missing-sha" else "invalid" if case == "invalid-sha" else SHA,
                    "GITHUB_REPOSITORY": "BrunoLuisPereira/Inventario-Espaco-ConfinadoNR", "DISPATCH_EVENT": "workflow_dispatch",
                    "DISPATCH_REF": "refs/heads/main", "GH_READ_TOKEN": "SYNTHETIC", "GITHUB_STEP_SUMMARY": str(Path(temp) / "summary")}
+            if case.startswith('promote-'):
+                env.update(PROMOTE_EXISTING='true',GITHUB_SHA=SHA if case=='promote-main-raced' else OLD)
             with patch.dict(os.environ, env, clear=True), patch("urllib.request.build_opener", return_value=Opener()), patch("sys.stdout", new_callable=io.StringIO):
                 try:
                     exec(compile(code, "<real-workflow>", "exec"), {})
@@ -636,6 +647,10 @@ class GitHubCI(unittest.TestCase):
                      "http-403", "http-404", "http-500", "timeout", "invalid-json"):
             with self.subTest(case=case):
                 self.assertFalse(self.run_case(case))
+    def test_existing_release_requires_identical_application_and_current_control(self):
+        self.assertTrue(self.run_case('promote-identical'))
+        self.assertFalse(self.run_case('promote-changed'))
+        self.assertFalse(self.run_case('promote-main-raced'))
     def test_no_automatic_trigger_and_scoped_oidc(self):
         text = (ROOT / ".github/workflows/cd-homologacao.yml").read_text()
         self.assertEqual(text.count("id-token: write"), 1)
@@ -727,7 +742,7 @@ class CLISecurity(unittest.TestCase):
                     self.assertNotIn("Traceback", result.stderr)
             text = (ROOT / ".github/workflows/cd-homologacao.yml").read_text()
             self.assertIn("permissions: {}", text)
-            self.assertEqual(text.count("      actions: read"), 2)
+            self.assertEqual(text.count("      actions: read"), 3)
 
 if __name__ == "__main__":
     unittest.main()

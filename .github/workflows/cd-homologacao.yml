@@ -15,9 +15,22 @@ on:
         required: true
         default: false
       release_sha:
-        description: SHA completo que deve corresponder ao HEAD atual da main
+        description: SHA completo da release aprovada (main ou ancestral com arvores da aplicacao identicas)
         required: true
         type: string
+
+      candidate_run_id:
+        description: ID do build-only original ja ensaiado (obrigatorio para implantar)
+        type: string
+        default: ''
+      candidate_artifact_id:
+        description: ID imutavel do artefato original ja ensaiado
+        type: string
+        default: ''
+      artifact_sha256:
+        description: SHA-256 exato do release.tar.gz ensaiado
+        type: string
+        default: ''
 
 permissions: {}
 
@@ -37,6 +50,11 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: Baixar controle da main que recebeu o dispatch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - name: Registrar condicoes de ativacao
         run: |
           printf '%s\n' 'Modo padrao: somente verificacao. Implantar exige environment e evidencias operacionais.'
@@ -49,6 +67,7 @@ jobs:
         env:
           RELEASE_SHA: ${{ inputs.release_sha }}
           GH_READ_TOKEN: ${{ github.token }}
+          PROMOTE_EXISTING: ${{ inputs.implantar }}
           DISPATCH_EVENT: ${{ github.event_name }}
           DISPATCH_REF: ${{ github.ref }}
         run: |
@@ -112,8 +131,15 @@ jobs:
 
               def confirm_main():
                   branch = get('branches/main')
-                  require(branch['commit']['sha'] == sha,
-                          'SHA informado diverge do HEAD atual da main.')
+                  head = branch['commit']['sha']
+                  if head != sha:
+                      require(os.environ.get('PROMOTE_EXISTING') == 'true'
+                              and head == os.environ.get('GITHUB_SHA'),
+                              'SHA informado diverge do HEAD atual da main.')
+                      import sys
+                      sys.path.insert(0, 'scripts/cd')
+                      from promocao import confirmar_codigo
+                      confirmar_codigo(get, sha, head)
 
               confirm_main()
               workflow = get('actions/workflows/ci.yml')
@@ -199,32 +225,13 @@ jobs:
           printf '%s\n' 'Este job apenas verifica metadados; nao concede aprovacao operacional.'
           printf '%s\n' 'Barreira mantida: approval=NOT_VERIFIED; deployEligible=false.'
 
-      - name: Baixar controle revisado
-        if: ${{ inputs.implantar }}
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ inputs.release_sha }}
-          persist-credentials: false
-      - name: Exigir environment protegido e configuracao declarada
-        if: ${{ inputs.implantar }}
-        env:
-          GH_READ_TOKEN: ${{ github.token }}
-          CD_ENABLED: ${{ vars.CD_ENABLED }}
-          CD_ACCOUNT_ID: ${{ vars.CD_ACCOUNT_ID }}
-          CD_ROLE_ARN: ${{ vars.CD_ROLE_ARN }}
-          CD_ARTIFACT_BUCKET: ${{ vars.CD_ARTIFACT_BUCKET }}
-          CD_INSTANCE_ID: ${{ vars.CD_INSTANCE_ID }}
-          CD_SSM_DOCUMENT: ${{ vars.CD_SSM_DOCUMENT }}
-          CD_SSM_VERSION: ${{ vars.CD_SSM_VERSION }}
-          CD_READINESS_SHA256: ${{ vars.CD_READINESS_SHA256 }}
-        run: python3 scripts/cd/github_aws.py ambiente
 
   construir:
     name: Construir candidato sem credenciais AWS
     permissions:
       contents: read
     needs: validar_preparacao
-    if: ${{ inputs.construir_candidato || (inputs.implantar && vars.CD_ENABLED == 'true') }}
+    if: ${{ inputs.construir_candidato && !inputs.implantar }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
@@ -264,9 +271,37 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
+  selecionar_artefato:
+    name: Selecionar pacote original ensaiado sem reconstruir
+    needs: validar_preparacao
+    if: ${{ inputs.implantar }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      sha256: ${{ steps.origem.outputs.sha256 }}
+      artifact_id: ${{ steps.origem.outputs.artifact_id }}
+      run_id: ${{ steps.origem.outputs.run_id }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Comprovar origem do pacote original
+        id: origem
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+          CANDIDATE_ARTIFACT_ID: ${{ inputs.candidate_artifact_id }}
+        run: python3 scripts/cd/promocao.py selecionar
+
   implantar:
     name: Implantar homologacao mediante aprovacao
-    needs: [validar_preparacao, construir]
+    needs: [validar_preparacao, selecionar_artefato]
     if: ${{ inputs.implantar && vars.CD_ENABLED == 'true' }}
     environment:
       name: homologacao
@@ -279,12 +314,13 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ inputs.release_sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Revalidar main e CI apos aprovacao
         env:
           RELEASE_SHA: ${{ inputs.release_sha }}
           GH_READ_TOKEN: ${{ github.token }}
+          PROMOTE_EXISTING: ${{ inputs.implantar }}
           DISPATCH_EVENT: ${{ github.event_name }}
           DISPATCH_REF: ${{ github.ref }}
         run: |
@@ -348,8 +384,15 @@ jobs:
 
               def confirm_main():
                   branch = get('branches/main')
-                  require(branch['commit']['sha'] == sha,
-                          'SHA informado diverge do HEAD atual da main.')
+                  head = branch['commit']['sha']
+                  if head != sha:
+                      require(os.environ.get('PROMOTE_EXISTING') == 'true'
+                              and head == os.environ.get('GITHUB_SHA'),
+                              'SHA informado diverge do HEAD atual da main.')
+                      import sys
+                      sys.path.insert(0, 'scripts/cd')
+                      from promocao import confirmar_codigo
+                      confirmar_codigo(get, sha, head)
 
               confirm_main()
               workflow = get('actions/workflows/ci.yml')
@@ -443,8 +486,15 @@ jobs:
         run: python3 scripts/cd/github_aws.py ambiente
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: nr33-${{ github.run_id }}-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.selecionar_artefato.outputs.artifact_id }}
+          run-id: ${{ needs.selecionar_artefato.outputs.run_id }}
+          github-token: ${{ github.token }}
           path: ${{ runner.temp }}/candidate
+      - name: Conferir bytes exatos do pacote ensaiado antes do OIDC
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          ARTIFACT_SHA256: ${{ needs.selecionar_artefato.outputs.sha256 }}
+        run: python3 scripts/cd/promocao.py verificar
       - name: Obter sessao temporaria por OIDC
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4 (SHA verificado)
         with:
@@ -461,7 +511,7 @@ jobs:
       - name: Verificar infraestrutura, publicar objeto imutavel e executar documento restrito
         env:
           RELEASE_SHA: ${{ inputs.release_sha }}
-          ARTIFACT_SHA256: ${{ needs.construir.outputs.sha256 }}
+          ARTIFACT_SHA256: ${{ needs.selecionar_artefato.outputs.sha256 }}
           AWS_EC2_METADATA_DISABLED: 'true'
           CD_ENABLED: ${{ vars.CD_ENABLED }}
           CD_ACCOUNT_ID: ${{ vars.CD_ACCOUNT_ID }}
