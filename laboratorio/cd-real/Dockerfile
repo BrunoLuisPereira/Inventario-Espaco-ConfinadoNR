@@ -6,13 +6,14 @@ RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod +x /usr/sbin
 COPY scripts/cd /usr/local/lib/nr33-cd
 COPY laboratorio/cd-real/adaptador.py laboratorio/cd-real/stage.py /usr/local/lib/nr33-cd/
 COPY laboratorio/cd-real/staging/ /lab-input/
-RUN python3 /usr/local/lib/nr33-cd/stage.py
+RUN install -d -m 0700 /opt/nr33-stage && install -d -o nobody -g nogroup -m 0700 /opt/nr33-stage/npm && chmod 0711 /opt/nr33-stage && python3 /usr/local/lib/nr33-cd/stage.py
 
 FROM prepared AS runtime
-RUN rm -rf /tmp/nr33-source.git /tmp/.npm && rm -f /lab-input/source.bundle
+RUN rm -rf /opt/nr33-stage && rm -f /lab-input/source.bundle
 COPY laboratorio/cd-rollback/setup.sh /opt/nr33-lab/setup-services.sh
 COPY laboratorio/cd-real/setup-local.sh laboratorio/cd-real/run.sh /opt/nr33-lab/
 COPY laboratorio/cd-real/test_adaptador.py /opt/nr33-lab/
+COPY laboratorio/cd-real/test_stage_security.py laboratorio/cd-real/fixtures.py /opt/nr33-lab/
 RUN sed -i 's/\r$//' /opt/nr33-lab/*.sh && chmod 0755 /opt/nr33-lab/*.sh
 STOPSIGNAL SIGRTMIN+3
 ENTRYPOINT []

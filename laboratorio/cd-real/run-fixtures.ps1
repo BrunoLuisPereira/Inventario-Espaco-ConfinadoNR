@@ -16,7 +16,7 @@ Push-Location $taskRoot
 $taskStarted = $false
 try {
     if (-not (Test-Path -LiteralPath $taskStaging)) {
-        & python -B laboratorio/cd-real/fixtures.py $taskStaging
+        & python -B laboratorio/cd-real/fixtures.py
         if ($LASTEXITCODE -ne 0) { throw 'Falha ao gerar fixtures' }
     }
     $taskBuildOptions = @()

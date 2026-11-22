@@ -26,8 +26,8 @@ process.on('SIGTERM',()=>server.close(()=>process.exit(0)));
 '''
 
 
-def create(target):
-    target = Path(target)
+def create():
+    target = Path(__file__).resolve().parent / 'staging'
     target.mkdir(parents=True, exist_ok=False)
     spec = {'protocol': 1, 'source_kind': 'fixtures', 'data_checks': [
         {'sql': 'SELECT payload FROM lab_sentinel ORDER BY id', 'sha256': digest(b'LOCAL-FIXTURE-ONLY')}]}
@@ -51,4 +51,6 @@ def create(target):
 
 
 if __name__ == '__main__':
-    create(sys.argv[1])
+    if len(sys.argv) != 1:
+        raise SystemExit('Fixtures usam somente o staging fixo do laboratorio; argumentos proibidos')
+    create()
