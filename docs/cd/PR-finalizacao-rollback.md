@@ -13,3 +13,10 @@ comprovante das releases reais; o relatorio de preparacao documenta essa pendenc
 Validacao: 54 testes direcionados de CD passaram em Linux root, sem ignorados.
 Ensaio operacional e seus limites registrados em `finalizacao-20261122.md`.
 Sem alteracoes em EC2, IAM, S3, SSM, PostgreSQL ou uploads reais.
+
+Preparacao AWS: `docs/cd/ensaio-releases-reais-aws.md` descreve staging,
+restauracao isolada autorizada, criterios de aceite das releases reais e a matriz
+de permissoes EC2/OIDC/sessao temporaria. As protecoes GitHub foram consultadas;
+os seis parametros AWS estao apenas no environment, mas a pre-validacao precisa
+ve-los no escopo do repositorio. Nenhuma variavel foi modificada. O adaptador para
+PostgreSQL e releases reais ainda precisa ser implementado antes desse ensaio.
