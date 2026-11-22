@@ -212,7 +212,7 @@ class Runtime:
             try:
                 with tempfile.TemporaryDirectory(prefix="nr33-cd-npm-") as cache:
                     os.chown(cache, self.user.pw_uid, self.user.pw_gid)
-                    executar(["runuser", "-u", self.user.pw_name, "--", "env", "-i", "PATH=/usr/local/bin:/usr/bin:/bin", "HOME=" + cache,
+                    executar(["/usr/sbin/runuser", "-u", self.user.pw_name, "--", "env", "-i", "PATH=/usr/local/bin:/usr/bin:/bin", "HOME=" + cache,
                               "npm", "ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--fund=false", "--cache", cache], cwd=backend, timeout=300)
                 exigir((backend / "package-lock.json").read_bytes() == lock, "lockfile alterado")
             finally:
