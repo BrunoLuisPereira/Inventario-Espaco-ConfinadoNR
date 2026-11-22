@@ -18,5 +18,15 @@ Preparacao AWS: `docs/cd/ensaio-releases-reais-aws.md` descreve staging,
 restauracao isolada autorizada, criterios de aceite das releases reais e a matriz
 de permissoes EC2/OIDC/sessao temporaria. As protecoes GitHub foram consultadas;
 os seis parametros AWS estao apenas no environment, mas a pre-validacao precisa
-ve-los no escopo do repositorio. Nenhuma variavel foi modificada. O adaptador para
-PostgreSQL e releases reais ainda precisa ser implementado antes desse ensaio.
+ve-los no escopo do repositorio. Nenhuma variavel foi modificada.
+
+CD-241.47 implementa `laboratorio/cd-real`: staging de pacotes por SHA/digest e
+comparacao backend/shared com commits Git, dependencias seladas e PostgreSQL 17
+real por socket local. Reutiliza a transacao/restore e valida baseline/processo,
+esquema, invariantes SQL, uploads e recuperacao. O perfil preparado nao restaura
+backups; exige dataset isolado autorizado. Contratos e executor de producao intactos.
+
+Validacao nova: 14 testes passaram com PostgreSQL 17.12, systemd/Nginx e rollback
+efetivos, usando aplicacao/dados artificiais. `production_rollback_tested=false`
+permanece. Evidencias e limites em `laboratorio/cd-real/RELATORIO-CD24147.md`.
+Releases reais, clone autorizado e worker SMTP representativo continuam pendentes.

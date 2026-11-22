@@ -1,0 +1,15 @@
+**
+!scripts/
+!scripts/cd/
+!scripts/cd/*.py
+!laboratorio/
+!laboratorio/cd-real/
+!laboratorio/cd-real/*.py
+!laboratorio/cd-real/*.sh
+!laboratorio/cd-real/staging/
+!laboratorio/cd-real/staging/input.json
+!laboratorio/cd-real/staging/baseline.tar.gz
+!laboratorio/cd-real/staging/candidate.tar.gz
+!laboratorio/cd-real/staging/source.bundle
+!laboratorio/cd-rollback/
+!laboratorio/cd-rollback/setup.sh

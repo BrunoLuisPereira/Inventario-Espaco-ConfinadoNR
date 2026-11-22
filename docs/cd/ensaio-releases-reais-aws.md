@@ -3,6 +3,11 @@
 Preparacao documental em 22/11/2026. Nao executa provisionamento, restauracao,
 alteracao de IAM ou comandos na EC2 principal. O ensaio real continua pendente.
 
+Atualizacao CD-241.47: o [adaptador PostgreSQL 17](../../laboratorio/cd-real/README.md)
+esta implementado e foi validado com servicos/SQL reais e pacotes artificiais.
+O [relatorio](../../laboratorio/cd-real/RELATORIO-CD24147.md) registra os 14 testes,
+rollback e limitacoes. A execucao das releases da aplicacao continua pendente.
+
 ## Parametros existentes
 
 | Item | Valor | Origem da evidencia |
@@ -127,7 +132,8 @@ Nao alterar permissoes para transformar AccessDenied em aprovacao.
    de isolamento/pacotes. `schema()` e `sql()` precisam consultar PostgreSQL REAL
    restaurado; nao herdar os retornos sinteticos do LabRuntime atual. Comparar
    fingerprint ao catalogo restaurado e revisar diferencas de owners/ACLs locais.
-   Esse adaptador ainda precisa ser implementado e revisado antes da execucao.
+   O adaptador CD-241.47 implementa esse caminho em `laboratorio/cd-real`; seu perfil
+   `--prepared` exige cluster/dataset previamente autorizado e nao restaura backups.
 8. Com baseline saudavel e fingerprint registrado, executar sob `Lock` a ida para
    candidata e o retorno explicito via `restore()`. Exigir processo real da release,
    marcador frontend correto, HTTP/TLS 200, esquema estavel, parada sem processos
@@ -143,7 +149,8 @@ Nao alterar permissoes para transformar AccessDenied em aprovacao.
     conferir coleta e autorizar a limpeza, sem tocar em volumes do principal.
 
 O launcher e o backend atuais em `laboratorio/cd-rollback` continuam sinteticos e
-nao implementam os passos 2 a 7. Nao basta trocar OLD/NEW ou o texto do summary.
+nao implementam os passos 2 a 7. Usar `laboratorio/cd-real` para staging verificado,
+PostgreSQL real e dados preparados. Nao basta trocar OLD/NEW ou o texto do summary.
 Este procedimento nao chama `Runtime.main()` nem habilita o executor no clone.
 
 ## Promocao para o primeiro deploy supervisionado
