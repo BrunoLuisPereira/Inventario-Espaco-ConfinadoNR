@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { criarIdiomaPdf } = require('../utils/idiomaPdf');
-const { determinarAplicabilidade } = require('../utils/regrasCaracterizacaoNr33');
+const { determinarAplicabilidade, CRITERIOS } = require('../utils/regrasCaracterizacaoNr33');
 const { reconstruirAvaliacaoEspecifica } = require('../utils/adaptadorCamposNr33');
 
 // Recursos visuais vetoriais locais. No fluxo multi-tenant somente os buffers
@@ -216,6 +216,19 @@ function criarRenderizador(contexto) {
       [t("Usuário responsável"), d.responsavel], [t("E-mail"), d.email_responsavel], [t("Perfil"), rotulo(d.perfil_responsavel)]],
     [[t("Responsável técnico"), d.nome_responsavel_tecnico], [t("CREA"), d.crea], [t("Número da ART"), d.numero_art], [t("Data da ART"), data(d.data_art)]], t1, { agrupar: true });
   }
+  function assinatura(l) {
+    const largura = Math.min(16 * 72 / 2.54, l.w);
+    const altura = 5 * 72 / 2.54;
+    // Reserva o cabeçalho, os 5 cm em branco e as legendas como um único bloco.
+    l.espaco(37 + altura + 52);
+    l.secao(t('7. Assinatura do Responsável Técnico'));
+    const x = M + (l.w - largura) / 2;
+    l.y += altura + 12;
+    l.doc.strokeColor(C.ink).lineWidth(0.7).moveTo(x, l.y).lineTo(x + largura, l.y).stroke();
+    l.escrever(t('Responsável Técnico'), x, l.y + 8, largura, { bold: true, align: 'center' });
+    l.escrever(t('Nome e CREA conforme identificação acima'), x, l.y + 23, largura, { size: 8, color: '#475467', align: 'center' });
+    l.y += 40;
+  }
   function campanhaLocal(l, d, indicador) {
     const t2 = t("1. Dados da Campanha"); l.secao(t2);
     l.pares([[t("Campanha"), d.nome_campanha], [t("Empresa"), d.empresa], [t("Responsável pela campanha"), d.responsavel_campanha]],
@@ -223,7 +236,12 @@ function criarRenderizador(contexto) {
     const t3 = t("2. Identificação do Local"); l.secao(t3);
     l.campos([[t("Local"), d.nome_local], [t("Setor"), d.setor], [t("Descrição"), d.descricao_local], [t("Endereço"), d.endereco],
       [t("Latitude"), numero(d.latitude)], [t("Longitude"), numero(d.longitude)], [t("Status"), d.status_local, true],
-      [t("Espaço Confinado?"), indicador.texto.toLocaleUpperCase('pt-BR'), true]], t3);
+      [t("Espaço classificado como Confinado?"), indicador.texto.toLocaleUpperCase('pt-BR'), true]], t3, { larguraRotulo: 214 });
+    const nota = t('Classificação baseada nos critérios A/B/C do checklist.') + ' ' + t('Não exclui outras hipóteses normativas.');
+    const linhasNota = l.linhas(nota, l.w - 16, false, 7);
+    l.espaco(linhasNota.length * LINE + 5, () => l.secao(t3));
+    linhasNota.forEach(linha => { l.escrever(linha, M + 8, l.y, l.w - 16, { size: 7, color: '#475467' }); l.y += LINE; });
+    l.y += 5;
   }
   function volumeEspaco(valor) {
     if (!presente(valor)) return texto(valor);
@@ -252,15 +270,17 @@ function criarRenderizador(contexto) {
     l.secao(titulo);
     l.campos(campos, contexto, { larguraRotulo });
   }
-  function checklistTecnicos(l, d) {
+  function checklistTecnicos(l, d, aplicabilidade) {
     l.pagina(); const tituloChecklist = t("3. Checklist NR-33"); l.secao(tituloChecklist);
     if (d.id_checklist) {
-      const aplicabilidade = determinarAplicabilidade({ ...d, avaliacao_especifica: reconstruirAvaliacaoEspecifica(d) });
       const respostaDependente = (valor, aplicavel) => aplicavel === false ? 'NÃO APLICÁVEL'
         : aplicavel !== true ? 'NÃO AVALIADO'
         : valor === true ? 'SIM' : valor === false ? 'NÃO' : 'NÃO AVALIADO';
       const atmosfera = d.criterio_c == null ? null : aplicabilidade.atmosfera;
-      const placa = aplicabilidade.classificacao.resultado === 'PENDENTE' ? null : aplicabilidade.placa;
+      // Um NAO define a inaplicabilidade do formulario mesmo com outros criterios
+      // ausentes. Sem NAO e com respostas ausentes, a aplicabilidade e indeterminada.
+      const placa = !CRITERIOS.some(campo => d[campo] === 'NAO') && CRITERIOS.some(campo => d[campo] == null)
+        ? null : aplicabilidade.placa;
       const itens = [['A', t("Não projetado para ocupação humana contínua"), d.criterio_a], ['B', t("Meios limitados de entrada/saída"), d.criterio_b],
         ['C', t("Atmosfera perigosa existente OU potencial"), d.criterio_c],
         ['C-1', t("Deficiência ou enriquecimento de oxigênio"), respostaDependente(d.atmosfera_oxigenio, atmosfera)],
@@ -270,8 +290,11 @@ function criarRenderizador(contexto) {
         ['D', t("Acesso controlado"), d.acesso_controlado], ['E', t("Ventilação adequada"), d.ventilacao_adequada],
         ['F', t("Monitoramento atmosférico"), d.monitoramento_atmosferico], ['G', t("Procedimento de emergência"), d.procedimento_emergencia]];
       l.tabela([56, l.w - 151, 95], itens.map(([a, b, c]) => [{ valor: a, rotulo: true }, b, { valor: rotulo(c), status: true, codigo: c }]), { cabecalho: [t("Critério"), t("Descrição"), t("Atende")], titulo: tituloChecklist });
+      if (aplicabilidade.placa && d.possui_placa_identificacao === false) {
+        l.campos([[t('Aviso de sinalização'), t('Ausência de sinalização: foi informado que não há placa de identificação.')]], tituloChecklist);
+      }
       caracterizacao(l, d);
-      l.campos([[t("Observações"), d.observacoes_checklist], [t("Status"), d.status_checklist, true]], tituloChecklist);
+      l.campos([[t("Observações"), d.observacoes_checklist], [t("Status do preenchimento"), d.status_checklist, true]], tituloChecklist);
     } else l.campos([[t("Checklist"), t("Checklist não cadastrado para este local.")]], tituloChecklist);
     const tt = t("4. Dados Técnicos");
     l.espaco(37 + (d.id_dados ? 44 : 21));
@@ -327,7 +350,7 @@ function criarRenderizador(contexto) {
     });
   }
 
-  return { Layout, campanhaLocal, checklistTecnicos, evidencias, identificacao };
+  return { Layout, campanhaLocal, checklistTecnicos, evidencias, identificacao, assinatura };
 }
 // Compatibilidade do consumidor interno legado; nunca imprime o caminho.
 function imagensLegadas(dados) {
@@ -350,7 +373,7 @@ async function gerarPdfRelatorio(dados, opcoes = {}) {
   const { espacoConfinado } = await import('../../../shared/espacoConfinado.mjs');
   const contexto = criarIdiomaPdf(opcoes.idioma);
   const { t, texto } = contexto;
-  const { Layout, campanhaLocal, checklistTecnicos, evidencias, identificacao } = criarRenderizador(contexto);
+  const { Layout, campanhaLocal, checklistTecnicos, evidencias, identificacao, assinatura } = criarRenderizador(contexto);
   const somenteBuffer = opcoes.somenteBuffer === true;
   const doc = new PDFDocument({ size: 'A4', margins: { top: TOP, bottom: 55, left: M, right: M }, bufferPages: true, lang: contexto.idioma,
     info: { Title: `${t('Relatório')} - ${texto(dados.nome_local)}`, Author: dados.responsavel || t('Inventário de Espaços Confinados'), Subject: t('Relatório Técnico de Inventário de Espaço Confinado') } });
@@ -359,9 +382,12 @@ async function gerarPdfRelatorio(dados, opcoes = {}) {
     doc.on('data', p => partes.push(p)); doc.on('end', () => resolve(Buffer.concat(partes))); doc.on('error', reject);
     try {
       const geracao = new Date(), layout = new Layout(doc, dados);
-      campanhaLocal(layout, dados, espacoConfinado(dados)); checklistTecnicos(layout, dados);
+      const aplicabilidade = dados.id_checklist
+        ? determinarAplicabilidade({ ...dados, avaliacao_especifica: reconstruirAvaliacaoEspecifica(dados) }) : null;
+      campanhaLocal(layout, dados, espacoConfinado(dados)); checklistTecnicos(layout, dados, aplicabilidade);
       evidencias(layout, dados, opcoes.imagens || (somenteBuffer ? new Map() : imagensLegadas(dados)));
       identificacao(layout, dados);
+      assinatura(layout);
       layout.rodapes(geracao); doc.end();
     } catch (erro) { doc.destroy(); reject(erro); }
   });

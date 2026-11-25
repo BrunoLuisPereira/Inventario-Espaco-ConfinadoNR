@@ -6,12 +6,27 @@ export function AvaliacaoNr33({ avaliacao, status = 'PENDENTE', desatualizada = 
   const { aviso, tr } = useTraducao()
 
   const validacao = avaliacao?.validacao_conclusao
+  const classificacao = avaliacao?.classificacao
+  // Rotulos dos resultados retornados pelo servidor, sem recalcular as regras.
+  const resultados = {
+    CARACTERIZADO: tr('Caracterizado como espaço confinado'),
+    NAO_CARACTERIZADO_PELA_REGRA_GERAL: tr('Não caracterizado pela regra geral'),
+    NAO_CARACTERIZADO: tr('Não caracterizado após avaliação das hipóteses'),
+    PENDENTE: tr('Avaliação pendente'),
+    AVALIACAO_HISTORICA_INCOMPLETA: tr('Avaliação histórica incompleta'),
+  }
+  const resultado = valor => Object.hasOwn(resultados, valor) ? resultados[valor] : tr('Avaliação indisponível')
   return <section className="checklist-nr33 checklist-avaliacao" aria-label={tr("Avaliação NR-33")}>
     <h4>{tr("Avaliação NR-33")}</h4>
     {desatualizada && <p className="checklist-nr33-aviso" role="status">{tr("Há alterações não salvas.")}</p>}
     <dl className="checklist-nr33-resumo">
-      <div><dt>{tr("Situação do Checklist")}</dt><dd>{status === 'CONCLUIDO' ? tr('Concluído') : tr('Pendente')}</dd></div>
+      <div><dt>{tr("Status do preenchimento do checklist")}</dt><dd>{status === 'CONCLUIDO' ? tr('Concluído') : tr('Pendente')}</dd></div>
+      <div><dt>{tr("Caracterização pela regra geral A/B/C")}</dt><dd>{resultado(classificacao?.regraGeral)}</dd></div>
+      <div><dt>{tr("Classificação normativa consolidada")}</dt><dd>{resultado(classificacao?.resultado)}</dd></div>
     </dl>
+    {classificacao?.resultado === 'PENDENTE' && <p>{tr("A classificação normativa pode permanecer pendente após a conclusão do preenchimento.")}
+      {classificacao.hipoteseEspecifica === 'NAO_AVALIADA' && <> {tr("Hipótese específica não avaliada.")}</>}
+    </p>}
     {validacao?.erros?.length > 0 && <><h5>{tr("Pendências")}</h5><ul>{descreverPendenciasNr33(validacao.erros).map((texto, i) => <li key={i}>{aviso(texto)}</li>)}</ul></>}
     {validacao?.avisos?.includes('AUSENCIA_SINALIZACAO') && <p className="checklist-nr33-aviso">{tr("Ausência de sinalização: foi informado que não há placa de identificação.")}</p>}
     {avaliacao?.classificacao?.origem === 'HIPOTESE_ESPECIFICA' && <p>{tr("Esta avaliação depende exclusivamente de respostas históricas da hipótese específica.")}</p>}
@@ -39,7 +54,7 @@ export default function CamposNr33({ dados, onChange, consulta = false, salvando
   }
   return <section className="checklist-nr33" aria-label={tr("Respostas de caracterização NR-33")}>
     <h4>{tr("Caracterização NR-33")}</h4>
-    {!consulta && <p>{tr("“Não avaliado” mantém a ausência de resposta. A aplicabilidade será atualizada ao salvar. Alterar um critério não apaga respostas.")}</p>}
+    {!consulta && <p>{tr("“Não avaliado” mantém a ausência de resposta. A habilitação dos campos é atualizada conforme as respostas. A avaliação do servidor é atualizada após salvar. Alterar um critério não apaga respostas.")}</p>}
     <div className="checklist-nr33-grupo">
       <h5>{tr("Detalhamento atmosférico")}</h5>
       {dados.criterio_c !== 'SIM' && <p id="nr33-atmosfera-disponibilidade">{tr("Disponível quando o Critério C for SIM.")}</p>}

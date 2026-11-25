@@ -152,7 +152,7 @@ test('compatibilidade com classificacao, aplicabilidade, conclusao e transicoes 
   const especifica = prepararDadosRegrasNr33({ ...criterios, criterio_c: 'NAO', ...completo,
     atmosfera_oxigenio: null, atmosfera_contaminantes: null, atmosfera_explosiva: null });
   assert.equal(regras.consolidarCaracterizacao(especifica).origem, 'HIPOTESE_ESPECIFICA');
-  assert.equal(regras.determinarAplicabilidade(especifica).placa, true);
+  assert.equal(regras.determinarAplicabilidade(especifica).placa, false);
   assert.equal(regras.validarConclusao(especifica).valido, true);
   const ambas = prepararDadosRegrasNr33({ ...criterios, ...completo });
   assert.equal(regras.consolidarCaracterizacao(ambas).origem, 'AMBAS');
