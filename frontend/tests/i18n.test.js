@@ -2,6 +2,17 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { criarI18n, normalizarIdioma, recursos, acompanharIdiomaHtml } from '../src/i18n/index.js'
 
+test('Locais traduz o titulo da coluna e o filtro de espaco confinado', async () => {
+  const i18n = criarI18n()
+  for (const idioma of ['pt-BR', 'en']) {
+    await i18n.changeLanguage(idioma)
+    assert.equal(i18n.t('Espaço classificado como Confinado:', { ns: 'locations' }),
+      idioma === 'en' ? 'Classified as a Confined Space:' : 'Espaço classificado como Confinado:')
+    assert.equal(i18n.t('Espaço Confinado', { ns: 'locations' }),
+      idioma === 'en' ? 'Confined Space' : 'Espaço Confinado')
+  }
+})
+
 test('inicializa em português, independentemente do idioma do navegador', () => {
   const i18n = criarI18n()
   assert.equal(i18n.isInitialized, true)

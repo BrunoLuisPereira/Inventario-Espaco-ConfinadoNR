@@ -43,6 +43,36 @@ function paginasGravadas(buffer) {
       .replace(/\x95/g, '•').replace(/\x96/g, '–').replace(/\x97/g, '—')).join('');
   });
 }
+for (const idioma of ['pt-BR', 'en']) test('assinatura: bloco integral de 16 x 5 cm e paginacao em ' + idioma, async t => {
+  const destinos = new Set();
+  for (const repeticoes of [0, 8, 16, 24, 32, 48]) {
+    const s = preparar(t), d = { ...fixture.dados(), responsavel: repeticoes ? 'Responsável sintético para ensaio de paginação. '.repeat(repeticoes) : 'Responsável sintético' };
+    const antes = structuredClone(d);
+    const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true, idioma });
+    const en = idioma === 'en';
+    const titulo = en ? "7. Responsible Technical Professional's Signature" : '7. Assinatura do Responsável Técnico';
+    const legenda = en ? 'Responsible Technical Professional' : 'Responsável Técnico';
+    const detalhe = en ? 'Name and CREA registration as identified above' : 'Nome e CREA conforme identificação acima';
+    const i = s.registros.findIndex(r => r.texto === titulo);
+    assert.ok(i > s.registros.findIndex(r => r.texto === (en ? '6. Identification and Responsibility' : '6. Identificação e Responsabilidade')));
+    assert.equal(s.registros.filter(r => r.texto === titulo).length, 1);
+    const cabecalho = s.registros[i], linha = s.registros.find(r => r.texto === legenda), nome = s.registros.find(r => r.texto === detalhe);
+    assert.equal(cabecalho.pagina, linha.pagina);
+    assert.equal(cabecalho.pagina, nome.pagina);
+    assert.equal(cabecalho.pagina, s.paginas.length - 1);
+    assert.ok(nome.y + nome.tamanho <= 776);
+    assert.ok(Math.abs(linha.opcoes.width - 16 * 72 / 2.54) < 0.01);
+    assert.ok(Math.abs(linha.x + linha.opcoes.width / 2 - s.paginas[linha.pagina].width / 2) < 0.01);
+    assert.ok(linha.y - (cabecalho.y + 29) >= 5 * 72 / 2.54);
+    const anterior = s.registros.slice(0, i).filter(r => r.y >= 119 && r.y < 776).at(-1);
+    destinos.add(cabecalho.pagina === anterior.pagina ? 'mesma' : 'nova');
+    if (cabecalho.pagina !== anterior.pagina) assert.equal(cabecalho.y, 127);
+    assert.deepEqual(d, antes);
+    validarPaginas(s, buffer, idioma);
+  }
+  assert.deepEqual([...destinos].sort(), ['mesma', 'nova']);
+});
+
 test('leitor de páginas preserva byte 0x0D no final do stream comprimido', () => {
   const zlib = require('node:zlib');
   let conteudo = 'BT [<5445535445>] TJ ET\n%', comprimido = zlib.deflateSync(conteudo);
@@ -116,7 +146,7 @@ for (const a of ['SIM', 'NAO', null]) for (const b of ['SIM', 'NAO', null]) for 
     const { espacoConfinado } = await import('../../shared/espacoConfinado.mjs');
     const esperado = espacoConfinado(d);
     const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
-    const i = s.registros.findIndex(r => r.texto === 'Espaço Confinado?');
+    const i = s.registros.findIndex(r => r.texto === 'Espaço classificado como Confinado?');
     assert.ok(i > 0);
     assert.equal(s.registros[i + 1].texto, esperado.texto.toLocaleUpperCase('pt-BR'));
     assert.equal(s.registros[i + 1].cor, { sim: '#123D28', nao: '#852320', 'nao-avaliado': '#475467' }[esperado.classe]);
@@ -125,7 +155,7 @@ for (const a of ['SIM', 'NAO', null]) for (const b of ['SIM', 'NAO', null]) for 
   });
 }
 
-test('dependentes aplicáveis imprimem SIM, NÃO e NÃO AVALIADO, sem limpar ou exibir hipótese específica', async t => {
+test('dependentes aplicaveis imprimem SIM, NAO e NAO AVALIADO, sem limpar ou exibir condicoes especificas', async t => {
   const s = preparar(t), d = { ...fixture.dados(), criterio_a: 'SIM', criterio_b: 'SIM', criterio_c: 'SIM',
     atmosfera_oxigenio: true, atmosfera_contaminantes: false, atmosfera_explosiva: null, possui_placa_identificacao: false };
   const antes = structuredClone(d);
@@ -133,7 +163,7 @@ test('dependentes aplicáveis imprimem SIM, NÃO e NÃO AVALIADO, sem limpar ou 
   const i = s.textos.indexOf('C-1'), fim = s.textos.indexOf('D', s.textos.indexOf('C-1'));
   const respostas = s.textos.slice(i, fim).filter(v => ['SIM', 'NÃO', 'NÃO AVALIADO', 'NÃO APLICÁVEL'].includes(v));
   assert.deepEqual(respostas, ['SIM', 'NÃO', 'NÃO AVALIADO', 'NÃO']);
-  assert.doesNotMatch(s.textos.join(''), /Hipótese específica|Engolfamento|Afogamento/);
+  assert.doesNotMatch(s.textos.join(''), /Engolfamento|Afogamento|Utilizado para armazenagem/);
   assert.deepEqual(d, antes); validarPaginas(s, buffer);
 });
 
@@ -153,11 +183,11 @@ test('tabela principal contém A/B/C, C-1/C-2/C-3, placa sem código e D/E/F/G n
   assert.ok(tabela.every(r => r.tamanho === 9));
   assert.ok(tabela.some(r => r.texto === 'NÃO' && r.cor === '#852320'));
   assert.ok(tabela.some(r => r.texto === 'NÃO AVALIADO' && r.cor === '#475467'));
-  assert.doesNotMatch(s.textos.join(''), /Detalhamento atmosférico|Sinalização/);
+  assert.doesNotMatch(tabela.map(r => r.texto).join(''), /Detalhamento atmosférico|Sinalização/);
   validarPaginas(s, buffer);
 });
 
-for (const especifica of [false, true]) test(`C=NAO preserva atmosfera sem utilizá-la; placa segue aplicabilidade existente, específica=${especifica}`, async t => {
+for (const especifica of [false, true]) test(`C=NAO preserva atmosfera e placa sem utiliza-las; especifica=${especifica}`, async t => {
   const s = preparar(t), d = { ...fixture.dados(), atmosfera_oxigenio: true, atmosfera_contaminantes: false,
     atmosfera_explosiva: null, possui_placa_identificacao: true,
     ...(especifica ? { avaliacao_especifica_iniciada: true, nao_destinado_ocupacao_humana: 'SIM', meios_limitados_entrada_saida: 'SIM',
@@ -165,7 +195,7 @@ for (const especifica of [false, true]) test(`C=NAO preserva atmosfera sem utili
   const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
   const i = s.textos.indexOf('C-1'), fim = s.textos.indexOf('D', s.textos.indexOf('C-1'));
   assert.deepEqual(s.textos.slice(i, fim).filter(v => ['SIM', 'NÃO', 'NÃO AVALIADO', 'NÃO APLICÁVEL'].includes(v)),
-    ['NÃO APLICÁVEL', 'NÃO APLICÁVEL', 'NÃO APLICÁVEL', especifica ? 'SIM' : 'NÃO AVALIADO']);
+    ['NÃO APLICÁVEL', 'NÃO APLICÁVEL', 'NÃO APLICÁVEL', 'NÃO APLICÁVEL']);
   assert.equal(d.atmosfera_oxigenio, true);assert.equal(d.atmosfera_contaminantes, false);
   validarPaginas(s, buffer);
 });
@@ -180,7 +210,7 @@ test('valores técnicos negativos e potencialmente perigosos não são limitados
 for (const id of [null, 1]) test(`histórico sem novos campos e sem respostas ABC: checklist=${id}`, async t => {
   const s = preparar(t), d = { ...fixture.dados(), id_checklist: id, criterio_a: null, criterio_b: null, criterio_c: null };
   const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
-  const i = s.textos.indexOf('Espaço Confinado?');
+  const i = s.textos.indexOf('Espaço classificado como Confinado?');
   assert.equal(s.textos[i + 1], 'NÃO AVALIADO');
   if (id) {
     const inicio = s.textos.indexOf('C-1'), fim = s.textos.indexOf('D', s.textos.indexOf('C-1'));
@@ -253,7 +283,9 @@ test('caracterização extensa e multilinha continua sem perdas, páginas vazias
   let anterior = -1;
   for (const titulo of titulos) { const posicao = textos.indexOf(titulo.replace(/\s/g, '')); assert.ok(posicao > anterior); anterior = posicao; }
   const responsabilidade = s.registros.findIndex(r => r.texto === '6. Identificação e Responsabilidade');
-  assert.equal(new Set(s.registros.slice(responsabilidade).filter(r => r.y >= 119 && r.y < 776).map(r => r.pagina)).size, 1);
+  const assinatura = s.registros.findIndex(r => r.texto === '7. Assinatura do Responsável Técnico');
+  assert.ok(assinatura > responsabilidade);
+  assert.equal(new Set(s.registros.slice(responsabilidade, assinatura).filter(r => r.y >= 119 && r.y < 776).map(r => r.pagina)).size, 1);
 });
 for (const quantidade of [0, 1, 3]) {
   test(`ordem e numeração nos bytes do PDF com ${quantidade} evidências preservam responsabilidade`, async t => {
@@ -449,7 +481,7 @@ test('amostra extensa aproveita páginas sem separar observações técnicas ou 
   assert.equal(s.registros[observacoesTecnicas].pagina, s.registros[fimCartoes].pagina);
   assert.equal(s.registros[statusTecnico].pagina, s.registros[fimCartoes].pagina);
   const inicioObservacoes = s.registros.findIndex(r => r.texto === 'Observações');
-  const fimObservacoes = s.registros.findIndex((r, i) => i > inicioObservacoes && r.texto === 'Status');
+  const fimObservacoes = s.registros.findIndex((r, i) => i > inicioObservacoes && r.texto === 'Status do preenchimento');
   const inicioDescricao = s.registros.findIndex(r => r.texto === 'Ilustração sintética vertical.');
   const fimDescricao = s.registros.findIndex((r, i) => i > inicioDescricao && r.texto.startsWith('Localização da'));
   const prosa = registros => registros.filter(r => r.x === 36 && r.tamanho === 9).map(r => r.texto).join('').replace(/\s/g, '');
@@ -606,4 +638,59 @@ test('gerações simultâneas fixam contextos independentes de idioma', async t 
   const a = paginasGravadas(pt).join(''), b = paginasGravadas(en).join('');
   assert.ok(a.includes('INVENTÁRIO DE')); assert.ok(!a.includes('INVENTORY OF'));
   assert.ok(b.includes('INVENTORY OF')); assert.ok(!b.includes('INVENTÁRIO DE'));
+});
+
+// PASSO 03: os casos antigos acima permanecem como evidencia do comportamento
+// anterior. Estas expectativas representam a aplicabilidade aprovada.
+for (const a of ['SIM', 'NAO']) for (const b of ['SIM', 'NAO']) for (const c of ['SIM', 'NAO']) {
+  test(`RED contrato PDF: dependentes ${a}/${b}/${c} sem avaliacao especifica`, async t => {
+    const s = preparar(t), d = { ...fixture.dados(), criterio_a: a, criterio_b: b, criterio_c: c,
+      atmosfera_oxigenio: true, atmosfera_contaminantes: false, atmosfera_explosiva: null,
+      possui_placa_identificacao: false };
+    const antes = structuredClone(d);
+    const buffer = await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
+    const inicio = s.textos.indexOf('C-1'), fim = s.textos.indexOf('D', inicio);
+    assert.ok(inicio >= 0 && fim > inicio);
+    const respostas = s.textos.slice(inicio, fim).filter(v => ['SIM', 'NÃO', 'NÃO AVALIADO', 'NÃO APLICÁVEL'].includes(v));
+    const atmosfera = c === 'SIM' ? ['SIM', 'NÃO', 'NÃO AVALIADO'] : Array(3).fill('NÃO APLICÁVEL');
+    assert.deepEqual(respostas, [...atmosfera, [a, b, c].every(v => v === 'SIM') ? 'NÃO' : 'NÃO APLICÁVEL']);
+    assert.deepEqual(d, antes);
+    validarPaginas(s, buffer);
+  });
+}
+
+test('RED contrato PDF: especifica historica nao torna placa aplicavel com C=NAO', async t => {
+  const s = preparar(t), d = { ...fixture.dados(), possui_placa_identificacao: true,
+    avaliacao_especifica_iniciada: true, nao_destinado_ocupacao_humana: 'SIM', meios_limitados_entrada_saida: 'SIM',
+    utilizado_armazenagem: 'SIM', potencial_engolfamento: 'SIM' };
+  const antes = structuredClone(d);
+  await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
+  const indice = s.textos.indexOf('Possui placa de identificação?');
+  assert.ok(indice >= 0);assert.equal(s.textos[indice + 1], 'NÃO APLICÁVEL');
+  assert.deepEqual(d, antes);
+});
+
+test('RED contrato PDF: placa aplicavel nao respondida e NAO AVALIADO, nao NAO nem inaplicavel', async t => {
+  const s = preparar(t), d = { ...fixture.dados(), criterio_a: 'SIM', criterio_b: 'SIM', criterio_c: 'SIM', possui_placa_identificacao: null };
+  await s.service.gerarPdfRelatorio(d, { somenteBuffer: true });
+  const indice = s.textos.indexOf('Possui placa de identificação?');
+  assert.ok(indice >= 0);assert.equal(s.textos[indice + 1], 'NÃO AVALIADO');
+});
+
+test('RED contrato PDF: regra geral negativa e qualificada sem descartar hipotese nao avaliada', async t => {
+  const s = preparar(t);
+  await s.service.gerarPdfRelatorio(fixture.dados(), { somenteBuffer: true });
+  const texto = s.textos.join(' ');
+  assert.match(texto, /Classificação baseada nos critérios A\/B\/C do checklist\./);
+  assert.match(texto, /Não exclui outras hipóteses normativas\./);
+  assert.doesNotMatch(texto, /Avaliação NR-33|Hipótese específica|Classificação normativa consolidada/);
+});
+
+test('PDF: CONCLUIDO permanece no checklist original sem recriar secao de avaliacao', async t => {
+  const s = preparar(t);
+  await s.service.gerarPdfRelatorio({ ...fixture.dados(), status_checklist: 'CONCLUIDO' }, { somenteBuffer: true });
+  const texto = s.textos.join(' ');
+  assert.match(texto, /preenchimento/i, 'Conclusao do checklist deve ser identificada como preenchimento');
+  assert.ok(s.textos.includes('CONCLUIDO'));
+  assert.doesNotMatch(texto, /Avaliação NR-33|Conclusão do preenchimento|Sinalização do formulário/);
 });

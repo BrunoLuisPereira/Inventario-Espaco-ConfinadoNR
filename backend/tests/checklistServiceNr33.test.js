@@ -179,11 +179,14 @@ test('PUT relevante invalido em concluido reverte tambem observacoes',async()=>{
   await rejeitou(ctx,()=>atualizar(ctx,{atmosfera_oxigenio:false,observacoes:'Nao gravar'}),400);
 });
 
-test('hipotese especifica caracteriza e exige placa sem inferir A ou exigir C afirmativo',async()=>{
+test('hipotese especifica caracteriza sem inferir A e sem exigir placa fora da aplicabilidade',async()=>{
   const ctx=preparar();const r=await criar(ctx,{...especifica,criterio_a:'NAO',criterio_c:'NAO',status:'CONCLUIDO'});
   assert.equal(r.criterio_a,'NAO');assert.equal(r.criterio_c,'NAO');assert.equal(r.nao_destinado_ocupacao_humana,'SIM');
-  assert.equal(ctx.estado.classificacoes[0].origem,'HIPOTESE_ESPECIFICA');assert.deepEqual(ctx.estado.avaliacoes[0].avisos,['AUSENCIA_SINALIZACAO']);terminou(ctx);
-  const faltaPlaca=preparar();await rejeitou(faltaPlaca,()=>criar(faltaPlaca,{...especifica,criterio_c:'NAO',possui_placa_identificacao:null,status:'CONCLUIDO'}),400);
+  assert.equal(ctx.estado.classificacoes[0].origem,'HIPOTESE_ESPECIFICA');assert.deepEqual(ctx.estado.avaliacoes[0].avisos,['RESPOSTAS_INAPLICAVEIS_PRESERVADAS']);terminou(ctx);
+  const faltaPlaca=preparar();
+  const semPlaca=await criar(faltaPlaca,{...especifica,criterio_c:'NAO',possui_placa_identificacao:null,status:'CONCLUIDO'});
+  assert.equal(semPlaca.status,'CONCLUIDO');assert.equal(semPlaca.possui_placa_identificacao,null);
+  assert.equal(semPlaca.avaliacao_nr33.classificacao.origem,'HIPOTESE_ESPECIFICA');terminou(faltaPlaca);
 });
 
 test('hipotese descartada e regra geral negativa permitem conclusao nao caracterizada',async()=>{
@@ -195,7 +198,11 @@ for(const iniciou of [null,true])test(`hipotese ${iniciou===null?'nao iniciada':
   const ctx=preparar();const r=await criar(ctx,{...nulos,criterio_c:'NAO',[MARCADOR]:iniciou});
   assert.equal(r[MARCADOR],iniciou);assert.equal(ctx.estado.classificacoes[0].resultado,'PENDENTE');
   assert.equal(ctx.estado.classificacoes[0].hipoteseEspecifica,iniciou===null?'NAO_AVALIADA':'INFORMACOES_INSUFICIENTES');terminou(ctx);
-  const concluido=preparar();await rejeitou(concluido,()=>criar(concluido,{...nulos,criterio_c:'NAO',[MARCADOR]:iniciou,status:'CONCLUIDO'}),400);
+  const concluido=preparar();
+  const preenchido=await criar(concluido,{...nulos,criterio_c:'NAO',[MARCADOR]:iniciou,status:'CONCLUIDO'});
+  assert.equal(preenchido.status,'CONCLUIDO');assert.equal(preenchido.avaliacao_nr33.classificacao.resultado,'PENDENTE');
+  assert.equal(preenchido.avaliacao_nr33.classificacao.hipoteseEspecifica,iniciou===null?'NAO_AVALIADA':'INFORMACOES_INSUFICIENTES');
+  assert.equal(preenchido.avaliacao_nr33.validacao_conclusao.pode_concluir,true);terminou(concluido);
 });
 
 test('PUT pendente inicia avaliacao especifica sem preencher automaticamente A/B',async()=>{
@@ -213,11 +220,14 @@ test('transicao que oculta atmosfera/placa preserva respostas e permite salvar',
   terminou(ctx);
 });
 
-test('concluido não é reaberto nem salvo com caracterização pendente por critério alterado',async()=>{
+test('concluido permanece concluido ao salvar criterio negativo com classificacao normativa pendente',async()=>{
   const ctx=preparar({status:'CONCLUIDO'});
-  const erro=await rejeitou(ctx,()=>atualizar(ctx,{criterio_c:'NAO'}),400);
-  assert.equal(erro.code,'NR33_CONCLUSAO_INVALIDA');
-  assert.equal(ctx.estado.row.status,'CONCLUIDO');assert.equal(ctx.estado.row.atmosfera_oxigenio,true);
+  const row=await atualizar(ctx,{criterio_c:'NAO'});
+  assert.equal(row.status,'CONCLUIDO');assert.equal(row.criterio_c,'NAO');
+  assert.equal(row.atmosfera_oxigenio,true);assert.equal(row.possui_placa_identificacao,true);
+  assert.equal(row.avaliacao_nr33.classificacao.resultado,'PENDENTE');
+  assert.equal(row.avaliacao_nr33.classificacao.hipoteseEspecifica,'NAO_AVALIADA');
+  assert.equal(ctx.estado.escritas.length,1);assert.equal(ctx.estado.consultas.at(-1).sql,'COMMIT');terminou(ctx);
 });
 
 for(const valor of [true,false])test(`limpeza explicita de resposta ${valor} nao aceita NULL como consentimento`,async()=>{
@@ -269,4 +279,85 @@ test('snapshot persistido com tipo invalido nao e rotulado como erro do cliente'
   const ctx=preparar({salvo:{...valido,atmosfera_oxigenio:'invalido'}});
   await assert.rejects(status(ctx,'CONCLUIDO'),erro=>erro instanceof TypeError&&erro.statusCode===undefined);
   assert.equal(ctx.estado.escritas.length,0);terminou(ctx);
+});
+
+// PASSO 03: reutiliza repository real com SQL/banco simulados e as mesmas provas
+// de autorizacao, locks, rollback e ausencia de leituras globais da suite anterior.
+for (const a of ['SIM','NAO']) for (const b of ['SIM','NAO']) for (const c of ['SIM','NAO']) {
+  const criterios = { criterio_a:a, criterio_b:b, criterio_c:c };
+  const novos = { ...nulos, atmosfera_oxigenio:c==='SIM'?true:null,
+    possui_placa_identificacao:[a,b,c].every(v=>v==='SIM')?false:null };
+  const verificar = (ctx, row, esperado) => {
+    assert.equal(row.status,esperado);
+    for(const [campo,valor] of Object.entries(criterios))assert.equal(row[campo],valor);
+    const av=row.avaliacao_nr33;
+    assert.equal(av.classificacao.hipoteseEspecifica,'NAO_AVALIADA');
+    assert.equal(av.classificacao.resultado,[a,b,c].every(v=>v==='SIM')?'CARACTERIZADO':'PENDENTE');
+    assert.equal(av.aplicabilidade.atmosfera,c==='SIM');
+    assert.equal(av.aplicabilidade.placa,[a,b,c].every(v=>v==='SIM'));
+    terminou(ctx);
+  };
+  test(`RED contrato REST: POST CONCLUIDO ${a}/${b}/${c}`,async()=>{
+    const ctx=preparar();
+    verificar(ctx,await criar(ctx,{...criterios,...novos,status:'CONCLUIDO'}),'CONCLUIDO');
+    assert.equal(ctx.estado.escritas.length,1);
+  });
+  for(const estado of ['PENDENTE','CONCLUIDO'])test(`RED contrato REST: PUT ${estado} ${a}/${b}/${c} preserva historico`,async()=>{
+    const ctx=preparar({status:estado});
+    // Sempre ha mudanca relevante, inclusive SIM/SIM/SIM: evita testar apenas NO-OP.
+    const row=await atualizar(ctx,{...criterios,ventilacao_adequada:'NAO'});
+    verificar(ctx,row,estado);
+    assert.equal(row.atmosfera_oxigenio,true);
+    assert.equal(row.possui_placa_identificacao,true);
+    assert.equal(row.ventilacao_adequada,'NAO');
+    assert.equal(ctx.estado.escritas.length,1);
+  });
+  test(`RED contrato REST: PATCH PENDENTE para CONCLUIDO ${a}/${b}/${c}`,async()=>{
+    const ctx=preparar({salvo:{...criterios,...novos}});
+    const row=await status(ctx,'CONCLUIDO');verificar(ctx,row,'CONCLUIDO');
+    assert.equal(row.avaliacao_nr33.validacao_conclusao.pode_concluir,true);
+    assert.equal(ctx.estado.escritas.length,1);
+  });
+  test(`RED contrato REST: PATCH reabrir ${a}/${b}/${c} preserva dados`,async()=>{
+    const ctx=preparar({status:'CONCLUIDO',salvo:{...criterios,...novos}});
+    const antes=structuredClone(ctx.estado.row),row=await status(ctx,'PENDENTE');
+    verificar(ctx,row,'PENDENTE');
+    for(const [campo,valor] of Object.entries(antes))if(!['status','data_atualizacao'].includes(campo))assert.deepEqual(row[campo],valor);
+  });
+  test(`RED contrato REST: PATCH CONCLUIDO idempotente ${a}/${b}/${c}`,async()=>{
+    const ctx=preparar({status:'CONCLUIDO',salvo:{...criterios,...novos}});
+    const antes=structuredClone(ctx.estado.row),row=await status(ctx,'CONCLUIDO');
+    verificar(ctx,row,'CONCLUIDO');
+    const {avaliacao_nr33,...persistido}=row;assert.deepEqual(persistido,antes);
+    assert.equal(ctx.estado.escritas.length,0);assert.equal(ctx.estado.versao,7);
+  });
+  test(`RED contrato REST: PATCH PENDENTE repetido ${a}/${b}/${c} conserva respostas`,async()=>{
+    const ctx=preparar({salvo:{...criterios,...novos}}),antes=structuredClone(ctx.estado.row);
+    await status(ctx,'PENDENTE');
+    assert.equal(ctx.estado.aberta,false);
+    assert.deepEqual(ctx.estado.locks,['a','u','c','l','ch']);
+    // O mock existente registra uma transacao por vez. Reinicia apenas o
+    // registro de locks; as mesmas assercoes validam a segunda transacao.
+    ctx.estado.locks=[];
+    const row=await status(ctx,'PENDENTE');
+    assert.equal(row.status,'PENDENTE');
+    for(const [campo,valor] of Object.entries(antes))if(campo!=='data_atualizacao')assert.deepEqual(row[campo],valor);
+    assert.equal(ctx.estado.aberta,false);assert.equal(ctx.estado.globais,0);
+    assert.deepEqual(ctx.estado.releases,[undefined,undefined]);
+  });
+}
+
+test('RED contrato REST: especifica historica atendida nao exige placa fora de A/B/C SIM',async()=>{
+  const ctx=preparar();
+  const row=await criar(ctx,{...especifica,criterio_a:'NAO',criterio_c:'NAO',possui_placa_identificacao:null,status:'CONCLUIDO'});
+  assert.equal(row.avaliacao_nr33.classificacao.origem,'HIPOTESE_ESPECIFICA');
+  assert.equal(row.avaliacao_nr33.aplicabilidade.placa,false);
+  assert.equal(row.status,'CONCLUIDO');terminou(ctx);
+});
+
+for(const campo of Object.keys(respostas))test(`RED contrato REST: PATCH com ${campo} ausente faz rollback`,async()=>{
+  const ctx=preparar({salvo:{...valido,[campo]:null}});
+  const erro=await rejeitou(ctx,()=>status(ctx,'CONCLUIDO'),400);
+  assert.equal(erro.code,'NR33_CONCLUSAO_INVALIDA');
+  assert.ok(erro.validacaoNr33.some(e=>e.codigo==='RESPOSTA_OBRIGATORIA'&&e.campos.includes(campo)));
 });

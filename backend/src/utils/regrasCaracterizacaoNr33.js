@@ -86,8 +86,10 @@ function consolidarCaracterizacao(dados = {}, contexto = {}) {
 
 function determinarAplicabilidade(dados = {}, contexto = {}) {
   const classificacao = consolidarCaracterizacao(dados, contexto);
+  // Aplicabilidade deste formulario; nao representa dispensa de obrigacoes
+  // normativas de sinalizacao em espacos caracterizados por outras hipoteses.
   return { atmosfera: dados.criterio_c === 'SIM',
-    placa: classificacao.resultado === RESULTADO.CARACTERIZADO, classificacao };
+    placa: CRITERIOS.every(campo => dados[campo] === 'SIM'), classificacao };
 }
 
 function selecionarRespostasDependentes(dados = {}) {
@@ -111,7 +113,10 @@ function validarConclusao(dados = {}, contexto = {}) {
     resposta(dados[campo], campo);
     if (dados[campo] == null) adicionar('RESPOSTA_OBRIGATORIA', [campo]);
   }
-  if (aplicabilidade.classificacao.resultado === RESULTADO.PENDENTE) adicionar('CARACTERIZACAO_PENDENTE', []);
+  // Conclusao do preenchimento depende das respostas obrigatorias e aplicaveis.
+  // Regra geral e consolidacao normativa sao resultados distintos: a hipotese
+  // especifica nao avaliada pode manter a classificacao PENDENTE sem bloquear
+  // o formulario completo, e nunca e convertida aqui em hipotese descartada.
   if (aplicabilidade.atmosfera && !ATMOSFERA.some(c => respostas[c] === true)) adicionar('CONDICAO_ATMOSFERICA_OBRIGATORIA', [...ATMOSFERA]);
   if (aplicabilidade.placa && typeof respostas.possui_placa_identificacao !== 'boolean') adicionar('RESPOSTA_PLACA_OBRIGATORIA', ['possui_placa_identificacao']);
   if (aplicabilidade.placa && respostas.possui_placa_identificacao === false) avisos.push('AUSENCIA_SINALIZACAO');
