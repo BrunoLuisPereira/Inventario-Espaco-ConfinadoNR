@@ -64,8 +64,7 @@ A aplicação permite registrar a localização do espaço confinado, facilitand
 
 Possibilidade de adicionar imagens do espaço confinado para documentação visual.
 
-📲 Instalação (PWA)
-A definir
+📲 (PWA)
 
 
 ### Qualidade e cobertura de testes
